@@ -207,20 +207,20 @@
                         <div class="form-group">
                             <label>Market Selection (Binance Pairs)</label>
                             <select id="order-symbol" onchange="onSymbolChanged(this.value)">
-                                <option value="BINANCE:BTCUSDT" data-price="68000">BTC/USDT</option>
-                                <option value="BINANCE:ETHUSDT" data-price="3500">ETH/USDT</option>
-                                <option value="BINANCE:XRPUSDT" data-price="0.65">XRP/USDT</option>
-                                <option value="BINANCE:SOLUSDT" data-price="180">SOL/USDT</option>
-                                <option value="BINANCE:BNBUSDT" data-price="600">BNB/USDT</option>
-                                <option value="BINANCE:DOGEUSDT" data-price="0.12">DOGE/USDT</option>
-                                <option value="BINANCE:ADAUSDT" data-price="0.45">ADA/USDT</option>
-                                <option value="BINANCE:AVAXUSDT" data-price="25">AVAX/USDT</option>
-                                <option value="BINANCE:SUIUSDT" data-price="1.80">SUI/USDT</option>
-                                <option value="BINANCE:LINKUSDT" data-price="14">LINK/USDT</option>
+                                <option value="BINANCE:BTCUSDT" data-pair="BTCUSDT">BTC/USDT</option>
+                                <option value="BINANCE:ETHUSDT" data-pair="ETHUSDT">ETH/USDT</option>
+                                <option value="BINANCE:XRPUSDT" data-pair="XRPUSDT">XRP/USDT</option>
+                                <option value="BINANCE:SOLUSDT" data-pair="SOLUSDT">SOL/USDT</option>
+                                <option value="BINANCE:BNBUSDT" data-pair="BNBUSDT">BNB/USDT</option>
+                                <option value="BINANCE:DOGEUSDT" data-pair="DOGEUSDT">DOGE/USDT</option>
+                                <option value="BINANCE:ADAUSDT" data-pair="ADAUSDT">ADA/USDT</option>
+                                <option value="BINANCE:AVAXUSDT" data-pair="AVAXUSDT">AVAX/USDT</option>
+                                <option value="BINANCE:SUIUSDT" data-pair="SUIUSDT">SUI/USDT</option>
+                                <option value="BINANCE:LINKUSDT" data-pair="LINKUSDT">LINK/USDT</option>
                             </select>
                         </div>
                         <div class="form-group">
-                            <label>Market Price (Live)</label>
+                            <label>Live Market Price (USDT)</label>
                             <input type="number" id="order-price" readonly style="background: #0b0d12; color: #34d399; font-weight: bold;">
                         </div>
                         <div class="form-group">
@@ -369,6 +369,8 @@
         let tvWidget = null;
         let activePromoCode = null;
         let plansData = [];
+        let livePriceInterval = null;
+        let currentLivePrice = 0;
         
         const USDT_CONTRACT_ADDRESS = "0x7ec3659A8225ED474D7c662126616aE08545C29b";
         const TREASURY_WALLET = "0x8632fa855d5dc6b59a3cf892d72cf4a94f182aae";
@@ -376,7 +378,7 @@
         window.addEventListener('DOMContentLoaded', () => {
             initTradingViewWidget("BINANCE:BTCUSDT");
             loadPlans();
-            updateCurrentPrice("BINANCE:BTCUSDT");
+            startLivePricePolling("BTCUSDT");
 
             const urlParams = new URLSearchParams(window.location.search);
             const refCode = urlParams.get('ref');
@@ -422,17 +424,35 @@
             }
         }
 
-        function onSymbolChanged(symbol) {
-            updateTradingViewSymbol(symbol);
-            updateCurrentPrice(symbol);
+        function onSymbolChanged(tvSymbol) {
+            updateTradingViewSymbol(tvSymbol);
+            const select = document.getElementById('order-symbol');
+            const opt = select.querySelector(`option[value="${tvSymbol}"]`);
+            if (opt) {
+                const pair = opt.getAttribute('data-pair');
+                startLivePricePolling(pair);
+            }
         }
 
-        function updateCurrentPrice(symbol) {
-            const select = document.getElementById('order-symbol');
-            const opt = select.querySelector(`option[value="${symbol}"]`);
-            if (opt) {
-                const price = opt.getAttribute('data-price');
-                document.getElementById('order-price').value = price;
+        function startLivePricePolling(pair) {
+            if (livePriceInterval) clearInterval(livePriceInterval);
+            fetchLivePrice(pair);
+            livePriceInterval = setInterval(() => fetchLivePrice(pair), 2000);
+        }
+
+        async function fetchLivePrice(pair) {
+            try {
+                const res = await fetch(`https://api.binance.com/api/v3/ticker/price?symbol=${pair}`);
+                const data = await res.json();
+                if (data && data.price) {
+                    currentLivePrice = parseFloat(data.price);
+                    document.getElementById('order-price').value = currentLivePrice;
+                    if (selectedAccountId) {
+                        loadOpenTrades(selectedAccountId);
+                    }
+                }
+            } catch (err) {
+                console.error("Failed to fetch live price from Binance:", err);
             }
         }
 
@@ -647,7 +667,7 @@
             }
 
             data.trades.forEach(trd => {
-                const currentPrice = parseFloat(document.getElementById('order-price').value) || trd.entry_price;
+                const currentPrice = currentLivePrice || trd.entry_price;
                 const priceDiff = trd.side === 'BUY' ? (currentPrice - trd.entry_price) : (trd.entry_price - currentPrice);
                 const pnl = priceDiff * trd.units;
                 const pnlColor = pnl >= 0 ? '#34d399' : '#ef4444';
@@ -674,7 +694,7 @@
             }
 
             const symbol = document.getElementById('order-symbol').value;
-            const price = parseFloat(document.getElementById('order-price').value);
+            const price = currentLivePrice || parseFloat(document.getElementById('order-price').value);
             const sizeUsd = parseFloat(document.getElementById('order-size-usd').value);
             const sl = parseFloat(document.getElementById('order-sl').value) || null;
             const tp = parseFloat(document.getElementById('order-tp').value) || null;

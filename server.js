@@ -1,51 +1,18 @@
-const express = require('express');
-const cors = require('cors');
-const path = require('path');
-const db = require('./database');
-
-const app = express();
-const PORT = process.env.PORT || 4480;
-
-app.use(cors());
-app.use(express.json());
-app.use(express.static(path.join(__dirname, 'public')));
-
-// Middleware: Check Wallet Blacklist
-async function checkBlacklist(req, res, next) {
-  const walletAddress = req.body?.wallet_address || req.query?.wallet;
-  if (walletAddress) {
-    db.get(
-      "SELECT 1 FROM blacklisted_wallets WHERE LOWER(wallet_address) = LOWER(?)",
-      [walletAddress],
-      (err, row) => {
-        if (row) {
-          return res.status(403).json({ error: "ACCESS_DENIED", message: "Wallet is permanently banned." });
-        }
-        next();
-      }
-    );
-  } else {
-    next();
-  }
-}
-
-app.use(checkBlacklist);
-
-// Endpoint: Check User Role (Admin vs Trader)
-app.get('/api/auth/role', (req, res) => {
-  const wallet = req.query.wallet;
-  if (!wallet) return res.json({ isAdmin: false });
-
-  db.get("SELECT role FROM admins WHERE LOWER(wallet_address) = LOWER(?)", [wallet], (err, row) => {
-    if (row) {
-      res.json({ isAdmin: true, role: row.role });
-    } else {
-      res.json({ isAdmin: false });
+// Seed default plans if none exist
+function seedPlans() {
+  db.get("SELECT COUNT(*) as count FROM plans", (err, row) => {
+    if (row.count === 0) {
+      db.run(`INSERT INTO plans (name, price_usdt, simulated_capital, profit_target, max_drawdown_pct, daily_loss_pct, max_single_day_profit_pct) VALUES 
+        ('Starter $10k', 50, 10000, 1000, 10.0, 5.0, 40.0),
+        ('Pro $50k', 200, 50000, 5000, 10.0, 5.0, 40.0),
+        ('Elite $100k', 350, 100000, 10000, 8.0, 4.0, 35.0)`);
+      console.log("Default prop plans seeded.");
     }
   });
-});
+}
+seedPlans();
 
-// Endpoint: Get Plans
+// Endpoint: Get all active plans
 app.get('/api/plans', (req, res) => {
   db.all("SELECT * FROM plans", [], (err, rows) => {
     if (err) return res.status(500).json({ error: err.message });
@@ -53,6 +20,51 @@ app.get('/api/plans', (req, res) => {
   });
 });
 
-app.listen(PORT, () => {
-  console.log(`Blastrr server running on port ${PORT}`);
+// Endpoint: Get user's active accounts
+app.get('/api/accounts', (req, res) => {
+  const wallet = req.query.wallet;
+  if (!wallet) return res.status(400).json({ error: "Wallet required" });
+
+  db.all(
+    `SELECT a.*, p.name as plan_name FROM accounts a 
+     JOIN plans p ON a.plan_id = p.id 
+     WHERE LOWER(a.wallet_address) = LOWER(?)`,
+    [wallet],
+    (err, rows) => {
+      if (err) return res.status(500).json({ error: err.message });
+      res.json({ accounts: rows });
+    }
+  );
+});
+
+// Endpoint: Purchase a plan & provision a simulated account
+app.post('/api/accounts/purchase', (req, res) => {
+  const { wallet_address, plan_id } = req.body;
+  if (!wallet_address || !plan_id) {
+    return res.status(400).json({ error: "Wallet address and plan ID required" });
+  }
+
+  // 1. Get plan details
+  db.get("SELECT * FROM plans WHERE id = ?", [plan_id], (err, plan) => {
+    if (err || !plan) return res.status(404).json({ error: "Plan not found" });
+
+    // 2. Ensure user exists
+    db.run("INSERT OR IGNORE INTO users (wallet_address) VALUES (?)", [wallet_address], () => {
+      
+      // 3. Generate unique account ID (UUID-like)
+      const accountId = 'acc_' + Math.random().toString(36).substring(2, 11);
+      const initialCapital = plan.simulated_capital;
+
+      // 4. Insert new simulated account
+      db.run(
+        `INSERT INTO accounts (id, wallet_address, plan_id, initial_balance, current_balance, current_equity, high_water_mark, daily_starting_balance, status)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'ACTIVE')`,
+        [accountId, wallet_address, plan_id, initialCapital, initialCapital, initialCapital, initialCapital, initialCapital],
+        (err) => {
+          if (err) return res.status(500).json({ error: err.message });
+          res.json({ success: true, account_id: accountId, message: "Simulated account successfully provisioned!" });
+        }
+      );
+    });
+  });
 });

@@ -40,7 +40,6 @@ function initTables() {
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     )`);
 
-    // Removed unique constraint per wallet so users can hold multiple accounts
     db.run(`CREATE TABLE IF NOT EXISTS accounts (
       id TEXT PRIMARY KEY,
       wallet_address TEXT,

@@ -929,6 +929,12 @@
                 return;
             }
 
+            // Remove empty state message if accounts exist
+            const emptyStateMsg = container.querySelector('p');
+            if (emptyStateMsg && emptyStateMsg.innerText.includes('No accounts found')) {
+                container.innerHTML = '';
+            }
+
             for (const acc of userAccounts) {
                 const detailsRes = await fetch(`/api/accounts/details?account_id=${acc.id}`);
                 const details = await detailsRes.json();
@@ -1004,6 +1010,47 @@
                     `;
                     container.innerHTML += cardHtml;
                 }
+
+                // Update dynamic values seamlessly without re-rendering the outer card
+                document.getElementById(`p-prog-val-${acc.id}`).innerText = `${m.profitProgress}%`;
+                document.getElementById(`p-prog-bar-${acc.id}`).style.width = `${m.profitProgress}%`;
+
+                document.getElementById(`dll-prog-val-${acc.id}`).innerText = `${m.dllProgress}%`;
+                document.getElementById(`dll-prog-bar-${acc.id}`).style.width = `${m.dllProgress}%`;
+
+                document.getElementById(`dd-prog-val-${acc.id}`).innerText = `${m.ddProgress}%`;
+                document.getElementById(`dd-prog-bar-${acc.id}`).style.width = `${m.ddProgress}%`;
+
+                document.getElementById(`bal-val-${acc.id}`).innerText = `$${acc.current_balance.toLocaleString()}`;
+                document.getElementById(`cs-val-${acc.id}`).innerText = `${m.consistencyScore}%`;
+                document.getElementById(`status-val-${acc.id}`).innerText = acc.status;
+
+                let tradesRows = '';
+                if (trades.length === 0) {
+                    tradesRows = '<tr><td colspan="9" style="text-align: center; color: #6b7280; padding: 20px;">No trades recorded for this account.</td></tr>';
+                } else {
+                    trades.forEach(t => {
+                        const pnlColor = t.pnl >= 0 ? '#34d399' : '#ef4444';
+                        tradesRows += `
+                            <tr>
+                                <td><code>${t.id}</code></td>
+                                <td>${t.symbol}</td>
+                                <td><span style="color: ${t.side === 'BUY' ? '#34d399' : '#ef4444'}; font-weight: bold;">${t.side}</span></td>
+                                <td>$${t.entry_price.toFixed(2)}</td>
+                                <td>$${t.size_usd.toLocaleString()}</td>
+                                <td>SL: ${t.sl || 'None'} / TP: ${t.tp || 'None'}</td>
+                                <td><span style="color: ${pnlColor}; font-weight: bold;">$${t.pnl.toFixed(2)}</span></td>
+                                <td><span style="color: ${t.status === 'OPEN' ? '#fbbf24' : '#9ca3af'}; font-weight: 600;">${t.status}</span></td>
+                                <td>
+                                    ${t.status === 'CLOSED' ? `<button class="btn-share-x" onclick="shareTradeOnX('${t.id}', '${t.symbol}', '${t.side}', ${t.pnl},${t.entry_price})">𝕏 Share</button>` : '-'}
+                                </td>
+                            </tr>
+                        `;
+                    });
+                }
+                document.getElementById(`trades-body-${acc.id}`).innerHTML = tradesRows;
+            }
+        }
 
                 // Update dynamic values seamlessly without re-rendering the outer card
                 document.getElementById(`p-prog-val-${acc.id}`).innerText = `${m.profitProgress}%`;

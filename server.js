@@ -82,6 +82,25 @@ app.post('/api/user/profile', (req, res) => {
   );
 });
 
+app.get('/api/user/referrals', (req, res) => {
+  const wallet = req.query.wallet;
+  if (!wallet) return res.status(400).json({ error: "Wallet required" });
+
+  db.all(
+    `SELECT r.created_at, r.paid_amount, r.commission_earned, p.name as plan_name, u.username as buyer_username
+     FROM referrals r
+     JOIN plans p ON r.plan_id = p.id
+     LEFT JOIN users u ON LOWER(r.referee_wallet) = LOWER(u.wallet_address)
+     WHERE LOWER(r.referrer_wallet) = LOWER(?)
+     ORDER BY r.created_at DESC`,
+    [wallet],
+    (err, rows) => {
+      if (err) return res.status(500).json({ error: err.message });
+      res.json({ referrals: rows || [] });
+    }
+  );
+});
+
 app.post('/api/promo/validate', (req, res) => {
   const { code } = req.body;
   if (!code) return res.json({ valid: false });
@@ -92,7 +111,6 @@ app.post('/api/promo/validate', (req, res) => {
   });
 });
 
-// Get all accounts for a wallet (unlimited support)
 app.get('/api/accounts', (req, res) => {
   const wallet = req.query.wallet;
   if (!wallet) return res.status(400).json({ error: "Wallet required" });
@@ -109,7 +127,6 @@ app.get('/api/accounts', (req, res) => {
   );
 });
 
-// Purchase Plan (Allows multiple accounts per wallet)
 app.post('/api/accounts/purchase', (req, res) => {
   const { wallet_address, plan_id, tx_hash, promo_code } = req.body;
 

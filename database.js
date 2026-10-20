@@ -14,7 +14,7 @@ const db = new sqlite3.Database(dbPath, (err) => {
 
 function initTables() {
   db.serialize(() => {
-    // Users authenticated via Web3 wallet, including custom username & unique discount code
+    // Users authenticated via Web3 wallet, storing custom username & unique promo code
     db.run(`CREATE TABLE IF NOT EXISTS users (
       wallet_address TEXT PRIMARY KEY,
       username TEXT UNIQUE,
@@ -23,7 +23,7 @@ function initTables() {
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     )`);
 
-    // Admin Configurable Plans (Supporting base price + 90% promo tier price)
+    // Evaluation Plans (10x Base Price / 90% Discounted Listed Price)
     db.run(`CREATE TABLE IF NOT EXISTS plans (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       name TEXT NOT NULL,
@@ -43,7 +43,7 @@ function initTables() {
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     )`);
 
-    // Simulated Trading Accounts
+    // Simulated Trading Accounts (1 Active Account per Wallet Limit)
     db.run(`CREATE TABLE IF NOT EXISTS accounts (
       id TEXT PRIMARY KEY,
       wallet_address TEXT,
@@ -91,7 +91,7 @@ function initTables() {
       FOREIGN KEY(account_id) REFERENCES accounts(id)
     )`);
 
-    // Daily PnL Ledger for Consistency Rules (NY Time)
+    // Daily PnL Ledger for NY Time Consistency Audits
     db.run(`CREATE TABLE IF NOT EXISTS daily_pnl_ledger (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       account_id TEXT NOT NULL,
@@ -102,7 +102,7 @@ function initTables() {
       UNIQUE(account_id, ny_date)
     )`);
 
-    // Payout Requests
+    // Payout Requests Queue
     db.run(`CREATE TABLE IF NOT EXISTS payouts (
       id TEXT PRIMARY KEY,
       account_id TEXT NOT NULL,

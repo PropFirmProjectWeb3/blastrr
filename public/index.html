@@ -30,14 +30,14 @@
             display: flex; 
             justify-content: space-between; 
             align-items: center; 
-            background: rgba(10, 12, 16, 0.92);
-            backdrop-filter: blur(12px);
+            background: rgba(10, 12, 16, 0.95);
+            backdrop-filter: blur(14px);
             border-bottom: 1px solid rgba(255, 255, 255, 0.06); 
-            padding: 16px 28px; 
+            padding: 16px 24px; 
             position: sticky;
             top: 0;
             z-index: 1000;
-            flex-wrap: nowrap; /* Forces single line */
+            width: 100%;
         }
 
         .logo { 
@@ -46,7 +46,7 @@
             color: #c084fc; 
             display: flex; 
             align-items: center; 
-            gap: 10px;
+            gap: 12px;
             letter-spacing: -0.5px;
             text-shadow: 0 0 20px rgba(168, 85, 247, 0.4);
             flex-shrink: 0;
@@ -90,11 +90,17 @@
             cursor: pointer;
             font-size: 20px;
             font-weight: bold;
-            box-shadow: 0 0 10px rgba(124, 58, 237, 0.2);
+            box-shadow: 0 0 12px rgba(124, 58, 237, 0.25);
             flex-shrink: 0;
+            line-height: 1;
         }
 
-        .header-actions { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
+        .header-actions { 
+            display: flex; 
+            align-items: center; 
+            gap: 10px; 
+            margin-left: auto;
+        }
         
         button {
             transition: all 0.25s ease;
@@ -301,10 +307,10 @@
 
         @media (max-width: 640px) {
             .card { padding: 16px; }
-            .logo img { height: 32px; }
-            .btn-wallet, .wallet-select, .btn-new-wallet, .btn-disconnect { font-size: 12px; padding: 8px 12px; }
-            .status-pill { font-size: 10px; padding: 5px 10px; }
-            .hamburger-btn { padding: 8px 12px; font-size: 18px; }
+            .logo img { height: 34px; }
+            .btn-wallet, .wallet-select, .btn-new-wallet, .btn-disconnect { font-size: 12.5px; padding: 9px 12px; }
+            .status-pill { font-size: 10.5px; padding: 5px 10px; }
+            .hamburger-btn { padding: 9px 13px; font-size: 19px; }
         }
     </style>
 </head>
@@ -1150,108 +1156,69 @@
             }
         }
 
-      async function requestWithdrawal(accountId, maxBalance) {
-    try {
-        // 1. Fetch live account details and target requirements
-        const detailsRes = await fetch(`/api/accounts/details?account_id=${accountId}`);
-        const details = await detailsRes.json();
-        
-        if (!details || !details.account) {
-            alert("Could not fetch account details.");
-            return;
+        async function requestWithdrawal(accountId, maxBalance) {
+            try {
+                const detailsRes = await fetch(`/api/accounts/details?account_id=${accountId}`);
+                const details = await detailsRes.json();
+                
+                if (!details || !details.account) {
+                    alert("Could not fetch account details.");
+                    return;
+                }
+
+                const acc = details.account;
+                const initialCapital = acc.initial_balance || 25000;
+                const profitTarget = acc.profit_target || 2500;
+                const targetThreshold = initialCapital + profitTarget;
+                const currentBalance = acc.current_balance;
+
+                if (currentBalance < targetThreshold) {
+                    const shortFall = targetThreshold - currentBalance;
+                    alert(
+                        `Account not ready for withdrawal. Please meet the minimum requirements before making a withdrawal.\n\n` +
+                        `• Initial Capital: $${initialCapital.toLocaleString()}\n` +
+                        `• Required Target Balance: $${targetThreshold.toLocaleString()}\n` +
+                        `• Current Balance: $${currentBalance.toLocaleString()}\n` +
+                        `• Profit Still Needed: $${shortFall.toLocaleString()} USDT`
+                    );
+                    return;
+                }
+
+                const netProfit = currentBalance - initialCapital;
+                const maxPayout = netProfit * 0.50;
+
+                const amountInput = prompt(`Target reached! 50% Payout Limit: $${maxPayout.toLocaleString()} USDT.\nEnter USDT amount to withdraw:`);
+                if (!amountInput) return;
+                const amount = parseFloat(amountInput);
+
+                if (isNaN(amount) || amount <= 0) {
+                    alert("Please enter a valid amount.");
+                    return;
+                }
+
+                if (amount > maxPayout) {
+                    alert(`Withdrawal exceeds your 50% profit split limit of $${maxPayout.toLocaleString()} USDT.`);
+                    return;
+                }
+
+                const res = await fetch('/api/withdrawals/request', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ account_id: accountId, wallet_address: connectedWallet, amount })
+                });
+                const data = await res.json();
+
+                if (data.success) {
+                    alert("Withdrawal request submitted successfully!");
+                    loadUserAccounts(connectedWallet);
+                } else {
+                    alert("Error: " + data.error);
+                }
+            } catch (err) {
+                console.error(err);
+                alert("Failed to process withdrawal request.");
+            }
         }
-
-        const acc = details.account;
-        const initialCapital = acc.initial_balance || 25000;
-        const profitTarget = acc.profit_target || 2500;
-        const targetThreshold = initialCapital + profitTarget;
-        const currentBalance = acc.current_balance;
-
-        // 2. Check if profit target is met
-        if (currentBalance < targetThreshold) {
-            const shortFall = targetThreshold - currentBalance;
-            alert(
-                `Account not ready for withdrawal. Please meet the minimum requirements before making a withdrawal.\n\n` +
-                `• Initial Capital: $${initialCapital.toLocaleString()}\n` +
-                `• Required Target Balance: $${targetThreshold.toLocaleString()}\n` +
-                `• Current Balance: $${currentBalance.toLocaleString()}\n` +
-                `• Profit Still Needed: $${shortFall.toLocaleString()} USDT`
-            );
-            return;
-        }
-
-        // 3. If target is met, calculate 50% max payout split
-        const netProfit = currentBalance - initialCapital;
-        const maxPayout = netProfit * 0.50;
-
-        const amountInput = prompt(`Target reached! 50% Payout Limit: $${maxPayout.toLocaleString()} USDT.\nEnter USDT amount to withdraw:`);
-        if (!amountInput) return;
-        const amount = parseFloat(amountInput);
-
-        if (isNaN(amount) || amount <= 0) {
-            alert("Please enter a valid amount.");
-            return;
-        }
-
-        if (amount > maxPayout) {
-            alert(`Withdrawal exceeds your 50% profit split limit of $${maxPayout.toLocaleString()} USDT.`);
-            return;
-        }
-
-        const res = await fetch('/api/withdrawals/request', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ account_id: accountId, wallet_address: connectedWallet, amount })
-        });
-        const data = await res.json();
-
-        if (data.success) {
-            alert("Withdrawal request submitted successfully!");
-            loadUserAccounts(connectedWallet);
-        } else {
-            alert("Error: " + data.error);
-        }
-    } catch (err) {
-        console.error(err);
-        alert("Failed to process withdrawal request.");
-    }
-}
-        // 3. If target is met, calculate 50% max payout split
-        const netProfit = currentBalance - initialCapital;
-        const maxPayout = netProfit * 0.50;
-
-        const amountInput = prompt(`Target reached! 50% Payout Limit: $${maxPayout.toLocaleString()} USDT.\nEnter USDT amount to withdraw:`);
-        if (!amountInput) return;
-        const amount = parseFloat(amountInput);
-
-        if (isNaN(amount) || amount <= 0) {
-            alert("Please enter a valid amount.");
-            return;
-        }
-
-        if (amount > maxPayout) {
-            alert(`Withdrawal exceeds your 50% profit split limit of $${maxPayout.toLocaleString()} USDT.`);
-            return;
-        }
-
-        const res = await fetch('/api/withdrawals/request', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ account_id: accountId, wallet_address: connectedWallet, amount })
-        });
-        const data = await res.json();
-
-        if (data.success) {
-            alert("Withdrawal request submitted successfully!");
-            loadUserAccounts(connectedWallet);
-        } else {
-            alert("Error: " + data.error);
-        }
-    } catch (err) {
-        console.error(err);
-        alert("Failed to process withdrawal request.");
-    }
-}
 
         async function requestCommissionWithdrawal() {
             const amountInput = prompt(`Enter commission USDT amount to withdraw (Available: $${availableCommissionBalance.toFixed(2)}):`);

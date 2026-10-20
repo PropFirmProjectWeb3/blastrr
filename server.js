@@ -26,7 +26,6 @@ function seedPlans() {
 
 setTimeout(seedPlans, 1000);
 
-// Helper function to fetch live price from Binance API synchronously for backend
 function getLiveBinancePrice(symbol) {
   return new Promise((resolve, reject) => {
     const pair = symbol.replace('BINANCE:', '');
@@ -52,7 +51,6 @@ async function monitorStopLossAndTakeProfit() {
   db.all("SELECT * FROM trades WHERE status = 'OPEN'", async (err, openTrades) => {
     if (err || !openTrades || openTrades.length === 0) return;
 
-    // Distinct symbols currently holding open positions
     const uniqueSymbols = [...new Set(openTrades.map(t => t.symbol))];
     const livePrices = {};
 
@@ -112,7 +110,6 @@ function closeTradeInternal(trade, currentMarketPrice, reason) {
   });
 }
 
-// Start SL/TP Monitoring Loop (Runs every 1500ms)
 setInterval(monitorStopLossAndTakeProfit, 1500);
 
 app.get('/api/plans', (req, res) => {
@@ -541,6 +538,24 @@ app.post('/api/trades/execute', (req, res) => {
 
     const slip = 5.0;
     const executionPrice = side === 'BUY' ? price + slip : price - slip;
+
+    // Validate SL / TP logic to prevent instant triggering upon creation
+    if (side === 'BUY') {
+      if (sl && sl >= executionPrice) {
+        return res.status(400).json({ error: "Stop Loss for a BUY order must be below the execution price." });
+      }
+      if (tp && tp <= executionPrice) {
+        return res.status(400).json({ error: "Take Profit for a BUY order must be above the execution price." });
+      }
+    } else if (side === 'SELL') {
+      if (sl && sl <= executionPrice) {
+        return res.status(400).json({ error: "Stop Loss for a SELL order must be above the execution price." });
+      }
+      if (tp && tp >= executionPrice) {
+        return res.status(400).json({ error: "Take Profit for a SELL order must be below the execution price." });
+      }
+    }
+
     const units = size_usd / executionPrice;
     const tradeId = 'trd_' + Math.random().toString(36).substring(2, 11);
 

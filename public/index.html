@@ -142,7 +142,7 @@
                     <div class="card">
                         <div class="card-title">
                             <span id="chart-title">TradingView Chart Terminal</span>
-                            <span style="font-size: 12px; color: #9ca3af;">Exchange Feed via TradingView</span>
+                            <span style="font-size: 12px; color: #10b981;">Live Exchange Feed via Binance</span>
                         </div>
                         <!-- Official TradingView Advanced Widget Embed -->
                         <div id="tradingview-widget-container" style="width: 100%; height: 500px;"></div>
@@ -177,14 +177,18 @@
                     <div class="card">
                         <div class="card-title">Order Entry</div>
                         <div class="form-group">
-                            <label>Market Asset Selection</label>
+                            <label>Market Selection (Binance Pairs)</label>
                             <select id="order-symbol" onchange="updateTradingViewSymbol(this.value)">
-                                <option value="BINANCE:BTCUSDT">BTC/USDT (Binance)</option>
-                                <option value="BINANCE:ETHUSDT">ETH/USDT (Binance)</option>
-                                <option value="BINANCE:SOLUSDT">SOL/USDT (Binance)</option>
-                                <option value="COINBASE:BTCUSD">BTC/USD (Coinbase)</option>
-                                <option value="BYBIT:BTCUSDT">BTC/USDT (Bybit)</option>
-                                <option value="OKX:BTCUSDT">BTC/USDT (OKX)</option>
+                                <option value="BINANCE:BTCUSDT">BTC/USDT (Bitcoin)</option>
+                                <option value="BINANCE:ETHUSDT">ETH/USDT (Ethereum)</option>
+                                <option value="BINANCE:XRPUSDT">XRP/USDT (Ripple)</option>
+                                <option value="BINANCE:SOLUSDT">SOL/USDT (Solana)</option>
+                                <option value="BINANCE:BNBUSDT">BNB/USDT (Binance Coin)</option>
+                                <option value="BINANCE:DOGEUSDT">DOGE/USDT (Dogecoin)</option>
+                                <option value="BINANCE:ADAUSDT">ADA/USDT (Cardano)</option>
+                                <option value="BINANCE:AVAXUSDT">AVAX/USDT (Avalanche)</option>
+                                <option value="BINANCE:SUIUSDT">SUI/USDT (Sui)</option>
+                                <option value="BINANCE:LINKUSDT">LINK/USDT (Chainlink)</option>
                             </select>
                         </div>
                         <div class="form-group">

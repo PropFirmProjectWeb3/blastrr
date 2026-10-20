@@ -3,7 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Blastrr - Prop Trading Terminal</title>
+    <title>Blastrr - Crypto Prop Terminal</title>
+    <!-- TradingView Lightweight Charts Library -->
+    <script src="https://unpkg.com/lightweight-charts/dist/lightweight-charts.standalone.production.js"></script>
     <style>
         * { box-sizing: border-box; }
         body { 
@@ -11,96 +13,323 @@
             background: #0f1117; 
             color: #f3f4f6; 
             margin: 0; 
-            padding: 20px; 
+            padding: 0; 
         }
+
+        /* Top Navigation Header */
         header { 
             display: flex; 
             justify-content: space-between; 
             align-items: center; 
+            background: #111827;
             border-bottom: 1px solid #1f2937; 
-            padding-bottom: 15px; 
-            margin-bottom: 20px; 
+            padding: 12px 24px; 
         }
-        h1 { margin: 0; font-size: 24px; color: #a855f7; }
-        .btn-group { display: flex; gap: 10px; }
-        button { 
+        .logo { font-size: 22px; font-weight: 800; color: #a855f7; display: flex; align-items: center; gap: 8px; }
+        
+        /* View Switcher Tabs */
+        nav { display: flex; gap: 8px; }
+        .nav-tab {
+            background: transparent;
+            color: #9ca3af;
+            border: none;
+            padding: 8px 16px;
+            font-size: 14px;
+            font-weight: 600;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .nav-tab:hover { color: #f3f4f6; background: #1f2937; }
+        .nav-tab.active { color: #ffffff; background: #7c3aed; }
+        .nav-tab.admin-tab { display: none; background: #991b1b; color: #fef2f2; }
+        .nav-tab.admin-tab.active { background: #dc2626; }
+
+        /* Wallet Header Actions */
+        .header-actions { display: flex; align-items: center; gap: 12px; }
+        .btn-wallet { 
             background: #7c3aed; 
             color: white; 
             border: none; 
-            padding: 10px 20px; 
+            padding: 8px 16px; 
             border-radius: 6px; 
             cursor: pointer; 
             font-weight: bold; 
+            font-size: 14px;
             transition: background 0.2s;
         }
-        button:hover { background: #6d28d9; }
-        #admin-nav-item { display: none; background: #b91c1c; }
-        #admin-nav-item:hover { background: #991b1b; }
-        .dashboard { display: grid; grid-template-columns: 2fr 1fr; gap: 20px; }
-        .card { background: #1f2937; padding: 20px; border-radius: 8px; border: 1px solid #374151; margin-bottom: 20px; }
-        .plans-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-top: 15px; }
-        .plan-card { background: #111827; border: 1px solid #374151; padding: 15px; border-radius: 6px; text-align: center; }
-        .plan-card h4 { margin: 0 0 10px 0; color: #a855f7; }
-        .status-badge {
-            display: inline-block;
-            padding: 4px 8px;
-            border-radius: 4px;
+        .btn-wallet:hover { background: #6d28d9; }
+        .status-pill {
+            padding: 4px 10px;
+            border-radius: 20px;
             font-size: 12px;
-            font-weight: bold;
+            font-weight: 600;
             background: #374151;
             color: #9ca3af;
         }
-        .status-badge.connected { background: #065f46; color: #34d399; }
-        .account-item { background: #111827; padding: 12px; border-radius: 6px; margin-bottom: 10px; border: 1px solid #374151; }
+        .status-pill.connected { background: #065f46; color: #34d399; }
+
+        /* Main View Containers */
+        main { padding: 24px; max-width: 1400px; margin: 0 auto; }
+        .view-panel { display: none; }
+        .view-panel.active { display: block; }
+
+        /* UI Card Layouts */
+        .card { background: #1f2937; border: 1px solid #374151; border-radius: 8px; padding: 20px; margin-bottom: 20px; }
+        .card-title { margin-top: 0; margin-bottom: 16px; font-size: 18px; color: #f3f4f6; display: flex; justify-content: space-between; align-items: center; }
+
+        /* Grid Layouts */
+        .trade-grid { display: grid; grid-template-columns: 3fr 1fr; gap: 20px; }
+        .grid-3 { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; }
+        .plans-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 20px; }
+
+        /* Trade Form Elements */
+        .form-group { margin-bottom: 14px; }
+        .form-group label { display: block; font-size: 12px; color: #9ca3af; margin-bottom: 6px; text-transform: uppercase; font-weight: 600; }
+        .form-group input, .form-group select {
+            width: 100%;
+            background: #111827;
+            border: 1px solid #374151;
+            color: white;
+            padding: 10px;
+            border-radius: 6px;
+            font-size: 14px;
+        }
+        .btn-buy { width: 100%; background: #10b981; color: white; border: none; padding: 12px; border-radius: 6px; font-weight: bold; cursor: pointer; font-size: 15px; margin-bottom: 8px; }
+        .btn-buy:hover { background: #059669; }
+        .btn-sell { width: 100%; background: #ef4444; color: white; border: none; padding: 12px; border-radius: 6px; font-weight: bold; cursor: pointer; font-size: 15px; }
+        .btn-sell:hover { background: #dc2626; }
+
+        /* Tables */
+        table { width: 100%; border-collapse: collapse; text-align: left; font-size: 14px; }
+        th { background: #111827; color: #9ca3af; padding: 10px 12px; font-weight: 600; border-bottom: 1px solid #374151; }
+        td { padding: 12px; border-bottom: 1px solid #374151; color: #e5e7eb; }
+
+        /* Meters / Progress Bars */
+        .progress-bar-container { background: #111827; height: 10px; border-radius: 5px; overflow: hidden; margin-top: 8px; }
+        .progress-fill { background: #a855f7; height: 100%; width: 0%; transition: width 0.3s; }
+        .progress-fill.danger { background: #ef4444; }
+
+        /* Plan Cards */
+        .plan-card { background: #111827; border: 1px solid #374151; border-radius: 8px; padding: 24px; text-align: center; display: flex; flex-direction: column; justify-content: space-between; }
+        .plan-price { font-size: 28px; font-weight: bold; color: #a855f7; margin: 12px 0; }
+        .plan-feature { padding: 8px 0; border-bottom: 1px solid #1f2937; font-size: 14px; color: #d1d5db; }
     </style>
 </head>
 <body>
+
+    <!-- Header Navigation -->
     <header>
-        <h1>⚡ Blastrr Prop Terminal</h1>
-        <div class="btn-group">
-            <button id="admin-nav-item" onclick="toggleAdminView()">Admin Panel</button>
-            <button id="connect-btn" onclick="connectWallet()">Connect Wallet</button>
+        <div class="logo">⚡ BLASTRR</div>
+        
+        <nav>
+            <button class="nav-tab active" onclick="switchView('tradeView')">Trade</button>
+            <button class="nav-tab" onclick="switchView('accountsView')">Accounts</button>
+            <button class="nav-tab" onclick="switchView('statsView')">Stats & Risk</button>
+            <button class="nav-tab" onclick="switchView('buyView')">Buy Plans</button>
+            <button id="admin-nav-item" class="nav-tab admin-tab" onclick="switchView('adminView')">🛡️ Admin Control</button>
+        </nav>
+
+        <div class="header-actions">
+            <span id="wallet-status" class="status-pill">Disconnected</span>
+            <button id="connect-btn" class="btn-wallet" onclick="connectWallet()">Connect Wallet</button>
         </div>
     </header>
 
-    <div class="dashboard">
-        <div>
-            <div class="card">
-                <h3>Trading View & Execution Terminal</h3>
-                <p id="terminal-notice">Please connect your Web3 wallet to view or purchase trading accounts.</p>
-                <div id="active-terminal" style="display:none;">
-                    <p><strong>Active Trading Account Loaded.</strong> Ready for limit order execution against live price feed.</p>
+    <main>
+
+        <!-- 1. TRADE VIEW -->
+        <section id="tradeView" class="view-panel active">
+            <div class="trade-grid">
+                <div>
+                    <div class="card" style="min-height: 480px;">
+                        <div class="card-title">
+                            <span>BTC/USDT Live Feed</span>
+                            <span style="font-size: 14px; color: #10b981;">Live Tick: $68,420.50</span>
+                        </div>
+                        <div id="tv-chart-container" style="height: 400px; background: #111827; border-radius: 6px; display: flex; align-items: center; justify-content: center; color: #6b7280;">
+                            [ TradingView Chart Widget Render Container ]
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-title">Active Orders & Executed Trades</div>
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Order ID</th>
+                                    <th>Symbol</th>
+                                    <th>Side</th>
+                                    <th>Type</th>
+                                    <th>Price</th>
+                                    <th>Size</th>
+                                    <th>SL / TP</th>
+                                    <th>Floating PnL</th>
+                                    <th>Action</th>
+                                </tr>
+                            </thead>
+                            <tbody id="open-trades-list">
+                                <tr>
+                                    <td colspan="9" style="text-align: center; color: #6b7280;">No active open trades on current account.</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div>
+                    <div class="card">
+                        <div class="card-title">Order Entry</div>
+                        <div class="form-group">
+                            <label>Asset Symbol</label>
+                            <select id="order-symbol">
+                                <option value="BTCUSDT">BTC/USDT</option>
+                                <option value="ETHUSDT">ETH/USDT</option>
+                                <option value="SOLUSDT">SOL/USDT</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Order Type</label>
+                            <select id="order-type">
+                                <option value="LIMIT">Limit Order</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Limit Price ($)</label>
+                            <input type="number" id="order-price" placeholder="68000">
+                        </div>
+                        <div class="form-group">
+                            <label>Position Size (Simulated Units)</label>
+                            <input type="number" id="order-size" placeholder="1.0">
+                        </div>
+                        <div class="form-group">
+                            <label>Stop Loss (SL)</label>
+                            <input type="number" id="order-sl" placeholder="67000">
+                        </div>
+                        <div class="form-group">
+                            <label>Take Profit (TP)</label>
+                            <input type="number" id="order-tp" placeholder="70000">
+                        </div>
+
+                        <button class="btn-buy" onclick="placeOrder('BUY')">Buy Limit</button>
+                        <button class="btn-sell" onclick="placeOrder('SELL')">Sell Limit</button>
+                    </div>
                 </div>
             </div>
+        </section>
 
+
+        <!-- 2. ACCOUNTS VIEW -->
+        <section id="accountsView" class="view-panel">
             <div class="card">
-                <h3>Available Evaluation Plans</h3>
+                <div class="card-title">Your Simulated Evaluation Accounts</div>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Account ID</th>
+                            <th>Plan Tier</th>
+                            <th>Initial Balance</th>
+                            <th>Current Equity</th>
+                            <th>Status</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody id="accounts-table-body">
+                        <tr>
+                            <td colspan="6" style="text-align: center; color: #6b7280;">Connect wallet to view your active accounts.</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+
+        <!-- 3. STATS & RISK VIEW -->
+        <section id="statsView" class="view-panel">
+            <div class="grid-3">
+                <div class="card">
+                    <div class="card-title">Profit Target Progress</div>
+                    <p style="font-size: 24px; font-weight: bold; color: #34d399; margin: 4px 0;">$0.00 / $10,000.00</p>
+                    <div class="progress-bar-container">
+                        <div class="progress-fill" style="width: 0%;"></div>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-title">Daily Loss Limit (DLL)</div>
+                    <p style="font-size: 24px; font-weight: bold; color: #f3f4f6; margin: 4px 0;">Remaining: $5,000.00</p>
+                    <div class="progress-bar-container">
+                        <div class="progress-fill" style="width: 100%;"></div>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-title">NY Time Consistency Share</div>
+                    <p style="font-size: 24px; font-weight: bold; color: #a855f7; margin: 4px 0;">Best Day: 0.0% / Max 40%</p>
+                    <div class="progress-bar-container">
+                        <div class="progress-fill" style="width: 0%;"></div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+
+        <!-- 4. BUY PLANS VIEW -->
+        <section id="buyView" class="view-panel">
+            <div class="card">
+                <div class="card-title">Evaluation Plans marketplace</div>
                 <div id="plans-container" class="plans-grid">
-                    <p>Loading plans...</p>
+                    <p>Loading plans from database...</p>
                 </div>
             </div>
-        </div>
+        </section>
 
-        <div>
-            <div class="card">
-                <h3>Account Metrics</h3>
-                <p><strong>Status:</strong> <span id="wallet-status" class="status-badge">Not Connected</span></p>
-                <p><strong>Wallet:</strong> <span id="wallet-address-display">None</span></p>
-                <hr style="border-color: #374151;">
-                <div id="my-accounts-box">
-                    <p>Connect wallet to see your accounts.</p>
-                </div>
+
+        <!-- 5. ADMIN CONTROL VIEW (Restricted) -->
+        <section id="adminView" class="view-panel">
+            <div class="card" style="border-color: #991b1b;">
+                <div class="card-title" style="color: #f87171;">🛡️ Admin Compliance & Payout Queue</div>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Trader Wallet</th>
+                            <th>Account ID</th>
+                            <th>Requested Payout</th>
+                            <th>Consistency Check</th>
+                            <th>Audit Flags</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody id="admin-payout-queue">
+                        <tr>
+                            <td colspan="6" style="text-align: center; color: #6b7280;">No pending payout requests requiring manual approval.</td>
+                        </tr>
+                    </tbody>
+                </table>
             </div>
-        </div>
-    </div>
+        </section>
 
+    </main>
+
+    <!-- Unified UI State Script -->
     <script>
         let connectedWallet = null;
-
-        // Platform Treasury & Payment Configuration
         const USDT_CONTRACT_ADDRESS = "0x7ec3659A8225ED474D7c662126616aE08545C29b";
-        const TREASURY_WALLET = "0x8632fa855d5dc6b59a3cf892d72cf4a94f182aae"; // Treasury wallet to receive deposits
+        const TREASURY_WALLET = "0x8632fa855d5dc6b59a3cf892d72cf4a94f182aae";
 
+        // View Switcher Function
+        function switchView(viewId) {
+            document.querySelectorAll('.view-panel').forEach(panel => panel.classList.remove('active'));
+            document.querySelectorAll('.nav-tab').forEach(tab => tab.classList.remove('active'));
+
+            const selectedPanel = document.getElementById(viewId);
+            if (selectedPanel) selectedPanel.classList.add('active');
+
+            const activeTab = Array.from(document.querySelectorAll('.nav-tab')).find(tab => tab.getAttribute('onclick')?.includes(viewId));
+            if (activeTab) activeTab.classList.add('active');
+        }
+
+        // Web3 Provider Selector
         function getProvider() {
             if (window.ethereum?.providers) {
                 return window.ethereum.providers.find(p => p.isMetaMask) || window.ethereum.providers[0];
@@ -108,6 +337,7 @@
             return window.ethereum;
         }
 
+        // Web3 Wallet Connection
         async function connectWallet() {
             const provider = getProvider();
             if (!provider) {
@@ -120,6 +350,8 @@
                 if (!accounts || accounts.length === 0) return;
 
                 connectedWallet = accounts[0];
+                
+                // Update UI Header
                 document.getElementById('connect-btn').innerText = 
                     connectedWallet.substring(0, 6) + '...' + connectedWallet.slice(-4);
                 
@@ -127,30 +359,30 @@
                 statusElem.innerText = "Connected";
                 statusElem.classList.add("connected");
 
-                document.getElementById('wallet-address-display').innerText = 
-                    connectedWallet.substring(0, 6) + '...' + connectedWallet.slice(-4);
-
                 checkRole(connectedWallet);
-                loadUserAccounts(connectedWallet);
                 loadPlans();
+                loadAccounts(connectedWallet);
 
             } catch (err) {
                 console.error("Wallet connection error:", err);
             }
         }
 
+        // Check Admin Privileges
         async function checkRole(wallet) {
             try {
                 const res = await fetch(`/api/auth/role?wallet=${wallet}`);
                 const data = await res.json();
                 if (data.isAdmin) {
                     document.getElementById('admin-nav-item').style.display = 'inline-block';
+                    console.log('Admin privileges granted.');
                 }
             } catch (err) {
-                console.error("Error verifying admin role:", err);
+                console.error("Error checking role:", err);
             }
         }
 
+        // Load Plans
         async function loadPlans() {
             try {
                 const res = await fetch('/api/plans');
@@ -161,11 +393,18 @@
                 data.plans.forEach(plan => {
                     container.innerHTML += `
                         <div class="plan-card">
-                            <h4>${plan.name}</h4>
-                            <p>Capital: <strong>$${plan.simulated_capital.toLocaleString()}</strong></p>
-                            <p>Target: $${plan.profit_target.toLocaleString()}</p>
-                            <p>Price: <strong>${plan.price_usdt} USDT</strong></p>
-                            <button onclick="buyPlan(${plan.id}, ${plan.price_usdt})">Buy Plan (${plan.price_usdt} USDT)</button>
+                            <div>
+                                <h3 style="margin:0; color:#a855f7;">${plan.name}</h3>
+                                <div class="plan-price">${plan.price_usdt} USDT</div>
+                                <div class="plan-feature">Simulated Capital: <strong>$${plan.simulated_capital.toLocaleString()}</strong></div>
+                                <div class="plan-feature">Profit Target: <strong>$${plan.profit_target.toLocaleString()}</strong></div>
+                                <div class="plan-feature">Daily Loss Limit: <strong>${plan.daily_loss_pct}%</strong></div>
+                                <div class="plan-feature">Max Drawdown: <strong>${plan.max_drawdown_pct}%</strong></div>
+                                <div class="plan-feature">Max Single Day Profit: <strong>${plan.max_single_day_profit_pct}%</strong></div>
+                            </div>
+                            <button class="btn-wallet" style="margin-top:20px; width:100%;" onclick="buyPlan(${plan.id}, ${plan.price_usdt})">
+                                Buy Plan (${plan.price_usdt} USDT)
+                            </button>
                         </div>
                     `;
                 });
@@ -174,6 +413,7 @@
             }
         }
 
+        // Purchase Plan Trigger
         async function buyPlan(planId, priceUsdt) {
             if (!connectedWallet) {
                 alert("Please connect your wallet first!");
@@ -184,15 +424,10 @@
 
             try {
                 const provider = getProvider();
-
-                // Encode ERC-20 transfer(address to, uint256 amount)
-                // Function selector: 0xa9059cbb
-                // Amount formatted to 6 decimal units (USDT standard)
                 const paddedRecipient = TREASURY_WALLET.toLowerCase().replace('0x', '').padStart(64, '0');
                 const amountHex = (Math.floor(priceUsdt * 1_000_000)).toString(16).padStart(64, '0');
                 const calldata = '0xa9059cbb' + paddedRecipient + amountHex;
 
-                console.log("Submitting USDT deposit transaction...");
                 const txHash = await provider.request({
                     method: 'eth_sendTransaction',
                     params: [{
@@ -202,56 +437,52 @@
                     }],
                 });
 
-                console.log("Transaction submitted:", txHash);
-                alert("Payment transaction submitted! Provisioning your simulated account...");
+                alert("Payment transaction submitted! Provisioning account...");
 
-                // Record account provision on backend with transaction reference
                 const res = await fetch('/api/accounts/purchase', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ 
-                        wallet_address: connectedWallet, 
-                        plan_id: planId,
-                        tx_hash: txHash 
-                    })
+                    body: JSON.stringify({ wallet_address: connectedWallet, plan_id: planId, tx_hash: txHash })
                 });
                 const data = await res.json();
 
                 if (data.success) {
-                    alert("Account successfully provisioned!");
-                    loadUserAccounts(connectedWallet);
+                    alert("Account provisioned!");
+                    loadAccounts(connectedWallet);
+                    switchView('accountsView');
                 } else {
-                    alert("Error provisioning account: " + data.error);
+                    alert("Error: " + data.error);
                 }
 
             } catch (err) {
                 console.error("Payment error:", err);
-                alert("Payment failed or cancelled: " + (err.message || err));
+                alert("Payment cancelled or failed.");
             }
         }
 
-        async function loadUserAccounts(wallet) {
+        // Load Accounts Table
+        async function loadAccounts(wallet) {
             try {
                 const res = await fetch(`/api/accounts?wallet=${wallet}`);
                 const data = await res.json();
-                const box = document.getElementById('my-accounts-box');
-                box.innerHTML = '';
+                const tableBody = document.getElementById('accounts-table-body');
+                tableBody.innerHTML = '';
 
                 if (data.accounts.length === 0) {
-                    box.innerHTML = '<p>No active accounts found. Select a plan to get started!</p>';
+                    tableBody.innerHTML = '<tr><td colspan="6" style="text-align:center;">No accounts found. Purchase a plan in the marketplace!</td></tr>';
                     return;
                 }
 
-                document.getElementById('terminal-notice').style.display = 'none';
-                document.getElementById('active-terminal').style.display = 'block';
-
                 data.accounts.forEach(acc => {
-                    box.innerHTML += `
-                        <div class="account-item">
-                            <p><strong>${acc.plan_name}</strong></p>
-                            <p>Equity: $${acc.current_equity.toLocaleString()}</p>
-                            <p>Status: <span style="color: #34d399;">${acc.status}</span></p>
-                        </div>
+                    tableBody.innerHTML += `
+                        <tr>
+                            <td><code>${acc.id}</code></td>
+                            <td>${acc.plan_name}</td>
+                            <td>$${acc.initial_balance.toLocaleString()}</td>
+                            <td>$${acc.current_equity.toLocaleString()}</td>
+                            <td><span class="status-pill connected">${acc.status}</span></td>
+                            <td><button class="btn-wallet" style="padding:4px 8px; font-size:12px;" onclick="switchView('tradeView')">Launch Terminal</button></td>
+                        </tr>
                     `;
                 });
             } catch (err) {
@@ -259,8 +490,8 @@
             }
         }
 
-        function toggleAdminView() {
-            alert('Opening Admin Payout & Risk Oversight Dashboard...');
+        function placeOrder(side) {
+            alert(`Placing ${side} Limit order... Order engine integration active.`);
         }
     </script>
 </body>

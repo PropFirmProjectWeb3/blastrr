@@ -8,7 +8,6 @@ const PORT = process.env.PORT || 4480;
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
-// Seed 6 Standardized Evaluation Plans on Startup (Base Price vs Promo Price)
 function seedPlans() {
   db.get("SELECT COUNT(*) as count FROM plans", (err, row) => {
     if (row && row.count === 0) {
@@ -26,9 +25,6 @@ function seedPlans() {
 
 setTimeout(seedPlans, 1000);
 
-// --- API ENDPOINTS ---
-
-// Get all plans
 app.get('/api/plans', (req, res) => {
   db.all("SELECT * FROM plans", [], (err, rows) => {
     if (err) return res.status(500).json({ error: err.message });
@@ -36,7 +32,6 @@ app.get('/api/plans', (req, res) => {
   });
 });
 
-// Admin Role Check
 app.get('/api/auth/role', (req, res) => {
   const wallet = req.query.wallet;
   if (!wallet) return res.json({ isAdmin: false });
@@ -46,7 +41,6 @@ app.get('/api/auth/role', (req, res) => {
   });
 });
 
-// User Profile & Affiliate Stats
 app.get('/api/user/profile', (req, res) => {
   const wallet = req.query.wallet;
   if (!wallet) return res.status(400).json({ error: "Wallet required" });
@@ -68,7 +62,6 @@ app.get('/api/user/profile', (req, res) => {
   });
 });
 
-// Save Username and Custom Promo Code
 app.post('/api/user/profile', (req, res) => {
   const { wallet_address, username, discount_code } = req.body;
   if (!wallet_address || !username || !discount_code) {
@@ -89,7 +82,6 @@ app.post('/api/user/profile', (req, res) => {
   );
 });
 
-// Validate Promo Code at Checkout
 app.post('/api/promo/validate', (req, res) => {
   const { code } = req.body;
   if (!code) return res.json({ valid: false });
@@ -100,25 +92,24 @@ app.post('/api/promo/validate', (req, res) => {
   });
 });
 
-// Get Active Prop Account
-app.get('/api/accounts/active', (req, res) => {
+// Get all accounts for a wallet (unlimited support)
+app.get('/api/accounts', (req, res) => {
   const wallet = req.query.wallet;
   if (!wallet) return res.status(400).json({ error: "Wallet required" });
 
-  db.get(
+  db.all(
     `SELECT a.*, p.name as plan_name FROM accounts a 
      JOIN plans p ON a.plan_id = p.id 
-     WHERE LOWER(a.wallet_address) = LOWER(?) AND a.status = 'ACTIVE' 
-     LIMIT 1`,
+     WHERE LOWER(a.wallet_address) = LOWER(?)`,
     [wallet],
-    (err, row) => {
+    (err, rows) => {
       if (err) return res.status(500).json({ error: err.message });
-      res.json({ account: row || null });
+      res.json({ accounts: rows || [] });
     }
   );
 });
 
-// Purchase Plan with Checkout Discount Applied & Commission Calculated
+// Purchase Plan (Allows multiple accounts per wallet)
 app.post('/api/accounts/purchase', (req, res) => {
   const { wallet_address, plan_id, tx_hash, promo_code } = req.body;
 
@@ -142,7 +133,7 @@ app.post('/api/accounts/purchase', (req, res) => {
            VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'ACTIVE')`,
           [accountId, wallet_address, plan_id, plan.simulated_capital, plan.simulated_capital, plan.simulated_capital, plan.simulated_capital, plan.simulated_capital],
           (err2) => {
-            if (err2) return res.status(400).json({ error: "You already have an active prop account. Only 1 active account is permitted." });
+            if (err2) return res.status(500).json({ error: err2.message });
 
             if (referrerWallet && referrerWallet.toLowerCase() !== wallet_address.toLowerCase()) {
               const commissionEarned = finalPrice * 0.02;
@@ -162,7 +153,7 @@ app.post('/api/accounts/purchase', (req, res) => {
         db.get("SELECT * FROM users WHERE discount_code = ?", [promo_code.toUpperCase()], (err3, referrer) => {
           if (referrer) {
             referrerWallet = referrer.wallet_address;
-            finalPrice = plan.price_usdt; // Apply 90% discount at checkout
+            finalPrice = plan.price_usdt;
           }
           finishPurchase();
         });
@@ -173,7 +164,6 @@ app.post('/api/accounts/purchase', (req, res) => {
   });
 });
 
-// Limit Order Placement & Active Trades
 app.post('/api/orders/place', (req, res) => {
   const { account_id, symbol, side, price, size, sl, tp } = req.body;
   

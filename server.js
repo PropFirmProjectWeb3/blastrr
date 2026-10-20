@@ -8,7 +8,7 @@ const PORT = process.env.PORT || 4480;
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
-// Seed 6-Tier Evaluation Plans on Startup (10x Base Price / 90% Discount Model)
+// Seed 6 Standardized Evaluation Plans on Startup (10x Base Price / 90% Discounted Promo Model)
 function seedPlans() {
   db.get("SELECT COUNT(*) as count FROM plans", (err, row) => {
     if (row && row.count === 0) {
@@ -19,17 +19,16 @@ function seedPlans() {
         ('Pro $50k', 5000.00, 500.00, 50000, 10000, 10.0, 5.0, 40.0),
         ('Elite $100k', 10000.00, 1000.00, 100000, 20000, 10.0, 5.0, 40.0),
         ('Whale $250k', 25000.00, 2500.00, 250000, 50000, 10.0, 5.0, 40.0)`);
-      console.log("Blastrr 6-Tier plans successfully seeded.");
+      console.log("Blastrr 6-Tier evaluation plans successfully seeded.");
     }
   });
 }
 
-// Wait briefly for database initialization before seeding
 setTimeout(seedPlans, 1000);
 
-// --- API ROUTES ---
+// --- API ENDPOINTS ---
 
-// 1. Get all available evaluation plans
+// Get all plans
 app.get('/api/plans', (req, res) => {
   db.all("SELECT * FROM plans", [], (err, rows) => {
     if (err) return res.status(500).json({ error: err.message });
@@ -37,7 +36,7 @@ app.get('/api/plans', (req, res) => {
   });
 });
 
-// 2. Auth & Role Check
+// Admin Role Check
 app.get('/api/auth/role', (req, res) => {
   const wallet = req.query.wallet;
   if (!wallet) return res.json({ isAdmin: false });
@@ -47,7 +46,7 @@ app.get('/api/auth/role', (req, res) => {
   });
 });
 
-// 3. User Profile & Referral Stats
+// User Profile & Affiliate Stats
 app.get('/api/user/profile', (req, res) => {
   const wallet = req.query.wallet;
   if (!wallet) return res.status(400).json({ error: "Wallet required" });
@@ -69,11 +68,11 @@ app.get('/api/user/profile', (req, res) => {
   });
 });
 
-// Create/Update User Profile & Custom Discount Code
+// Save Username and Custom Promo Code
 app.post('/api/user/profile', (req, res) => {
   const { wallet_address, username, discount_code } = req.body;
   if (!wallet_address || !username || !discount_code) {
-    return res.status(400).json({ error: "Username and discount code are required." });
+    return res.status(400).json({ error: "Username and promo code are required." });
   }
 
   db.run(
@@ -84,13 +83,13 @@ app.post('/api/user/profile', (req, res) => {
      discount_code = excluded.discount_code`,
     [wallet_address, username.toLowerCase(), discount_code.toUpperCase()],
     (err) => {
-      if (err) return res.status(400).json({ error: "Username or Discount Code already taken." });
+      if (err) return res.status(400).json({ error: "Username or Promo Code already taken." });
       res.json({ success: true, message: "Profile updated successfully." });
     }
   );
 });
 
-// 4. Validate Promo Code at Checkout
+// Validate Promo / Referral Code (Backend controls discount % rate)
 app.post('/api/promo/validate', (req, res) => {
   const { code } = req.body;
   if (!code) return res.json({ valid: false });
@@ -101,7 +100,7 @@ app.post('/api/promo/validate', (req, res) => {
   });
 });
 
-// 5. Get Active Account (Enforcing 1 active account rule)
+// Get Active Prop Account (Enforces 1 Active Account Rule)
 app.get('/api/accounts/active', (req, res) => {
   const wallet = req.query.wallet;
   if (!wallet) return res.status(400).json({ error: "Wallet required" });
@@ -119,15 +118,14 @@ app.get('/api/accounts/active', (req, res) => {
   );
 });
 
-// 6. Purchase Plan & Handle 2% Affiliate Commission
+// Purchase Plan & Attribute 2% Cash Commission to Promoter
 app.post('/api/accounts/purchase', (req, res) => {
   const { wallet_address, plan_id, tx_hash, promo_code } = req.body;
 
   if (!wallet_address || !plan_id) {
-    return res.status(400).json({ error: "Wallet and Plan ID are required." });
+    return res.status(400).json({ error: "Wallet address and plan ID are required." });
   }
 
-  // Ensure user record exists
   db.run(`INSERT OR IGNORE INTO users (wallet_address) VALUES (?)`, [wallet_address], () => {
     
     db.get("SELECT * FROM plans WHERE id = ?", [plan_id], (err, plan) => {
@@ -146,7 +144,7 @@ app.post('/api/accounts/purchase', (req, res) => {
           (err2) => {
             if (err2) return res.status(400).json({ error: "You already have an active prop account. Only 1 active account is permitted." });
 
-            // If valid referrer exists, record 2% commission
+            // Record 2% commission for promoter
             if (referrerWallet && referrerWallet.toLowerCase() !== wallet_address.toLowerCase()) {
               const commissionEarned = finalPrice * 0.02;
               db.run(
@@ -175,7 +173,7 @@ app.post('/api/accounts/purchase', (req, res) => {
   });
 });
 
-// 7. Limit Order Placement & Active Trades
+// Limit Order Placement & Active Trades Listing
 app.post('/api/orders/place', (req, res) => {
   const { account_id, symbol, side, price, size, sl, tp } = req.body;
   

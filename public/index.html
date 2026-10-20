@@ -1625,6 +1625,28 @@
                 }
             } catch (err) { console.error(err); }
         }
+        async function switchToChain(chainIdDecimal) {
+    const provider = getProvider();
+    if (!provider) return false;
+
+    // Convert decimal chain ID to hex
+    const chainIdHex = '0x' + chainIdDecimal.toString(16);
+
+    try {
+        await provider.request({
+            method: 'wallet_switchEthereumChain',
+            params: [{ chainId: chainIdHex }],
+        });
+        return true;
+    } catch (switchError) {
+        // This error code indicates that the chain has not been added to MetaMask yet.
+        if (switchError.code === 4902) {
+            alert("Please add this network to your wallet first.");
+        }
+        console.error("Failed to switch network:", switchError);
+        return false;
+    }
+}
     </script>
 </body>
 </html>

@@ -14,16 +14,20 @@ const db = new sqlite3.Database(dbPath, (err) => {
 
 function initTables() {
   db.serialize(() => {
-    // Users authenticated via Web3 wallet
+    // Users authenticated via Web3 wallet, including custom username & unique discount code
     db.run(`CREATE TABLE IF NOT EXISTS users (
       wallet_address TEXT PRIMARY KEY,
+      username TEXT UNIQUE,
+      discount_code TEXT UNIQUE,
+      referred_by TEXT,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     )`);
 
-    // Admin Configurable Plans
+    // Admin Configurable Plans (Supporting base price + 90% promo tier price)
     db.run(`CREATE TABLE IF NOT EXISTS plans (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       name TEXT NOT NULL,
+      base_price_usdt REAL NOT NULL,
       price_usdt REAL NOT NULL,
       simulated_capital REAL NOT NULL,
       profit_target REAL NOT NULL,
@@ -112,6 +116,17 @@ function initTables() {
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       processed_at DATETIME,
       FOREIGN KEY(account_id) REFERENCES accounts(id)
+    )`);
+
+    // Affiliate Earnings Ledger (2% Commission Tracking)
+    db.run(`CREATE TABLE IF NOT EXISTS referrals (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      referrer_wallet TEXT,
+      referee_wallet TEXT,
+      plan_id INTEGER,
+      paid_amount REAL,
+      commission_earned REAL,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     )`);
 
     // Blacklisted Wallets

@@ -82,7 +82,23 @@
             box-shadow: 0 4px 12px rgba(124, 58, 237, 0.25);
         }
         .btn-wallet:hover { background: linear-gradient(135deg, #8b5cf6, #7c3aed); box-shadow: 0 4px 20px rgba(124, 58, 237, 0.4); transform: translateY(-1px); }
-        
+
+        .btn-share-x {
+            background: #000000;
+            color: #ffffff;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            padding: 5px 12px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 11px;
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            transition: all 0.2s;
+        }
+        .btn-share-x:hover { background: #1d9bf0; border-color: #1d9bf0; box-shadow: 0 0 12px rgba(29, 155, 240, 0.4); }
+
         .btn-new-wallet {
             background: rgba(37, 99, 235, 0.15);
             color: #60a5fa;
@@ -198,6 +214,7 @@
         th { background: rgba(5, 7, 11, 0.9); color: #9ca3af; padding: 12px 14px; font-weight: 600; border-bottom: 1px solid rgba(255, 255, 255, 0.08); text-transform: uppercase; font-size: 11px; letter-spacing: 0.5px; }
         td { padding: 13px 14px; border-bottom: 1px solid rgba(255, 255, 255, 0.04); color: #e5e7eb; }
         tr:hover td { background: rgba(255, 255, 255, 0.015); }
+        tr.highlight-user td { background: rgba(168, 85, 247, 0.15); border-color: rgba(168, 85, 247, 0.4); }
 
         .plan-card { 
             background: rgba(9, 13, 19, 0.9); 
@@ -226,6 +243,7 @@
         <nav>
             <button class="nav-tab active" onclick="switchView('tradeView')">Trade</button>
             <button class="nav-tab" onclick="switchView('accountsView')">My Accounts</button>
+            <button class="nav-tab" onclick="switchView('leaderboardView')">🏆 Leaderboard</button>
             <button class="nav-tab" onclick="switchView('profileView')">👤 My Profile & Promos</button>
             <button class="nav-tab" onclick="switchView('buyView')">Buy Plans</button>
             <button id="admin-nav-item" class="nav-tab admin-tab" onclick="switchView('adminView')">🛡️ Admin Control</button>
@@ -332,7 +350,45 @@
             </div>
         </section>
 
-        <!-- 3. PROFILE & PROMOS VIEW -->
+        <!-- 3. LEADERBOARD VIEW (DAILY PROFIT, MONTHLY PROFIT & LIFETIME PAYOUTS) -->
+        <section id="leaderboardView" class="view-panel">
+            <div class="card">
+                <div class="card-title" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; margin-bottom: 8px;">
+                    <div>🏆 Global Trader Leaderboard</div>
+                    <div style="display: flex; gap: 8px;">
+                        <button id="lb-btn-daily" class="nav-tab active" onclick="switchLeaderboardMode('DAILY')">Daily Profit</button>
+                        <button id="lb-btn-monthly" class="nav-tab" onclick="switchLeaderboardMode('MONTHLY')">Monthly Profit</button>
+                        <button id="lb-btn-payouts" class="nav-tab" onclick="switchLeaderboardMode('PAYOUTS')">Lifetime Payouts</button>
+                    </div>
+                </div>
+
+                <p id="lb-mode-subtitle" style="color: #9ca3af; font-size: 13.5px; margin-bottom: 20px;">
+                    Realized PnL from trades closed today.
+                </p>
+
+                <div style="display: flex; gap: 12px; margin-bottom: 20px; flex-wrap: wrap; align-items: center;">
+                    <input type="text" id="lb-search-input" placeholder="🔍 Search username to find rank..." onkeyup="filterLeaderboardTable()" style="max-width: 350px; background: rgba(5,7,11,0.9); border: 1px solid rgba(255,255,255,0.08); color: white; padding: 10px 14px; border-radius: 8px; font-size: 13.5px;">
+                    <span id="lb-my-rank-label" style="color: #c084fc; font-weight: 600; font-size: 13.5px; display: none;">Your Rank: #-</span>
+                </div>
+
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Rank</th>
+                            <th>Trader Username</th>
+                            <th>Promo Code</th>
+                            <th id="lb-metric-col-header">Daily Realized Profit</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody id="leaderboard-table-body">
+                        <tr><td colspan="5" style="text-align: center; color: #6b7280; padding: 24px;">Loading leaderboard...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <!-- 4. PROFILE & PROMOS VIEW -->
         <section id="profileView" class="view-panel">
             <div class="card">
                 <div class="card-title">Your Creator & Affiliate Profile</div>
@@ -352,18 +408,25 @@
                 </div>
 
                 <div id="profile-display-box" style="display: none; margin-top: 20px; border-top: 1px solid rgba(255, 255, 255, 0.06); padding-top: 24px;">
-                    <p><strong>Username:</strong> <span id="disp-username" style="color: #c084fc; font-weight: 600;">-</span></p>
-                    <p><strong>Your Promo Code:</strong> <code id="disp-code" style="background: rgba(5, 7, 11, 0.9); padding: 4px 10px; border-radius: 6px; color: #34d399; border: 1px solid rgba(52, 211, 153, 0.2);">-</code></p>
-                    <p><strong>Shareable Referral Link:</strong> <input type="text" id="disp-link" readonly style="background: rgba(5, 7, 11, 0.9); border: 1px solid rgba(255, 255, 255, 0.08); color: #9ca3af; padding: 8px 12px; width: 100%; margin-top: 6px; border-radius: 8px;"></p>
+                    <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+                        <div>
+                            <p style="margin: 4px 0;"><strong>Username:</strong> <span id="disp-username" style="color: #c084fc; font-weight: 600;">-</span></p>
+                            <p style="margin: 4px 0;"><strong>Your Promo Code:</strong> <code id="disp-code" style="background: rgba(5, 7, 11, 0.9); padding: 4px 10px; border-radius: 6px; color: #34d399; border: 1px solid rgba(52, 211, 153, 0.2);">-</code></p>
+                        </div>
+                        <button class="btn-share-x" onclick="shareCreatorCodeOnX()">𝕏 Share Promo Code on X</button>
+                    </div>
+
+                    <p style="margin-top: 14px;"><strong>Shareable Referral Link:</strong> <input type="text" id="disp-link" readonly style="background: rgba(5, 7, 11, 0.9); border: 1px solid rgba(255, 255, 255, 0.08); color: #9ca3af; padding: 8px 12px; width: 100%; margin-top: 6px; border-radius: 8px;"></p>
                     
                     <div class="grid-3" style="margin-top: 24px; margin-bottom: 28px;">
                         <div class="card" style="background: rgba(5, 7, 11, 0.6); margin:0;">
                             <div class="card-title" style="font-size: 13px; color: #9ca3af; margin-bottom: 8px;">Total Referred Traders</div>
                             <p id="stat-ref-count" style="font-size: 26px; font-weight: 800; color: #34d399; margin: 0;">0</p>
                         </div>
-                        <div class="card" style="background: rgba(5, 7, 11, 0.6); margin:0;">
-                            <div class="card-title" style="font-size: 13px; color: #9ca3af; margin-bottom: 8px;">Total 2% Commission Earned</div>
-                            <p id="stat-ref-earnings" style="font-size: 26px; font-weight: 800; color: #c084fc; margin: 0;">$0.00 USDT</p>
+                        <div class="card" style="background: rgba(5, 7, 11, 0.6); margin:0; position: relative;">
+                            <div class="card-title" style="font-size: 13px; color: #9ca3af; margin-bottom: 8px;">Available Commission Balance</div>
+                            <p id="stat-ref-earnings" style="font-size: 26px; font-weight: 800; color: #c084fc; margin: 0; margin-bottom: 12px;">$0.00 USDT</p>
+                            <button class="btn-wallet" style="padding: 6px 14px; font-size: 12px; background: #059669;" onclick="requestCommissionWithdrawal()">Withdraw Commissions</button>
                         </div>
                     </div>
 
@@ -385,7 +448,7 @@
             </div>
         </section>
 
-        <!-- 4. BUY PLANS VIEW -->
+        <!-- 5. BUY PLANS VIEW -->
         <section id="buyView" class="view-panel">
             <div class="card">
                 <div class="card-title">Evaluation Plans Marketplace</div>
@@ -403,7 +466,7 @@
             </div>
         </section>
 
-        <!-- 5. ADMIN CONTROL VIEW -->
+        <!-- 6. ADMIN CONTROL VIEW -->
         <section id="adminView" class="view-panel">
             <div class="card" style="border-color: rgba(220, 38, 38, 0.3);">
                 <div class="card-title" style="color: #f87171;">🛡️ Admin Withdrawal & Payout Queue</div>
@@ -411,15 +474,16 @@
                     <thead>
                         <tr>
                             <th>Request ID</th>
+                            <th>Type</th>
                             <th>Trader Wallet</th>
-                            <th>Account ID</th>
+                            <th>Account / Details</th>
                             <th>Amount</th>
                             <th>Status</th>
                             <th>Action</th>
                         </tr>
                     </thead>
                     <tbody id="admin-payout-queue">
-                        <tr><td colspan="6" style="text-align: center; color: #6b7280; padding: 24px;">No pending requests.</td></tr>
+                        <tr><td colspan="7" style="text-align: center; color: #6b7280; padding: 24px;">No pending requests.</td></tr>
                     </tbody>
                 </table>
             </div>
@@ -438,6 +502,10 @@
         let plansData = [];
         let livePriceInterval = null;
         let currentLivePrice = 0;
+        let availableCommissionBalance = 0;
+        let currentLeaderboardMode = 'DAILY';
+        let rawLeaderboardData = [];
+        let currentUserProfile = null;
         
         const USDT_CONTRACT_ADDRESS = "0x7ec3659A8225ED474D7c662126616aE08545C29b";
         const TREASURY_WALLET = "0x8632fa855d5dc6b59a3cf892d72cf4a94f182aae";
@@ -445,6 +513,7 @@
         window.addEventListener('DOMContentLoaded', () => {
             initTradingViewWidget("BINANCE:BTCUSDT");
             loadPlans();
+            loadLeaderboard(currentLeaderboardMode);
             startLivePricePolling("BTCUSDT");
 
             const urlParams = new URLSearchParams(window.location.search);
@@ -531,7 +600,127 @@
 
             if (viewId === 'adminView') {
                 loadAdminWithdrawals();
+            } else if (viewId === 'leaderboardView') {
+                loadLeaderboard(currentLeaderboardMode);
             }
+        }
+
+        function switchLeaderboardMode(mode) {
+            currentLeaderboardMode = mode;
+            document.getElementById('lb-btn-daily').classList.remove('active');
+            document.getElementById('lb-btn-monthly').classList.remove('active');
+            document.getElementById('lb-btn-payouts').classList.remove('active');
+
+            const subtitle = document.getElementById('lb-mode-subtitle');
+
+            if (mode === 'DAILY') {
+                document.getElementById('lb-btn-daily').classList.add('active');
+                document.getElementById('lb-metric-col-header').innerText = 'Daily Realized Profit (PnL)';
+                subtitle.innerText = 'Realized trading PnL from trades closed today.';
+            } else if (mode === 'MONTHLY') {
+                document.getElementById('lb-btn-monthly').classList.add('active');
+                document.getElementById('lb-metric-col-header').innerText = 'Monthly Realized Profit (PnL)';
+                subtitle.innerText = 'Realized trading PnL from trades closed during the current calendar month.';
+            } else if (mode === 'PAYOUTS') {
+                document.getElementById('lb-btn-payouts').classList.add('active');
+                document.getElementById('lb-metric-col-header').innerText = 'Total Lifetime Payouts';
+                subtitle.innerText = 'Cumulative total USDT withdrawals approved and paid out by admins.';
+            }
+
+            loadLeaderboard(mode);
+        }
+
+        async function loadLeaderboard(mode = 'DAILY') {
+            try {
+                const res = await fetch(`/api/leaderboard?mode=${mode}`);
+                const data = await res.json();
+                rawLeaderboardData = data.leaderboard || [];
+                renderLeaderboardTable(rawLeaderboardData);
+            } catch (err) { console.error(err); }
+        }
+
+        function renderLeaderboardTable(dataRows) {
+            const tbody = document.getElementById('leaderboard-table-body');
+            tbody.innerHTML = '';
+
+            const myRankLabel = document.getElementById('lb-my-rank-label');
+            myRankLabel.style.display = 'none';
+
+            if (!dataRows || dataRows.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; color: #6b7280; padding: 24px;">No records available for this leaderboard mode.</td></tr>';
+                return;
+            }
+
+            let userFoundRank = null;
+
+            dataRows.forEach((row, index) => {
+                const isUser = currentUserProfile && row.wallet_address && row.wallet_address.toLowerCase() === currentUserProfile.wallet_address.toLowerCase();
+                if (isUser) userFoundRank = index + 1;
+
+                const metricColor = row.metric_value >= 0 ? '#34d399' : '#ef4444';
+                const rankDisplay = `#${index + 1}`;
+                const badgeText = currentLeaderboardMode === 'PAYOUTS' ? 'PAID' : 'PnL';
+
+                tbody.innerHTML += `
+                    <tr id="lb-row-${row.username}" class="${isUser ? 'highlight-user' : ''}">
+                        <td><strong style="color: ${index < 3 ? '#c084fc' : '#f3f4f6'}">${rankDisplay}</strong></td>
+                        <td><span style="color: #c084fc; font-weight: bold;">@${row.username}</span> ${isUser ? '<small style="color:#34d399; margin-left:6px;">(You)</small>' : ''}</td>
+                        <td><code style="background: rgba(5,7,11,0.9); padding: 4px 8px; border-radius: 4px; color: #34d399;">${row.discount_code}</code></td>
+                        <td>
+                            <span style="color: ${metricColor}; font-weight: bold;">$${row.metric_value.toFixed(2)} USDT</span>
+                            <small style="font-size:10px; background: rgba(255,255,255,0.06); padding: 2px 6px; border-radius: 4px; margin-left: 6px; color: #9ca3af;">${badgeText}</small>
+                        </td>
+                        <td>
+                            <div style="display: flex; gap: 8px;">
+                                <button class="btn-wallet" style="padding: 5px 10px; font-size: 11px;" onclick="usePromoCode('${row.discount_code}')">Use Code</button>
+                                ${isUser ? `<button class="btn-share-x" onclick="shareRankOnX(${index + 1}, '${row.username}', ${row.metric_value})">𝕏 Share Rank</button>` : ''}
+                            </div>
+                        </td>
+                    </tr>
+                `;
+            });
+
+            if (userFoundRank) {
+                myRankLabel.innerText = `Your Rank: #${userFoundRank}`;
+                myRankLabel.style.display = 'inline-block';
+            }
+        }
+
+        function filterLeaderboardTable() {
+            const query = document.getElementById('lb-search-input').value.toLowerCase().trim();
+            if (!query) {
+                renderLeaderboardTable(rawLeaderboardData);
+                return;
+            }
+
+            const filtered = rawLeaderboardData.filter(row => 
+                row.username.toLowerCase().includes(query) || row.discount_code.toLowerCase().includes(query)
+            );
+            renderLeaderboardTable(filtered);
+        }
+
+        function shareRankOnX(rank, username, metricValue) {
+            const modeText = currentLeaderboardMode === 'DAILY' ? 'Daily Profit' : (currentLeaderboardMode === 'MONTHLY' ? 'Monthly Profit' : 'Lifetime Payouts');
+            const text = `I'm ranked #${rank} on @BlastrrProp for ${modeText} with $${metricValue.toFixed(2)} USDT! 🚀\n\nTrade live crypto prop accounts with 90% OFF using my code: ${currentUserProfile?.discount_code || 'BLASTRR'}\n\nhttps://blastrr.com/?ref=${currentUserProfile?.discount_code || ''}`;
+            window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}`, '_blank');
+        }
+
+        function shareTradeOnX(tradeId, symbol, side, pnl, entryPrice) {
+            const emoji = pnl >= 0 ? '🟢' : '🔴';
+            const text = `${emoji} Just closed a ${side} trade on ${symbol} via @BlastrrProp!\nEntry: $${entryPrice.toFixed(2)} | Realized PnL: $${pnl.toFixed(2)} USDT 📈\n\nTrade direct-to-live crypto prop accounts on Blastrr: https://blastrr.com`;
+            window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}`, '_blank');
+        }
+
+        function shareCreatorCodeOnX() {
+            if (!currentUserProfile) return;
+            const text = `Get 90% OFF your @BlastrrProp evaluation trading accounts using my promo code: ${currentUserProfile.discount_code} 🔥\n\nDirect-to-live crypto prop trading terminal with instant executions:\nhttps://blastrr.com/?ref=${currentUserProfile.discount_code}`;
+            window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}`, '_blank');
+        }
+
+        function usePromoCode(code) {
+            document.getElementById('applied-promo').value = code;
+            switchView('buyView');
+            applyPromo();
         }
 
         function getProvider() {
@@ -627,6 +816,7 @@
             userAccounts = [];
             selectedAccountId = null;
             activeAccount = null;
+            currentUserProfile = null;
 
             updateWalletUIState(false);
 
@@ -641,6 +831,8 @@
             
             document.getElementById('profile-setup-box').style.display = 'block';
             document.getElementById('profile-display-box').style.display = 'none';
+
+            loadLeaderboard(currentLeaderboardMode);
         }
 
         async function checkRole(wallet) {
@@ -700,7 +892,7 @@
 
                 let tradesRows = '';
                 if (trades.length === 0) {
-                    tradesRows = '<tr><td colspan="8" style="text-align: center; color: #6b7280; padding: 20px;">No trades recorded for this account.</td></tr>';
+                    tradesRows = '<tr><td colspan="9" style="text-align: center; color: #6b7280; padding: 20px;">No trades recorded for this account.</td></tr>';
                 } else {
                     trades.forEach(t => {
                         const pnlColor = t.pnl >= 0 ? '#34d399' : '#ef4444';
@@ -714,6 +906,9 @@
                                 <td>SL: ${t.sl || 'None'} / TP: ${t.tp || 'None'}</td>
                                 <td><span style="color: ${pnlColor}; font-weight: bold;">$${t.pnl.toFixed(2)}</span></td>
                                 <td><span style="color: ${t.status === 'OPEN' ? '#fbbf24' : '#9ca3af'}; font-weight: 600;">${t.status}</span></td>
+                                <td>
+                                    ${t.status === 'CLOSED' ? `<button class="btn-share-x" onclick="shareTradeOnX('${t.id}', '${t.symbol}', '${t.side}', ${t.pnl}, ${t.entry_price})">𝕏 Share</button>` : '-'}
+                                </td>
                             </tr>
                         `;
                     });
@@ -775,6 +970,7 @@
                                     <th>SL / TP</th>
                                     <th>Realized / PnL</th>
                                     <th>Status</th>
+                                    <th>Share</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -810,8 +1006,40 @@
                 const data = await res.json();
 
                 if (data.success) {
-                    alert("Withdrawal request submitted successfully! An admin will review and process your payment.");
+                    alert("Withdrawal request submitted successfully!");
                     loadUserAccounts(connectedWallet);
+                } else {
+                    alert("Error: " + data.error);
+                }
+            } catch (err) { console.error(err); }
+        }
+
+        async function requestCommissionWithdrawal() {
+            const amountInput = prompt(`Enter commission USDT amount to withdraw (Available: $${availableCommissionBalance.toFixed(2)}):`);
+            if (!amountInput) return;
+            const amount = parseFloat(amountInput);
+
+            if (isNaN(amount) || amount <= 0) {
+                alert("Please enter a valid amount.");
+                return;
+            }
+
+            if (amount > availableCommissionBalance) {
+                alert("Amount exceeds available commission balance.");
+                return;
+            }
+
+            try {
+                const res = await fetch('/api/referrals/withdraw', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ wallet_address: connectedWallet, amount })
+                });
+                const data = await res.json();
+
+                if (data.success) {
+                    alert("Commission withdrawal request submitted successfully!");
+                    loadUserProfile(connectedWallet);
                 } else {
                     alert("Error: " + data.error);
                 }
@@ -826,12 +1054,11 @@
                 tbody.innerHTML = '';
 
                 if (!data.withdrawals || data.withdrawals.length === 0) {
-                    tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; color: #6b7280; padding: 24px;">No withdrawal requests.</td></tr>';
+                    tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; color: #6b7280; padding: 24px;">No withdrawal requests.</td></tr>';
                     return;
                 }
 
                 data.withdrawals.forEach(w => {
-                    const dateStr = new Date(w.created_at).toLocaleString();
                     let statusColor = '#fbbf24';
                     if (w.status === 'PAID') statusColor = '#34d399';
                     if (w.status === 'REJECTED') statusColor = '#ef4444';
@@ -839,16 +1066,17 @@
                     let actionsHtml = `<span style="color: #9ca3af;">Processed</span>`;
                     if (w.status === 'PENDING') {
                         actionsHtml = `
-                            <button class="btn-wallet" style="padding: 4px 10px; font-size: 11px; background: #059669;" onclick="processWithdrawal('${w.id}', 'PAID')">Mark Paid</button>
-                            <button class="btn-sell" style="padding: 4px 10px; font-size: 11px;" onclick="processWithdrawal('${w.id}', 'REJECT')">Reject</button>
+                            <button class="btn-wallet" style="padding: 4px 10px; font-size: 11px; background: #059669;" onclick="processWithdrawal('${w.id}', 'PAID', '${w.type}')">Mark Paid</button>
+                            <button class="btn-sell" style="padding: 4px 10px; font-size: 11px;" onclick="processWithdrawal('${w.id}', 'REJECT', '${w.type}')">Reject</button>
                         `;
                     }
 
                     tbody.innerHTML += `
                         <tr>
                             <td><code>${w.id}</code></td>
+                            <td><span style="color: ${w.type === 'COMMISSION' ? '#c084fc' : '#60a5fa'}; font-weight: bold;">${w.type}</span></td>
                             <td><code style="color: #c084fc;" title="${w.wallet_address}">${w.wallet_address.substring(0,6)}...${w.wallet_address.slice(-4)}</code></td>
-                            <td>${w.plan_name} (${w.account_id})</td>
+                            <td>${w.plan_name}</td>
                             <td><strong style="color: #34d399;">$${w.amount.toFixed(2)} USDT</strong></td>
                             <td><span style="color: ${statusColor}; font-weight: bold;">${w.status}</span></td>
                             <td>${actionsHtml}</td>
@@ -858,14 +1086,14 @@
             } catch (err) { console.error(err); }
         }
 
-        async function processWithdrawal(withdrawalId, action) {
+        async function processWithdrawal(withdrawalId, action, type) {
             if (!confirm(`Are you sure you want to mark this withdrawal as ${action}?`)) return;
 
             try {
                 const res = await fetch('/api/admin/withdrawals/action', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ withdrawal_id: withdrawalId, action })
+                    body: JSON.stringify({ withdrawal_id: withdrawalId, action, type })
                 });
                 const data = await res.json();
 
@@ -988,6 +1216,7 @@
                 if (data.success) {
                     alert(`Position closed. Realized PnL: $${data.pnl.toFixed(2)}`);
                     loadUserAccounts(connectedWallet);
+                    loadLeaderboard(currentLeaderboardMode);
                 } else {
                     alert("Error: " + data.error);
                 }
@@ -1058,6 +1287,7 @@
                 const data = await res.json();
                 
                 if (data.user) {
+                    currentUserProfile = data.user;
                     document.getElementById('profile-setup-box').style.display = 'none';
                     document.getElementById('profile-display-box').style.display = 'block';
 
@@ -1066,13 +1296,16 @@
                     document.getElementById('disp-link').value = `https://blastrr.com/?ref=${data.user.discount_code}`;
 
                     document.getElementById('stat-ref-count').innerText = data.stats.total_referrals || 0;
-                    document.getElementById('stat-ref-earnings').innerText = `$${(data.stats.total_earned || 0).toFixed(2)} USDT`;
+                    availableCommissionBalance = data.stats.available_commission || 0;
+                    document.getElementById('stat-ref-earnings').innerText = `$${availableCommissionBalance.toFixed(2)} USDT`;
 
                     loadReferralTransactions(wallet);
                 } else {
+                    currentUserProfile = null;
                     document.getElementById('profile-setup-box').style.display = 'block';
                     document.getElementById('profile-display-box').style.display = 'none';
                 }
+                loadLeaderboard(currentLeaderboardMode);
             } catch (err) { console.error(err); }
         }
 

@@ -14,7 +14,6 @@ const db = new sqlite3.Database(dbPath, (err) => {
 
 function initTables() {
   db.serialize(() => {
-    // Users authenticated via Web3 wallet, storing custom username & unique promo code
     db.run(`CREATE TABLE IF NOT EXISTS users (
       wallet_address TEXT PRIMARY KEY,
       username TEXT UNIQUE,
@@ -23,7 +22,6 @@ function initTables() {
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     )`);
 
-    // Evaluation Plans (10x Base Price / 90% Discounted Listed Price)
     db.run(`CREATE TABLE IF NOT EXISTS plans (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       name TEXT NOT NULL,
@@ -36,14 +34,13 @@ function initTables() {
       max_single_day_profit_pct REAL DEFAULT 40.0
     )`);
 
-    // Designated Admin Wallets
     db.run(`CREATE TABLE IF NOT EXISTS admins (
       wallet_address TEXT PRIMARY KEY,
       role TEXT DEFAULT 'SUPER_ADMIN',
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     )`);
 
-    // Simulated Trading Accounts (1 Active Account per Wallet Limit)
+    // Removed unique constraint per wallet so users can hold multiple accounts
     db.run(`CREATE TABLE IF NOT EXISTS accounts (
       id TEXT PRIMARY KEY,
       wallet_address TEXT,
@@ -59,7 +56,6 @@ function initTables() {
       FOREIGN KEY(plan_id) REFERENCES plans(id)
     )`);
 
-    // Orders (Limit, SL, TP)
     db.run(`CREATE TABLE IF NOT EXISTS orders (
       id TEXT PRIMARY KEY,
       account_id TEXT,
@@ -74,7 +70,6 @@ function initTables() {
       FOREIGN KEY(account_id) REFERENCES accounts(id)
     )`);
 
-    // Executed Active Trades
     db.run(`CREATE TABLE IF NOT EXISTS trades (
       id TEXT PRIMARY KEY,
       account_id TEXT,
@@ -91,7 +86,6 @@ function initTables() {
       FOREIGN KEY(account_id) REFERENCES accounts(id)
     )`);
 
-    // Daily PnL Ledger for NY Time Consistency Audits
     db.run(`CREATE TABLE IF NOT EXISTS daily_pnl_ledger (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       account_id TEXT NOT NULL,
@@ -102,7 +96,6 @@ function initTables() {
       UNIQUE(account_id, ny_date)
     )`);
 
-    // Payout Requests Queue
     db.run(`CREATE TABLE IF NOT EXISTS payouts (
       id TEXT PRIMARY KEY,
       account_id TEXT NOT NULL,
@@ -118,7 +111,6 @@ function initTables() {
       FOREIGN KEY(account_id) REFERENCES accounts(id)
     )`);
 
-    // Affiliate Earnings Ledger (2% Commission Tracking)
     db.run(`CREATE TABLE IF NOT EXISTS referrals (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       referrer_wallet TEXT,
@@ -129,14 +121,12 @@ function initTables() {
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     )`);
 
-    // Blacklisted Wallets
     db.run(`CREATE TABLE IF NOT EXISTS blacklisted_wallets (
       wallet_address TEXT PRIMARY KEY,
       reason TEXT,
       banned_at DATETIME DEFAULT CURRENT_TIMESTAMP
     )`);
 
-    // Admin Audit Logs
     db.run(`CREATE TABLE IF NOT EXISTS audit_logs (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       admin_wallet TEXT,

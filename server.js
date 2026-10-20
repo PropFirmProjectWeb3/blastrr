@@ -41,6 +41,57 @@ app.get('/api/auth/role', (req, res) => {
   });
 });
 
+// Leaderboard API supporting: 'DAILY', 'MONTHLY', 'PAYOUTS'
+app.get('/api/leaderboard', (req, res) => {
+  const mode = req.query.mode || 'DAILY';
+  let query = '';
+
+  if (mode === 'DAILY') {
+    query = `
+      SELECT u.username, u.discount_code, u.wallet_address, SUM(t.pnl) as metric_value
+      FROM users u
+      JOIN accounts a ON LOWER(u.wallet_address) = LOWER(a.wallet_address)
+      JOIN trades t ON a.id = t.account_id
+      WHERE t.status = 'CLOSED' AND u.username IS NOT NULL AND strftime('%Y-%m-%d', t.closed_at) = strftime('%Y-%m-%d', 'now')
+      GROUP BY u.wallet_address
+      ORDER BY metric_value DESC
+      LIMIT 100;
+    `;
+  } else if (mode === 'MONTHLY') {
+    query = `
+      SELECT u.username, u.discount_code, u.wallet_address, SUM(t.pnl) as metric_value
+      FROM users u
+      JOIN accounts a ON LOWER(u.wallet_address) = LOWER(a.wallet_address)
+      JOIN trades t ON a.id = t.account_id
+      WHERE t.status = 'CLOSED' AND u.username IS NOT NULL AND strftime('%Y-%m', t.closed_at) = strftime('%Y-%m', 'now')
+      GROUP BY u.wallet_address
+      ORDER BY metric_value DESC
+      LIMIT 100;
+    `;
+  } else if (mode === 'PAYOUTS') {
+    query = `
+      SELECT u.username, u.discount_code, u.wallet_address, SUM(w.amount) as metric_value
+      FROM users u
+      JOIN (
+        SELECT wallet_address, amount FROM withdrawals WHERE status = 'PAID'
+        UNION ALL
+        SELECT wallet_address, amount FROM referral_withdrawals WHERE status = 'PAID'
+      ) w ON LOWER(u.wallet_address) = LOWER(w.wallet_address)
+      WHERE u.username IS NOT NULL
+      GROUP BY u.wallet_address
+      ORDER BY metric_value DESC
+      LIMIT 100;
+    `;
+  } else {
+    return res.status(400).json({ error: "Invalid leaderboard mode" });
+  }
+
+  db.all(query, [], (err, rows) => {
+    if (err) return res.status(500).json({ error: err.message });
+    res.json({ leaderboard: rows || [], mode });
+  });
+});
+
 app.get('/api/user/profile', (req, res) => {
   const wallet = req.query.wallet;
   if (!wallet) return res.status(400).json({ error: "Wallet required" });
@@ -53,10 +104,22 @@ app.get('/api/user/profile', (req, res) => {
        FROM referrals WHERE LOWER(referrer_wallet) = LOWER(?)`, 
       [wallet], 
       (err2, stats) => {
-        res.json({
-          user: user || null,
-          stats: stats[0] || { total_referrals: 0, total_earned: 0 }
-        });
+        db.all(
+          `SELECT SUM(amount) as total_withdrawn FROM referral_withdrawals WHERE LOWER(wallet_address) = LOWER(?) AND status != 'REJECTED'`,
+          [wallet],
+          (err3, wdrStats) => {
+            const totalEarned = stats[0]?.total_earned || 0;
+            const totalWithdrawn = wdrStats[0]?.total_withdrawn || 0;
+            res.json({
+              user: user || null,
+              stats: {
+                total_referrals: stats[0]?.total_referrals || 0,
+                total_earned: totalEarned,
+                available_commission: Math.max(0, totalEarned - totalWithdrawn)
+              }
+            });
+          }
+        );
       }
     );
   });
@@ -97,6 +160,43 @@ app.get('/api/user/referrals', (req, res) => {
     (err, rows) => {
       if (err) return res.status(500).json({ error: err.message });
       res.json({ referrals: rows || [] });
+    }
+  );
+});
+
+app.post('/api/referrals/withdraw', (req, res) => {
+  const { wallet_address, amount } = req.body;
+  if (!wallet_address || !amount || amount <= 0) {
+    return res.status(400).json({ error: "Invalid withdrawal parameters." });
+  }
+
+  db.all(
+    `SELECT SUM(commission_earned) as total_earned FROM referrals WHERE LOWER(referrer_wallet) = LOWER(?)`,
+    [wallet_address],
+    (err, earnedRows) => {
+      db.all(
+        `SELECT SUM(amount) as total_withdrawn FROM referral_withdrawals WHERE LOWER(wallet_address) = LOWER(?) AND status != 'REJECTED'`,
+        [wallet_address],
+        (err2, withdrawnRows) => {
+          const totalEarned = earnedRows[0]?.total_earned || 0;
+          const totalWithdrawn = withdrawnRows[0]?.total_withdrawn || 0;
+          const available = totalEarned - totalWithdrawn;
+
+          if (amount > available) {
+            return res.status(400).json({ error: `Requested amount ($${amount}) exceeds available commission balance ($${available.toFixed(2)}).` });
+          }
+
+          const wdrId = 'refw_' + Math.random().toString(36).substring(2, 11);
+          db.run(
+            `INSERT INTO referral_withdrawals (id, wallet_address, amount, status) VALUES (?, ?, ?, 'PENDING')`,
+            [wdrId, wallet_address, amount],
+            (err3) => {
+              if (err3) return res.status(500).json({ error: err3.message });
+              res.json({ success: true, message: "Commission withdrawal requested successfully." });
+            }
+          );
+        }
+      );
     }
   );
 });
@@ -238,7 +338,6 @@ app.post('/api/accounts/purchase', (req, res) => {
   });
 });
 
-// Withdrawal Requests
 app.post('/api/withdrawals/request', (req, res) => {
   const { account_id, wallet_address, amount } = req.body;
   if (!account_id || !wallet_address || !amount || amount <= 0) {
@@ -256,11 +355,7 @@ app.post('/api/withdrawals/request', (req, res) => {
 
     db.serialize(() => {
       db.run("BEGIN TRANSACTION");
-
-      // Deduct from current balance
       db.run("UPDATE accounts SET current_balance = current_balance - ? WHERE id = ?", [amount, account_id]);
-
-      // Insert withdrawal request
       db.run(
         `INSERT INTO withdrawals (id, account_id, wallet_address, amount, status) VALUES (?, ?, ?, ?, 'PENDING')`,
         [withdrawalId, account_id, wallet_address, amount],
@@ -277,14 +372,16 @@ app.post('/api/withdrawals/request', (req, res) => {
   });
 });
 
-// Admin endpoints for withdrawals
 app.get('/api/admin/withdrawals', (req, res) => {
   db.all(
-    `SELECT w.*, a.plan_id, p.name as plan_name 
+    `SELECT w.*, 'ACCOUNT' as type, p.name as plan_name 
      FROM withdrawals w 
      JOIN accounts a ON w.account_id = a.id 
      JOIN plans p ON a.plan_id = p.id 
-     ORDER BY w.created_at DESC`,
+     UNION ALL
+     SELECT id as id, NULL as account_id, wallet_address, amount, status, created_at, 'COMMISSION' as type, 'Referral Commission' as plan_name 
+     FROM referral_withdrawals
+     ORDER BY created_at DESC`,
     [],
     (err, rows) => {
       if (err) return res.status(500).json({ error: err.message });
@@ -294,10 +391,13 @@ app.get('/api/admin/withdrawals', (req, res) => {
 });
 
 app.post('/api/admin/withdrawals/action', (req, res) => {
-  const { withdrawal_id, action } = req.body; // action: 'PAID' or 'REJECT'
+  const { withdrawal_id, action, type } = req.body; 
   if (!withdrawal_id || !action) return res.status(400).json({ error: "Missing parameters." });
 
-  db.get("SELECT * FROM withdrawals WHERE id = ?", [withdrawal_id], (err, wdr) => {
+  const isCommission = type === 'COMMISSION' || withdrawal_id.startsWith('refw_');
+  const tableName = isCommission ? 'referral_withdrawals' : 'withdrawals';
+
+  db.get(`SELECT * FROM ${tableName} WHERE id = ?`, [withdrawal_id], (err, wdr) => {
     if (err || !wdr) return res.status(404).json({ error: "Withdrawal request not found." });
     if (wdr.status !== 'PENDING') return res.status(400).json({ error: "Request already processed." });
 
@@ -305,11 +405,12 @@ app.post('/api/admin/withdrawals/action', (req, res) => {
       db.run("BEGIN TRANSACTION");
 
       if (action === 'REJECT') {
-        // Refund balance back to account
-        db.run("UPDATE accounts SET current_balance = current_balance + ? WHERE id = ?", [wdr.amount, wdr.account_id]);
-        db.run("UPDATE withdrawals SET status = 'REJECTED' WHERE id = ?", [withdrawal_id]);
+        if (!isCommission && wdr.account_id) {
+          db.run("UPDATE accounts SET current_balance = current_balance + ? WHERE id = ?", [wdr.amount, wdr.account_id]);
+        }
+        db.run(`UPDATE ${tableName} SET status = 'REJECTED' WHERE id = ?`, [withdrawal_id]);
       } else if (action === 'PAID') {
-        db.run("UPDATE withdrawals SET status = 'PAID' WHERE id = ?", [withdrawal_id]);
+        db.run(`UPDATE ${tableName} SET status = 'PAID' WHERE id = ?`, [withdrawal_id]);
       }
 
       db.run("COMMIT");
@@ -339,12 +440,7 @@ app.post('/api/trades/execute', (req, res) => {
 
     db.serialize(() => {
       db.run("BEGIN TRANSACTION");
-
-      db.run(
-        `UPDATE accounts SET current_balance = current_balance - ? WHERE id = ?`,
-        [size_usd, account_id]
-      );
-
+      db.run(`UPDATE accounts SET current_balance = current_balance - ? WHERE id = ?`, [size_usd, account_id]);
       db.run(
         `INSERT INTO trades (id, account_id, symbol, side, entry_price, size_usd, units, sl, tp, status)
          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'OPEN')`,
@@ -375,17 +471,8 @@ app.post('/api/trades/close', (req, res) => {
 
     db.serialize(() => {
       db.run("BEGIN TRANSACTION");
-
-      db.run(
-        `UPDATE trades SET status = 'CLOSED', pnl = ?, closed_at = CURRENT_TIMESTAMP WHERE id = ?`,
-        [pnl, trade_id]
-      );
-
-      db.run(
-        `UPDATE accounts SET current_balance = current_balance + ?, current_equity = current_equity + ? WHERE id = ?`,
-        [returnAmount, pnl, trade.account_id]
-      );
-
+      db.run(`UPDATE trades SET status = 'CLOSED', pnl = ?, closed_at = CURRENT_TIMESTAMP WHERE id = ?`, [pnl, trade_id]);
+      db.run(`UPDATE accounts SET current_balance = current_balance + ?, current_equity = current_equity + ? WHERE id = ?`, [returnAmount, pnl, trade.account_id]);
       db.run("COMMIT");
       res.json({ success: true, pnl: pnl });
     });

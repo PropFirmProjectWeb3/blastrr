@@ -6,8 +6,77 @@ const db = require('./database');
 const app = express();
 const PORT = process.env.PORT || 4480;
 
+// --- 1. PROXY TRUST CONFIGURATION ---
+// Required behind Nginx reverse proxy to capture true client IP addresses via req.ip
+app.set('trust proxy', 'loopback');
+
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
+
+// --- 2. IP-BASED RATE LIMITER & BINANCE CACHE ---
+const requestMap = new Map();
+
+function createRateLimiter(maxRequests = 40, windowMs = 60000) {
+    return (req, res, next) => {
+        const clientIp = req.ip || 'unknown';
+        const now = Date.now();
+
+        if (!requestMap.has(clientIp)) {
+            requestMap.set(clientIp, { count: 1, windowStart: now });
+            return next();
+        }
+
+        const data = requestMap.get(clientIp);
+        if (now - data.windowStart > windowMs) {
+            data.count = 1;
+            data.windowStart = now;
+            return next();
+        }
+
+        data.count++;
+        if (data.count > maxRequests) {
+            console.warn(`[RATE LIMIT] Blocked IP ${clientIp} for exceeding ${maxRequests} requests.`);
+            return res.status(429).json({ success: false, error: "Too many requests from your IP. Please slow down." });
+        }
+
+        next();
+    };
+}
+
+const sensitiveLimiter = createRateLimiter(30, 60000); // 30 requests max per minute per IP
+
+let cachedPrices = {};
+let lastFetchTime = 0;
+
+async function getCachedBinancePrice(symbol) {
+    const now = Date.now();
+    if (now - lastFetchTime < 1500 && cachedPrices[symbol]) {
+        return cachedPrices[symbol];
+    }
+    try {
+        const pair = symbol.replace('BINANCE:', '');
+        return new Promise((resolve) => {
+            https.get(`https://api.binance.com/api/v3/ticker/price?symbol=${pair}`, (res) => {
+                let body = '';
+                res.on('data', chunk => body += chunk);
+                res.on('end', () => {
+                    try {
+                        const parsed = JSON.parse(body);
+                        if (parsed && parsed.price) {
+                            cachedPrices[symbol] = parseFloat(parsed.price);
+                            lastFetchTime = now;
+                            resolve(cachedPrices[symbol]);
+                        } else {
+                            resolve(cachedPrices[symbol] || 0);
+                        }
+                    } catch (e) { resolve(cachedPrices[symbol] || 0); }
+                });
+            }).on('error', () => resolve(cachedPrices[symbol] || 0));
+        });
+    } catch (err) {
+        return cachedPrices[symbol] || 0;
+    }
+}
 
 function seedPlans() {
   db.get("SELECT COUNT(*) as count FROM plans", (err, row) => {
@@ -18,7 +87,7 @@ function seedPlans() {
         ('Trader $20k', 2000.00, 200.00, 20000, 4000, 10.0, 5.0, 40.0),
         ('Pro $50k', 5000.00, 500.00, 50000, 10000, 10.0, 5.0, 40.0),
         ('Elite $100k', 10000.00, 1000.00, 100000, 20000, 10.0, 5.0, 40.0),
-        ('Whale $250k', 25000.00, 2500.00, 250000, 50000, 10.0, 5.0, 40.0)`);
+        ('Whale $250k', 25000.00, 2500.00, 250050, 50000, 10.0, 5.0, 40.0)`);
       console.log("Blastrr 6-Tier evaluation plans successfully seeded.");
     }
   });
@@ -27,23 +96,7 @@ function seedPlans() {
 setTimeout(seedPlans, 1000);
 
 function getLiveBinancePrice(symbol) {
-  return new Promise((resolve, reject) => {
-    const pair = symbol.replace('BINANCE:', '');
-    https.get(`https://api.binance.com/api/v3/ticker/price?symbol=${pair}`, (res) => {
-      let body = '';
-      res.on('data', chunk => body += chunk);
-      res.on('end', () => {
-        try {
-          const parsed = JSON.parse(body);
-          if (parsed && parsed.price) {
-            resolve(parseFloat(parsed.price));
-          } else {
-            resolve(null);
-          }
-        } catch (e) { resolve(null); }
-      });
-    }).on('error', () => resolve(null));
-  });
+  return getCachedBinancePrice(symbol);
 }
 
 // Background Monitor: Automatically Checks & Closes SL/TP Hits Every 1.5 Seconds
@@ -211,7 +264,7 @@ app.get('/api/user/profile', (req, res) => {
   });
 });
 
-app.post('/api/user/profile', (req, res) => {
+app.post('/api/user/profile', sensitiveLimiter, (req, res) => {
   const { wallet_address, username, discount_code } = req.body;
   if (!wallet_address || !username || !discount_code) {
     return res.status(400).json({ error: "Username and promo code are required." });
@@ -267,7 +320,7 @@ app.get('/api/user/referrals', (req, res) => {
   );
 });
 
-app.post('/api/referrals/withdraw', (req, res) => {
+app.post('/api/referrals/withdraw', sensitiveLimiter, (req, res) => {
   const { wallet_address, amount } = req.body;
   if (!wallet_address || !amount || amount <= 0) {
     return res.status(400).json({ error: "Invalid withdrawal parameters." });
@@ -304,7 +357,7 @@ app.post('/api/referrals/withdraw', (req, res) => {
   );
 });
 
-app.post('/api/promo/validate', (req, res) => {
+app.post('/api/promo/validate', sensitiveLimiter, (req, res) => {
   const { code } = req.body;
   if (!code) return res.json({ valid: false });
 
@@ -388,7 +441,7 @@ app.get('/api/accounts/details', (req, res) => {
   );
 });
 
-app.post('/api/accounts/purchase', (req, res) => {
+app.post('/api/accounts/purchase', sensitiveLimiter, (req, res) => {
   const { wallet_address, plan_id, tx_hash, promo_code } = req.body;
 
   if (!wallet_address || !plan_id) {
@@ -442,8 +495,9 @@ app.post('/api/accounts/purchase', (req, res) => {
 });
 
 // --- SECURE WITHDRAWAL REQUEST ENDPOINT ---
-app.post('/api/withdrawals/request', async (req, res) => {
+app.post('/api/withdrawals/request', sensitiveLimiter, async (req, res) => {
     const { account_id, wallet_address, amount } = req.body;
+    const userIp = req.ip;
 
     if (!account_id || !wallet_address || !amount || amount <= 0) {
         return res.status(400).json({ success: false, error: "Invalid request parameters." });
@@ -490,9 +544,9 @@ app.post('/api/withdrawals/request', async (req, res) => {
         const withdrawalId = 'WDR-' + Math.random().toString(36).substring(2, 9).toUpperCase();
         
         db.prepare(`
-            INSERT INTO withdrawals (id, account_id, wallet_address, type, plan_name, amount, status, created_at)
-            VALUES (?, ?, ?, 'PROFIT_SPLIT', ?, ?, 'PENDING', datetime('now'))
-        `).run(withdrawalId, account_id, wallet_address, account.plan_name, amount);
+            INSERT INTO withdrawals (id, account_id, wallet_address, type, plan_name, amount, user_ip, status, created_at)
+            VALUES (?, ?, ?, 'PROFIT_SPLIT', ?, ?, ?, 'PENDING', datetime('now'))
+        `).run(withdrawalId, account_id, wallet_address, account.plan_name, amount, userIp);
 
         res.json({ success: true, message: "Withdrawal request submitted successfully to the admin queue!" });
 
@@ -501,6 +555,7 @@ app.post('/api/withdrawals/request', async (req, res) => {
         res.status(500).json({ success: false, error: "Internal server error during withdrawal processing." });
     }
 });
+
 app.get('/api/admin/withdrawals', (req, res) => {
   db.all(
     `SELECT w.*, 'ACCOUNT' as type, p.name as plan_name 
@@ -508,7 +563,7 @@ app.get('/api/admin/withdrawals', (req, res) => {
      JOIN accounts a ON w.account_id = a.id 
      JOIN plans p ON a.plan_id = p.id 
      UNION ALL
-     SELECT id as id, NULL as account_id, wallet_address, amount, status, created_at, 'COMMISSION' as type, 'Referral Commission' as plan_name 
+     SELECT id as id, NULL as account_id, wallet_address, amount, status, created_at, 'COMMISSION' as type, 'Referral Commission' as plan_name, NULL as user_ip 
      FROM referral_withdrawals
      ORDER BY created_at DESC`,
     [],
@@ -519,7 +574,7 @@ app.get('/api/admin/withdrawals', (req, res) => {
   );
 });
 
-app.post('/api/admin/withdrawals/action', (req, res) => {
+app.post('/api/admin/withdrawals/action', sensitiveLimiter, (req, res) => {
   const { withdrawal_id, action, type } = req.body; 
   if (!withdrawal_id || !action) return res.status(400).json({ error: "Missing parameters." });
 
@@ -548,7 +603,7 @@ app.post('/api/admin/withdrawals/action', (req, res) => {
   });
 });
 
-app.post('/api/trades/execute', (req, res) => {
+app.post('/api/trades/execute', sensitiveLimiter, (req, res) => {
   const { account_id, symbol, side, price, size_usd, sl, tp } = req.body;
 
   if (!account_id || !symbol || !side || !price || !size_usd) {
@@ -605,7 +660,7 @@ app.post('/api/trades/execute', (req, res) => {
   });
 });
 
-app.post('/api/trades/close', (req, res) => {
+app.post('/api/trades/close', sensitiveLimiter, (req, res) => {
   const { trade_id, current_market_price } = req.body;
   if (!trade_id) return res.status(400).json({ error: "Trade ID required." });
 

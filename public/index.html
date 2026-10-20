@@ -266,6 +266,7 @@
                         <div class="card-title" style="display: flex; justify-content: space-between; align-items: center;">
                             <span id="chart-title">TradingView Chart Terminal</span>
                             <div style="display: flex; align-items: center; gap: 8px;">
+                                <button class="btn-wallet" style="padding: 5px 10px; font-size: 11px;" onclick="manualRefreshData()">🔄 Refresh</button>
                                 <label style="font-size: 11px; color: #9ca3af; text-transform: uppercase; font-weight: 700;">Active Account:</label>
                                 <select id="active-account-select" onchange="switchActiveAccount(this.value)" style="background: #05070b; border: 1px solid rgba(255, 255, 255, 0.1); color: white; padding: 6px 10px; border-radius: 6px; font-size: 13px;">
                                     <option value="">No Accounts Found</option>
@@ -343,7 +344,10 @@
         <!-- 2. ACCOUNTS VIEW -->
         <section id="accountsView" class="view-panel">
             <div class="card">
-                <div class="card-title">Your Prop Accounts Portfolio</div>
+                <div class="card-title">
+                    <span>Your Prop Accounts Portfolio</span>
+                    <button class="btn-wallet" style="padding: 5px 12px; font-size: 11px;" onclick="manualRefreshData()">🔄 Refresh Accounts</button>
+                </div>
                 <div id="accounts-portfolio-container">
                     <p style="text-align: center; color: #6b7280; padding: 30px;">Connect wallet to view your accounts.</p>
                 </div>
@@ -388,7 +392,7 @@
             </div>
         </section>
 
-        <!-- 4. PROFILE & PROMOS VIEW (EDITABLE AT ANY TIME) -->
+        <!-- 4. PROFILE & PROMOS VIEW -->
         <section id="profileView" class="view-panel">
             <div class="card">
                 <div class="card-title">
@@ -505,6 +509,7 @@
         let activePromoCode = null;
         let plansData = [];
         let livePriceInterval = null;
+        let autoSyncInterval = null;
         let currentLivePrice = 0;
         let availableCommissionBalance = 0;
         let currentLeaderboardMode = 'DAILY';
@@ -519,6 +524,13 @@
             loadPlans();
             loadLeaderboard(currentLeaderboardMode);
             startLivePricePolling("BTCUSDT");
+
+            // Start background auto-sync loop every 5 seconds
+            autoSyncInterval = setInterval(() => {
+                if (connectedWallet) {
+                    silentSyncUserData(connectedWallet);
+                }
+            }, 5000);
 
             const urlParams = new URLSearchParams(window.location.search);
             const refCode = urlParams.get('ref');
@@ -606,6 +618,8 @@
                 loadAdminWithdrawals();
             } else if (viewId === 'leaderboardView') {
                 loadLeaderboard(currentLeaderboardMode);
+            } else if (viewId === 'accountsView' && connectedWallet) {
+                loadUserAccounts(connectedWallet);
             }
         }
 
@@ -814,6 +828,51 @@
             loadUserProfile(connectedWallet);
         }
 
+        async function silentSyncUserData(wallet) {
+            try {
+                const res = await fetch(`/api/accounts?wallet=${wallet}`);
+                const data = await res.json();
+                userAccounts = data.accounts || [];
+
+                const selectElem = document.getElementById('active-account-select');
+                const currentSelected = selectElem.value;
+
+                selectElem.innerHTML = '';
+                if (userAccounts.length === 0) {
+                    selectElem.innerHTML = '<option value="">No Accounts Available</option>';
+                    selectedAccountId = null;
+                    activeAccount = null;
+                } else {
+                    userAccounts.forEach((acc) => {
+                        if (!selectedAccountId) selectedAccountId = acc.id;
+                        if (acc.id === selectedAccountId) activeAccount = acc;
+                        selectElem.innerHTML += `<option value="${acc.id}" ${acc.id === selectedAccountId ? 'selected' : ''}>${acc.plan_name} (${acc.id}) - Bal: $${acc.current_balance.toLocaleString()}</option>`;
+                    });
+                    if (currentSelected && userAccounts.some(a => a.id === currentSelected)) {
+                        selectElem.value = currentSelected;
+                        selectedAccountId = currentSelected;
+                        activeAccount = userAccounts.find(a => a.id === currentSelected);
+                    }
+                }
+
+                if (selectedAccountId) {
+                    updateAvailableBalanceLabel();
+                    loadOpenTrades(selectedAccountId);
+                }
+
+                if (document.getElementById('accountsView').classList.contains('active')) {
+                    renderAccountsPortfolio();
+                }
+            } catch (err) { console.error("Auto-sync error:", err); }
+        }
+
+        function manualRefreshData() {
+            if (!connectedWallet) { alert("Connect wallet first!"); return; }
+            silentSyncUserData(connectedWallet);
+            loadLeaderboard(currentLeaderboardMode);
+            alert("Data refreshed successfully!");
+        }
+
         function disconnectWallet() {
             connectedWallet = null;
             availableWallets = [];
@@ -851,43 +910,18 @@
         }
 
         async function loadUserAccounts(wallet) {
-            try {
-                const res = await fetch(`/api/accounts?wallet=${wallet}`);
-                const data = await res.json();
-                userAccounts = data.accounts || [];
-
-                const selectElem = document.getElementById('active-account-select');
-                selectElem.innerHTML = '';
-
-                if (userAccounts.length === 0) {
-                    selectElem.innerHTML = '<option value="">No Accounts Available</option>';
-                    document.getElementById('accounts-portfolio-container').innerHTML = '<p style="text-align: center; color: #6b7280; padding: 30px;">No accounts found. Purchase a plan in the marketplace!</p>';
-                    selectedAccountId = null;
-                    activeAccount = null;
-                    return;
-                }
-
-                userAccounts.forEach((acc, idx) => {
-                    if (idx === 0 && !selectedAccountId) {
-                        selectedAccountId = acc.id;
-                        activeAccount = acc;
-                    }
-                    if (acc.id === selectedAccountId) activeAccount = acc;
-                    selectElem.innerHTML += `<option value="${acc.id}" ${acc.id === selectedAccountId ? 'selected' : ''}>${acc.plan_name} (${acc.id}) - Bal: $${acc.current_balance.toLocaleString()}</option>`;
-                });
-
-                if (selectedAccountId) {
-                    updateAvailableBalanceLabel();
-                    loadOpenTrades(selectedAccountId);
-                }
-
-                renderAccountsPortfolio();
-            } catch (err) { console.error(err); }
+            await silentSyncUserData(wallet);
+            renderAccountsPortfolio();
         }
 
         async function renderAccountsPortfolio() {
             const container = document.getElementById('accounts-portfolio-container');
             container.innerHTML = '';
+
+            if (userAccounts.length === 0) {
+                container.innerHTML = '<p style="text-align: center; color: #6b7280; padding: 30px;">No accounts found. Purchase a plan in the marketplace!</p>';
+                return;
+            }
 
             for (const acc of userAccounts) {
                 const detailsRes = await fetch(`/api/accounts/details?account_id=${acc.id}`);
@@ -1137,6 +1171,7 @@
         }
 
         async function loadOpenTrades(accountId) {
+            if (!accountId) return;
             const res = await fetch(`/api/trades/active?account_id=${accountId}`);
             const data = await res.json();
             const tbody = document.getElementById('open-trades-list');

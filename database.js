@@ -82,6 +82,14 @@ function initTables() {
       FOREIGN KEY(account_id) REFERENCES accounts(id)
     )`);
 
+    db.run(`CREATE TABLE IF NOT EXISTS referral_withdrawals (
+      id TEXT PRIMARY KEY,
+      wallet_address TEXT,
+      amount REAL,
+      status TEXT DEFAULT 'PENDING',
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    )`);
+
     db.run(`CREATE TABLE IF NOT EXISTS referrals (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       referrer_wallet TEXT,

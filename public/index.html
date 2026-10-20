@@ -155,12 +155,18 @@
                     <div class="card">
                         <div class="card-title">Order Entry</div>
                         <div class="form-group">
-                            <label>Market Selection</label>
+                            <label>Market Selection (Binance Pairs)</label>
                             <select id="order-symbol" onchange="updateTradingViewSymbol(this.value)">
                                 <option value="BINANCE:BTCUSDT">BTC/USDT</option>
                                 <option value="BINANCE:ETHUSDT">ETH/USDT</option>
                                 <option value="BINANCE:XRPUSDT">XRP/USDT</option>
                                 <option value="BINANCE:SOLUSDT">SOL/USDT</option>
+                                <option value="BINANCE:BNBUSDT">BNB/USDT</option>
+                                <option value="BINANCE:DOGEUSDT">DOGE/USDT</option>
+                                <option value="BINANCE:ADAUSDT">ADA/USDT</option>
+                                <option value="BINANCE:AVAXUSDT">AVAX/USDT</option>
+                                <option value="BINANCE:SUIUSDT">SUI/USDT</option>
+                                <option value="BINANCE:LINKUSDT">LINK/USDT</option>
                             </select>
                         </div>
                         <div class="form-group">
@@ -209,14 +215,14 @@
                 <div class="card-title">Your Creator & Affiliate Profile</div>
                 <div id="profile-setup-box">
                     <p style="color: #9ca3af; font-size: 14px; margin-bottom: 16px;">
-                        Create your unique username and custom discount code. When traders use your code at checkout, they get 90% off and you earn a <strong>2% cash commission</strong> on their plan purchase!
+                        Create your unique username and custom promo code. Your promo code attributes referred traders to your profile so you earn a <strong>fixed 2% cash commission</strong> on every plan purchase!
                     </p>
                     <div class="form-group">
                         <label>Unique Username</label>
                         <input type="text" id="prof-username" placeholder="e.g. SatoshiTrader">
                     </div>
                     <div class="form-group">
-                        <label>Your Custom Discount Code</label>
+                        <label>Your Custom Promo Code</label>
                         <input type="text" id="prof-code" placeholder="e.g. SATOSHI90">
                     </div>
                     <button class="btn-wallet" style="width: 100%; margin-top: 10px;" onclick="saveProfile()">Save Profile & Generate Code</button>
@@ -246,7 +252,7 @@
             <div class="card">
                 <div class="card-title">Evaluation Plans Marketplace (90% Launch Discount Active)</div>
                 <div class="form-group" style="max-width: 400px; margin-bottom: 20px;">
-                    <label>Have a Creator Discount Code?</label>
+                    <label>Have a Creator Promo Code?</label>
                     <div style="display: flex; gap: 8px;">
                         <input type="text" id="applied-promo" placeholder="Enter Code (e.g. VIP90)">
                         <button class="btn-wallet" onclick="applyPromo()">Apply</button>
@@ -294,7 +300,6 @@
             initTradingViewWidget("BINANCE:BTCUSDT");
             loadPlans();
 
-            // Check URL query string for automatic ref code capture
             const urlParams = new URLSearchParams(window.location.search);
             const refCode = urlParams.get('ref');
             if (refCode) {
@@ -488,7 +493,7 @@
             const discount_code = document.getElementById('prof-code').value.trim();
 
             if (!username || !discount_code) {
-                alert("Please provide both a username and a discount code.");
+                alert("Please provide both a username and a promo code.");
                 return;
             }
 
@@ -505,6 +510,40 @@
             } else {
                 alert("Error: " + data.error);
             }
+        }
+
+        async function placeOrder(side) {
+            if (!activeAccount) {
+                alert("You must have an active prop account to place orders!");
+                return;
+            }
+
+            const symbol = document.getElementById('order-symbol').value;
+            const price = parseFloat(document.getElementById('order-price').value);
+            const size = parseFloat(document.getElementById('order-size').value);
+            const sl = parseFloat(document.getElementById('order-sl').value) || null;
+            const tp = parseFloat(document.getElementById('order-tp').value) || null;
+
+            if (!price || !size) {
+                alert("Please enter a valid limit price and position size.");
+                return;
+            }
+
+            try {
+                const res = await fetch('/api/orders/place', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ account_id: activeAccount.id, symbol, side, price, size, sl, tp })
+                });
+                const data = await res.json();
+
+                if (data.success) {
+                    alert("Limit order placed successfully!");
+                    loadActiveOrders(activeAccount.id);
+                } else {
+                    alert("Error: " + data.error);
+                }
+            } catch (err) { console.error(err); }
         }
 
         async function buyPlan(planId, priceUsdt) {

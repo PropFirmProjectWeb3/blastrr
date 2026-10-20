@@ -36,8 +36,11 @@
         button:hover { background: #6d28d9; }
         #admin-nav-item { display: none; background: #b91c1c; }
         #admin-nav-item:hover { background: #991b1b; }
-        .dashboard { display: grid; grid-template-columns: 3fr 1fr; gap: 20px; }
-        .card { background: #1f2937; padding: 20px; border-radius: 8px; border: 1px solid #374151; }
+        .dashboard { display: grid; grid-template-columns: 2fr 1fr; gap: 20px; }
+        .card { background: #1f2937; padding: 20px; border-radius: 8px; border: 1px solid #374151; margin-bottom: 20px; }
+        .plans-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-top: 15px; }
+        .plan-card { background: #111827; border: 1px solid #374151; padding: 15px; border-radius: 6px; text-align: center; }
+        .plan-card h4 { margin: 0 0 10px 0; color: #a855f7; }
         .status-badge {
             display: inline-block;
             padding: 4px 8px;
@@ -48,6 +51,7 @@
             color: #9ca3af;
         }
         .status-badge.connected { background: #065f46; color: #34d399; }
+        .account-item { background: #111827; padding: 12px; border-radius: 6px; margin-bottom: 10px; border: 1px solid #374151; }
     </style>
 </head>
 <body>
@@ -60,52 +64,58 @@
     </header>
 
     <div class="dashboard">
-        <div class="card">
-            <h3>TradingView Chart & Execution Feed</h3>
-            <p>Connect your wallet to load your active simulated account or purchase a plan.</p>
+        <div>
+            <div class="card">
+                <h3>Trading View & Execution Terminal</h3>
+                <p id="terminal-notice">Please connect your Web3 wallet to view or purchase trading accounts.</p>
+                <div id="active-terminal" style="display:none;">
+                    <p><strong>Active Trading Account Loaded.</strong> Ready for limit order execution against live price feed.</p>
+                </div>
+            </div>
+
+            <div class="card">
+                <h3>Available Evaluation Plans</h3>
+                <div id="plans-container" class="plans-grid">
+                    <p>Loading plans...</p>
+                </div>
+            </div>
         </div>
-        <div class="card">
-            <h3>Account Metrics</h3>
-            <p><strong>Status:</strong> <span id="wallet-status" class="status-badge">Not Connected</span></p>
-            <p><strong>Wallet:</strong> <span id="wallet-address-display">None</span></p>
-            <p><strong>Equity:</strong> $0.00</p>
-            <p><strong>Daily Drawdown Left:</strong> $0.00</p>
+
+        <div>
+            <div class="card">
+                <h3>Account Metrics</h3>
+                <p><strong>Status:</strong> <span id="wallet-status" class="status-badge">Not Connected</span></p>
+                <p><strong>Wallet:</strong> <span id="wallet-address-display">None</span></p>
+                <hr style="border-color: #374151;">
+                <div id="my-accounts-box">
+                    <p>Connect wallet to see your accounts.</p>
+                </div>
+            </div>
         </div>
     </div>
 
     <script>
         let connectedWallet = null;
 
-        // Helper to resolve multi-wallet injection conflicts (EIP-6963 / window.ethereum providers)
         function getProvider() {
             if (window.ethereum?.providers) {
-                // Find MetaMask or default to the first provider
                 return window.ethereum.providers.find(p => p.isMetaMask) || window.ethereum.providers[0];
             }
             return window.ethereum;
         }
 
         async function connectWallet() {
-            console.log("Connect Wallet button clicked.");
             const provider = getProvider();
-
             if (!provider) {
-                alert("No EVM crypto wallet found! Please make sure MetaMask or a compatible extension is installed and active.");
+                alert("No EVM crypto wallet found!");
                 return;
             }
 
             try {
-                console.log("Requesting account access via eth_requestAccounts...");
                 const accounts = await provider.request({ method: 'eth_requestAccounts' });
-
-                if (!accounts || accounts.length === 0) {
-                    alert("No accounts authorized. Please unlock your wallet.");
-                    return;
-                }
+                if (!accounts || accounts.length === 0) return;
 
                 connectedWallet = accounts[0];
-                console.log("Successfully connected account:", connectedWallet);
-
                 document.getElementById('connect-btn').innerText = 
                     connectedWallet.substring(0, 6) + '...' + connectedWallet.slice(-4);
                 
@@ -114,13 +124,14 @@
                 statusElem.classList.add("connected");
 
                 document.getElementById('wallet-address-display').innerText = 
-                    connectedWallet.substring(0, 8) + '...' + connectedWallet.slice(-6);
+                    connectedWallet.substring(0, 6) + '...' + connectedWallet.slice(-4);
 
                 checkRole(connectedWallet);
+                loadUserAccounts(connectedWallet);
+                loadPlans();
 
             } catch (err) {
-                console.error("Wallet connection error object:", err);
-                alert("Connection failed: " + (err.message || "User rejected the request."));
+                console.error("Wallet connection error:", err);
             }
         }
 
@@ -130,12 +141,88 @@
                 const data = await res.json();
                 if (data.isAdmin) {
                     document.getElementById('admin-nav-item').style.display = 'inline-block';
-                    console.log('Admin permissions verified: Panel unlocked.');
-                } else {
-                    document.getElementById('admin-nav-item').style.display = 'none';
                 }
             } catch (err) {
-                console.error("Error verifying admin role via server:", err);
+                console.error("Error verifying admin role:", err);
+            }
+        }
+
+        async function loadPlans() {
+            try {
+                const res = await fetch('/api/plans');
+                const data = await res.json();
+                const container = document.getElementById('plans-container');
+                container.innerHTML = '';
+
+                data.plans.forEach(plan => {
+                    container.innerHTML += `
+                        <div class="plan-card">
+                            <h4>${plan.name}</h4>
+                            <p>Capital: <strong>$${plan.simulated_capital.toLocaleString()}</strong></p>
+                            <p>Target: $${plan.profit_target.toLocaleString()}</p>
+                            <p>Price: <strong>${plan.price_usdt} ZKUSDT</strong></p>
+                            <button onclick="buyPlan(${plan.id})">Buy Plan</button>
+                        </div>
+                    `;
+                });
+            } catch (err) {
+                console.error("Error loading plans:", err);
+            }
+        }
+
+        async function buyPlan(planId) {
+            if (!connectedWallet) {
+                alert("Please connect your wallet first!");
+                return;
+            }
+
+            if (!confirm("Confirm purchase of this evaluation plan using ZKUSDT?")) return;
+
+            try {
+                const res = await fetch('/api/accounts/purchase', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ wallet_address: connectedWallet, plan_id: planId })
+                });
+                const data = await res.json();
+
+                if (data.success) {
+                    alert("Account successfully provisioned!");
+                    loadUserAccounts(connectedWallet);
+                } else {
+                    alert("Error: " + data.error);
+                }
+            } catch (err) {
+                console.error("Purchase error:", err);
+            }
+        }
+
+        async function loadUserAccounts(wallet) {
+            try {
+                const res = await fetch(`/api/accounts?wallet=${wallet}`);
+                const data = await res.json();
+                const box = document.getElementById('my-accounts-box');
+                box.innerHTML = '';
+
+                if (data.accounts.length === 0) {
+                    box.innerHTML = '<p>No active accounts found. Buy a plan below!</p>';
+                    return;
+                }
+
+                document.getElementById('terminal-notice').style.display = 'none';
+                document.getElementById('active-terminal').style.display = 'block';
+
+                data.accounts.forEach(acc => {
+                    box.innerHTML += `
+                        <div class="account-item">
+                            <p><strong>${acc.plan_name}</strong></p>
+                            <p>Equity: $${acc.current_equity.toLocaleString()}</p>
+                            <p>Status: <span style="color: #34d399;">${acc.status}</span></p>
+                        </div>
+                    `;
+                });
+            } catch (err) {
+                console.error("Error loading accounts:", err);
             }
         }
 

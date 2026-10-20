@@ -1,32 +1,125 @@
-<script>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Blastrr - Prop Trading Terminal</title>
+    <style>
+        * { box-sizing: border-box; }
+        body { 
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; 
+            background: #0f1117; 
+            color: #f3f4f6; 
+            margin: 0; 
+            padding: 20px; 
+        }
+        header { 
+            display: flex; 
+            justify-content: space-between; 
+            align-items: center; 
+            border-bottom: 1px solid #1f2937; 
+            padding-bottom: 15px; 
+            margin-bottom: 20px; 
+        }
+        h1 { margin: 0; font-size: 24px; color: #a855f7; }
+        .btn-group { display: flex; gap: 10px; }
+        button { 
+            background: #7c3aed; 
+            color: white; 
+            border: none; 
+            padding: 10px 20px; 
+            border-radius: 6px; 
+            cursor: pointer; 
+            font-weight: bold; 
+            transition: background 0.2s;
+        }
+        button:hover { background: #6d28d9; }
+        #admin-nav-item { display: none; background: #b91c1c; }
+        #admin-nav-item:hover { background: #991b1b; }
+        .dashboard { display: grid; grid-template-columns: 3fr 1fr; gap: 20px; }
+        .card { background: #1f2937; padding: 20px; border-radius: 8px; border: 1px solid #374151; }
+        .status-badge {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: bold;
+            background: #374151;
+            color: #9ca3af;
+        }
+        .status-badge.connected { background: #065f46; color: #34d399; }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>⚡ Blastrr Prop Terminal</h1>
+        <div class="btn-group">
+            <button id="admin-nav-item" onclick="toggleAdminView()">Admin Panel</button>
+            <button id="connect-btn" onclick="connectWallet()">Connect Wallet</button>
+        </div>
+    </header>
+
+    <div class="dashboard">
+        <div class="card">
+            <h3>TradingView Chart & Execution Feed</h3>
+            <p>Connect your wallet to load your active simulated account or purchase a plan.</p>
+        </div>
+        <div class="card">
+            <h3>Account Metrics</h3>
+            <p><strong>Status:</strong> <span id="wallet-status" class="status-badge">Not Connected</span></p>
+            <p><strong>Wallet:</strong> <span id="wallet-address-display">None</span></p>
+            <p><strong>Equity:</strong> $0.00</p>
+            <p><strong>Daily Drawdown Left:</strong> $0.00</p>
+        </div>
+    </div>
+
+    <script>
         let connectedWallet = null;
 
         async function connectWallet() {
             console.log("Connect wallet clicked...");
-            
-            if (typeof window.ethereum !== 'undefined') {
+
+            // Helper to handle provider selection (MetaMask, Rabby, Coinbase, etc.)
+            let provider = window.ethereum;
+
+            if (!provider && window.web3) {
+                provider = window.web3.currentProvider;
+            }
+
+            if (provider) {
                 try {
-                    console.log("Requesting Ethereum accounts...");
-                    const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
-                    
+                    console.log("Requesting Ethereum accounts from Web3 provider...");
+                    const accounts = await provider.request({ method: 'eth_requestAccounts' });
+
                     if (!accounts || accounts.length === 0) {
-                        alert("No accounts found. Please unlock your Web3 wallet.");
+                        alert("No accounts returned. Please check that your Web3 wallet is unlocked.");
                         return;
                     }
 
                     connectedWallet = accounts[0];
-                    console.log("Connected wallet:", connectedWallet);
-                    
+                    console.log("Connected Wallet Address:", connectedWallet);
+
+                    // Update UI elements
                     document.getElementById('connect-btn').innerText = 
                         connectedWallet.substring(0, 6) + '...' + connectedWallet.slice(-4);
                     
+                    const statusElem = document.getElementById('wallet-status');
+                    statusElem.innerText = "Connected";
+                    statusElem.classList.add("connected");
+
+                    document.getElementById('wallet-address-display').innerText = 
+                        connectedWallet.substring(0, 8) + '...' + connectedWallet.slice(-6);
+
+                    // Query server for admin privileges
                     checkRole(connectedWallet);
+
                 } catch (err) {
                     console.error("Wallet connection error:", err);
-                    alert("Connection failed: " + (err.message || "User rejected connection"));
+                    alert("Connection request failed: " + (err.message || "User rejected connection"));
                 }
             } else {
-                alert('No Web3 wallet detected. Please install MetaMask, Rabby, or Coinbase Wallet.');
+                console.error("No ethereum provider found on window object.");
+                alert('No Web3 wallet detected on this browser. Please install MetaMask, Rabby, or Coinbase Wallet extension.');
             }
         }
 
@@ -36,14 +129,30 @@
                 const data = await res.json();
                 if (data.isAdmin) {
                     document.getElementById('admin-nav-item').style.display = 'inline-block';
-                    console.log('Admin privileges loaded successfully.');
+                    console.log('Admin privileges verified and unlocked.');
+                } else {
+                    document.getElementById('admin-nav-item').style.display = 'none';
                 }
             } catch (err) {
-                console.error("Error checking role:", err);
+                console.error("Error verifying admin role:", err);
             }
         }
 
         function toggleAdminView() {
             alert('Opening Admin Payout & Risk Oversight Dashboard...');
         }
+
+        // Auto-detect wallet changes if user switches accounts in extension
+        if (window.ethereum) {
+            window.ethereum.on('accountsChanged', (accounts) => {
+                if (accounts.length === 0) {
+                    location.reload();
+                } else if (accounts[0] !== connectedWallet) {
+                    connectedWallet = accounts[0];
+                    location.reload();
+                }
+            });
+        }
     </script>
+</body>
+</html>

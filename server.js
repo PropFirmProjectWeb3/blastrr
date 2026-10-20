@@ -116,13 +116,74 @@ app.get('/api/accounts', (req, res) => {
   if (!wallet) return res.status(400).json({ error: "Wallet required" });
 
   db.all(
-    `SELECT a.*, p.name as plan_name FROM accounts a 
+    `SELECT a.*, p.name as plan_name, p.profit_target, p.max_drawdown_pct, p.daily_loss_pct, p.simulated_capital 
+     FROM accounts a 
      JOIN plans p ON a.plan_id = p.id 
      WHERE LOWER(a.wallet_address) = LOWER(?)`,
     [wallet],
     (err, rows) => {
       if (err) return res.status(500).json({ error: err.message });
       res.json({ accounts: rows || [] });
+    }
+  );
+});
+
+// Detailed account analytics & trades for the expanded view
+app.get('/api/accounts/details', (req, res) => {
+  const accountId = req.query.account_id;
+  if (!accountId) return res.status(400).json({ error: "Account ID required" });
+
+  db.get(
+    `SELECT a.*, p.name as plan_name, p.profit_target, p.max_drawdown_pct, p.daily_loss_pct, p.simulated_capital 
+     FROM accounts a JOIN plans p ON a.plan_id = p.id WHERE a.id = ?`,
+    [accountId],
+    (err, account) => {
+      if (err || !account) return res.status(404).json({ error: "Account not found" });
+
+      db.all(`SELECT * FROM trades WHERE account_id = ? ORDER BY created_at DESC`, [accountId], (err2, trades) => {
+        // Calculate metrics
+        const totalProfit = account.current_equity - account.initial_balance;
+        const profitProgress = Math.min(100, Math.max(0, (totalProfit / account.profit_target) * 100));
+        
+        const maxAllowedDD = account.initial_balance * (account.max_drawdown_pct / 100);
+        const currentDD = Math.max(0, account.initial_balance - account.current_equity);
+        const ddProgress = Math.min(100, Math.max(0, (currentDD / maxAllowedDD) * 100));
+
+        const maxAllowedDLL = account.initial_balance * (account.daily_loss_pct / 100);
+        const currentDLL = Math.max(0, account.daily_starting_balance - account.current_equity);
+        const dllProgress = Math.min(100, Math.max(0, (currentDLL / maxAllowedDLL) * 100));
+
+        // Consistency score heuristic based on trade distribution or win rate
+        let consistencyScore = 100;
+        if (trades && trades.length > 0) {
+          const closedTrades = trades.filter(t => t.status === 'CLOSED');
+          if (closedTrades.length > 0) {
+            const profits = closedTrades.map(t => t.pnl);
+            const maxWin = Math.max(...profits, 0);
+            const totalPnLSum = profits.reduce((a, b) => a + b, 0);
+            if (totalPnLSum > 0) {
+              consistencyScore = Math.max(20, Math.round(100 - ((maxWin / totalPnLSum) * 50)));
+            }
+          }
+        }
+
+        res.json({
+          account,
+          metrics: {
+            profitProgress: profitProgress.toFixed(1),
+            profitTarget: account.profit_target,
+            currentProfit: totalProfit,
+            ddProgress: ddProgress.toFixed(1),
+            maxAllowedDD,
+            currentDD,
+            dllProgress: dllProgress.toFixed(1),
+            maxAllowedDLL,
+            currentDLL,
+            consistencyScore
+          },
+          trades: trades || []
+        });
+      });
     }
   );
 });

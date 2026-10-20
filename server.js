@@ -450,9 +450,7 @@ app.post('/api/withdrawals/request', async (req, res) => {
     }
 
     try {
-        // 1. Fetch the user's account and associated plan rules
         const account = db.prepare(`
-            @sql
             SELECT a.*, p.profit_target, p.simulated_capital 
             FROM user_accounts a 
             JOIN plans p ON a.plan_id = p.id 
@@ -467,35 +465,31 @@ app.post('/api/withdrawals/request', async (req, res) => {
             return res.status(400).json({ success: false, error: "Account is not active." });
         }
 
-        // 2. Define target thresholds
-        const initialCapital = account.initial_balance; // e.g. $25,000
-        const profitTargetDollar = account.profit_target; // e.g. $2,500
-        const targetThreshold = initialCapital + profitTargetDollar; // e.g. $27,500
+        const initialCapital = account.initial_balance;
+        const profitTargetDollar = account.profit_target;
+        const targetThreshold = initialCapital + profitTargetDollar;
 
-        // 3. Check if the trader has hit the profit target
         if (account.current_balance < targetThreshold) {
+            const shortFall = targetThreshold - account.current_balance;
             return res.status(400).json({ 
                 success: false, 
-                error: `Profit target not met! Balance must be at least $${targetThreshold.toLocaleString()} (Current: $${account.current_balance.toLocaleString()}) to unlock withdrawals.` 
+                error: `Account not ready for withdrawal. Please meet the minimum requirements before making a withdrawal. You need $${shortFall.toLocaleString()} more profit to reach your $${targetThreshold.toLocaleString()} target.` 
             });
         }
 
-        // 4. Calculate maximum allowable withdrawal (50% of net profits earned above initial capital)
         const netProfit = account.current_balance - initialCapital;
-        const maxAllowableWithdrawal = netProfit * 0.50; // 50% split
+        const maxAllowableWithdrawal = netProfit * 0.50;
 
         if (amount > maxAllowableWithdrawal) {
             return res.status(400).json({ 
                 success: false, 
-                error: `Withdrawal exceeds maximum allowed payout! Based on your $${netProfit.toLocaleString()} net profit, your 50% payout limit is $${maxAllowableWithdrawal.toLocaleString()} USDT.` 
+                error: `Withdrawal exceeds maximum allowed payout! Your 50% profit split limit is $${maxAllowableWithdrawal.toLocaleString()} USDT.` 
             });
         }
 
-        // 5. Insert withdrawal request into queue
         const withdrawalId = 'WDR-' + Math.random().toString(36).substring(2, 9).toUpperCase();
         
         db.prepare(`
-            @sql
             INSERT INTO withdrawals (id, account_id, wallet_address, type, plan_name, amount, status, created_at)
             VALUES (?, ?, ?, 'PROFIT_SPLIT', ?, ?, 'PENDING', datetime('now'))
         `).run(withdrawalId, account_id, wallet_address, account.plan_name, amount);
@@ -507,7 +501,6 @@ app.post('/api/withdrawals/request', async (req, res) => {
         res.status(500).json({ success: false, error: "Internal server error during withdrawal processing." });
     }
 });
-
 app.get('/api/admin/withdrawals', (req, res) => {
   db.all(
     `SELECT w.*, 'ACCOUNT' as type, p.name as plan_name 

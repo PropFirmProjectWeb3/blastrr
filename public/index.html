@@ -76,50 +76,51 @@
     <script>
         let connectedWallet = null;
 
+        // Helper to resolve multi-wallet injection conflicts (EIP-6963 / window.ethereum providers)
+        function getProvider() {
+            if (window.ethereum?.providers) {
+                // Find MetaMask or default to the first provider
+                return window.ethereum.providers.find(p => p.isMetaMask) || window.ethereum.providers[0];
+            }
+            return window.ethereum;
+        }
+
         async function connectWallet() {
-            console.log("Connect wallet clicked...");
+            console.log("Connect Wallet button clicked.");
+            const provider = getProvider();
 
-            // Helper to handle provider selection (MetaMask, Rabby, Coinbase, etc.)
-            let provider = window.ethereum;
-
-            if (!provider && window.web3) {
-                provider = window.web3.currentProvider;
+            if (!provider) {
+                alert("No EVM crypto wallet found! Please make sure MetaMask or a compatible extension is installed and active.");
+                return;
             }
 
-            if (provider) {
-                try {
-                    console.log("Requesting Ethereum accounts from Web3 provider...");
-                    const accounts = await provider.request({ method: 'eth_requestAccounts' });
+            try {
+                console.log("Requesting account access via eth_requestAccounts...");
+                const accounts = await provider.request({ method: 'eth_requestAccounts' });
 
-                    if (!accounts || accounts.length === 0) {
-                        alert("No accounts returned. Please check that your Web3 wallet is unlocked.");
-                        return;
-                    }
-
-                    connectedWallet = accounts[0];
-                    console.log("Connected Wallet Address:", connectedWallet);
-
-                    // Update UI elements
-                    document.getElementById('connect-btn').innerText = 
-                        connectedWallet.substring(0, 6) + '...' + connectedWallet.slice(-4);
-                    
-                    const statusElem = document.getElementById('wallet-status');
-                    statusElem.innerText = "Connected";
-                    statusElem.classList.add("connected");
-
-                    document.getElementById('wallet-address-display').innerText = 
-                        connectedWallet.substring(0, 8) + '...' + connectedWallet.slice(-6);
-
-                    // Query server for admin privileges
-                    checkRole(connectedWallet);
-
-                } catch (err) {
-                    console.error("Wallet connection error:", err);
-                    alert("Connection request failed: " + (err.message || "User rejected connection"));
+                if (!accounts || accounts.length === 0) {
+                    alert("No accounts authorized. Please unlock your wallet.");
+                    return;
                 }
-            } else {
-                console.error("No ethereum provider found on window object.");
-                alert('No Web3 wallet detected on this browser. Please install MetaMask, Rabby, or Coinbase Wallet extension.');
+
+                connectedWallet = accounts[0];
+                console.log("Successfully connected account:", connectedWallet);
+
+                document.getElementById('connect-btn').innerText = 
+                    connectedWallet.substring(0, 6) + '...' + connectedWallet.slice(-4);
+                
+                const statusElem = document.getElementById('wallet-status');
+                statusElem.innerText = "Connected";
+                statusElem.classList.add("connected");
+
+                document.getElementById('wallet-address-display').innerText = 
+                    connectedWallet.substring(0, 8) + '...' + connectedWallet.slice(-6);
+
+                checkRole(connectedWallet);
+
+            } catch (err) {
+                console.error("Wallet connection error object:", err);
+                alert("Connection failed: " + (err.message || "User rejected the request."));
             }
         }
 
@@ -129,29 +130,17 @@
                 const data = await res.json();
                 if (data.isAdmin) {
                     document.getElementById('admin-nav-item').style.display = 'inline-block';
-                    console.log('Admin privileges verified and unlocked.');
+                    console.log('Admin permissions verified: Panel unlocked.');
                 } else {
                     document.getElementById('admin-nav-item').style.display = 'none';
                 }
             } catch (err) {
-                console.error("Error verifying admin role:", err);
+                console.error("Error verifying admin role via server:", err);
             }
         }
 
         function toggleAdminView() {
             alert('Opening Admin Payout & Risk Oversight Dashboard...');
-        }
-
-        // Auto-detect wallet changes if user switches accounts in extension
-        if (window.ethereum) {
-            window.ethereum.on('accountsChanged', (accounts) => {
-                if (accounts.length === 0) {
-                    location.reload();
-                } else if (accounts[0] !== connectedWallet) {
-                    connectedWallet = accounts[0];
-                    location.reload();
-                }
-            });
         }
     </script>
 </body>

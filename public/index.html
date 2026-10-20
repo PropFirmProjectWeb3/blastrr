@@ -1150,37 +1150,71 @@
             }
         }
 
-        async function requestWithdrawal(accountId, maxBalance) {
-            const amountInput = prompt(`Enter USDT amount to withdraw (Available: $${maxBalance.toFixed(2)}):`);
-            if (!amountInput) return;
-            const amount = parseFloat(amountInput);
-
-            if (isNaN(amount) || amount <= 0) {
-                alert("Please enter a valid amount.");
-                return;
-            }
-
-            if (amount > maxBalance) {
-                alert("Withdrawal amount cannot exceed available balance.");
-                return;
-            }
-
-            try {
-                const res = await fetch('/api/withdrawals/request', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ account_id: accountId, wallet_address: connectedWallet, amount })
-                });
-                const data = await res.json();
-
-                if (data.success) {
-                    alert("Withdrawal request submitted successfully!");
-                    loadUserAccounts(connectedWallet);
-                } else {
-                    alert("Error: " + data.error);
-                }
-            } catch (err) { console.error(err); }
+       async function requestWithdrawal(accountId, maxBalance) {
+    try {
+        // 1. Fetch live account details and target requirements before prompting
+        const detailsRes = await fetch(`/api/accounts/details?account_id=${accountId}`);
+        const details = await detailsRes.json();
+        
+        if (!details || !details.metrics) {
+            alert("Could not fetch account metrics.");
+            return;
         }
+
+        const initialCapital = details.metrics.initial_balance || 25000;
+        const profitTarget = details.metrics.profit_target || 2500;
+        const targetThreshold = initialCapital + profitTarget;
+        const currentBalance = details.metrics.current_balance;
+
+        // 2. Check if profit target is met
+        if (currentBalance < targetThreshold) {
+            const shortFall = targetThreshold - currentBalance;
+            alert(
+                `Account not ready for withdrawal. Please meet the minimum requirements before making a withdrawal.\n\n` +
+                `• Initial Capital: $${initialCapital.toLocaleString()}\n` +
+                `• Required Target Balance: $${targetThreshold.toLocaleString()}\n` +
+                `• Current Balance: $${currentBalance.toLocaleString()}\n` +
+                `• Profit Still Needed: $${shortFall.toLocaleString()} USDT`
+            );
+            return;
+        }
+
+        // 3. If target is met, calculate 50% max payout split
+        const netProfit = currentBalance - initialCapital;
+        const maxPayout = netProfit * 0.50;
+
+        const amountInput = prompt(`Target reached! 50% Payout Limit: $${maxPayout.toLocaleString()} USDT.\nEnter USDT amount to withdraw:`);
+        if (!amountInput) return;
+        const amount = parseFloat(amountInput);
+
+        if (isNaN(amount) || amount <= 0) {
+            alert("Please enter a valid amount.");
+            return;
+        }
+
+        if (amount > maxPayout) {
+            alert(`Withdrawal exceeds your 50% profit split limit of $${maxPayout.toLocaleString()} USDT.`);
+            return;
+        }
+
+        const res = await fetch('/api/withdrawals/request', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ account_id: accountId, wallet_address: connectedWallet, amount })
+        });
+        const data = await res.json();
+
+        if (data.success) {
+            alert("Withdrawal request submitted successfully!");
+            loadUserAccounts(connectedWallet);
+        } else {
+            alert("Error: " + data.error);
+        }
+    } catch (err) {
+        console.error(err);
+        alert("Failed to process withdrawal request.");
+    }
+}
 
         async function requestCommissionWithdrawal() {
             const amountInput = prompt(`Enter commission USDT amount to withdraw (Available: $${availableCommissionBalance.toFixed(2)}):`);

@@ -238,6 +238,86 @@ app.post('/api/accounts/purchase', (req, res) => {
   });
 });
 
+// Withdrawal Requests
+app.post('/api/withdrawals/request', (req, res) => {
+  const { account_id, wallet_address, amount } = req.body;
+  if (!account_id || !wallet_address || !amount || amount <= 0) {
+    return res.status(400).json({ error: "Invalid withdrawal parameters." });
+  }
+
+  db.get("SELECT * FROM accounts WHERE id = ? AND LOWER(wallet_address) = LOWER(?)", [account_id, wallet_address], (err, account) => {
+    if (err || !account) return res.status(404).json({ error: "Account not found." });
+
+    if (amount > account.current_balance) {
+      return res.status(400).json({ error: `Requested amount ($${amount}) exceeds available balance ($${account.current_balance}).` });
+    }
+
+    const withdrawalId = 'wdr_' + Math.random().toString(36).substring(2, 11);
+
+    db.serialize(() => {
+      db.run("BEGIN TRANSACTION");
+
+      // Deduct from current balance
+      db.run("UPDATE accounts SET current_balance = current_balance - ? WHERE id = ?", [amount, account_id]);
+
+      // Insert withdrawal request
+      db.run(
+        `INSERT INTO withdrawals (id, account_id, wallet_address, amount, status) VALUES (?, ?, ?, ?, 'PENDING')`,
+        [withdrawalId, account_id, wallet_address, amount],
+        (err2) => {
+          if (err2) {
+            db.run("ROLLBACK");
+            return res.status(500).json({ error: err2.message });
+          }
+          db.run("COMMIT");
+          res.json({ success: true, message: "Withdrawal request submitted successfully." });
+        }
+      );
+    });
+  });
+});
+
+// Admin endpoints for withdrawals
+app.get('/api/admin/withdrawals', (req, res) => {
+  db.all(
+    `SELECT w.*, a.plan_id, p.name as plan_name 
+     FROM withdrawals w 
+     JOIN accounts a ON w.account_id = a.id 
+     JOIN plans p ON a.plan_id = p.id 
+     ORDER BY w.created_at DESC`,
+    [],
+    (err, rows) => {
+      if (err) return res.status(500).json({ error: err.message });
+      res.json({ withdrawals: rows || [] });
+    }
+  );
+});
+
+app.post('/api/admin/withdrawals/action', (req, res) => {
+  const { withdrawal_id, action } = req.body; // action: 'PAID' or 'REJECT'
+  if (!withdrawal_id || !action) return res.status(400).json({ error: "Missing parameters." });
+
+  db.get("SELECT * FROM withdrawals WHERE id = ?", [withdrawal_id], (err, wdr) => {
+    if (err || !wdr) return res.status(404).json({ error: "Withdrawal request not found." });
+    if (wdr.status !== 'PENDING') return res.status(400).json({ error: "Request already processed." });
+
+    db.serialize(() => {
+      db.run("BEGIN TRANSACTION");
+
+      if (action === 'REJECT') {
+        // Refund balance back to account
+        db.run("UPDATE accounts SET current_balance = current_balance + ? WHERE id = ?", [wdr.amount, wdr.account_id]);
+        db.run("UPDATE withdrawals SET status = 'REJECTED' WHERE id = ?", [withdrawal_id]);
+      } else if (action === 'PAID') {
+        db.run("UPDATE withdrawals SET status = 'PAID' WHERE id = ?", [withdrawal_id]);
+      }
+
+      db.run("COMMIT");
+      res.json({ success: true, message: `Withdrawal marked as ${action}.` });
+    });
+  });
+});
+
 app.post('/api/trades/execute', (req, res) => {
   const { account_id, symbol, side, price, size_usd, sl, tp } = req.body;
 

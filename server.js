@@ -135,7 +135,6 @@ app.post('/api/accounts/purchase', (req, res) => {
   }
 
   db.run(`INSERT OR IGNORE INTO users (wallet_address) VALUES (?)`, [wallet_address], () => {
-    
     db.get("SELECT * FROM plans WHERE id = ?", [plan_id], (err, plan) => {
       if (err || !plan) return res.status(404).json({ error: "Plan not found." });
 
@@ -181,34 +180,86 @@ app.post('/api/accounts/purchase', (req, res) => {
   });
 });
 
-app.post('/api/orders/place', (req, res) => {
-  const { account_id, symbol, side, price, size, sl, tp } = req.body;
-  
-  if (!account_id || !symbol || !side || !price || !size) {
-    return res.status(400).json({ error: "Missing required order parameters." });
+app.post('/api/trades/execute', (req, res) => {
+  const { account_id, symbol, side, price, size_usd, sl, tp } = req.body;
+
+  if (!account_id || !symbol || !side || !price || !size_usd) {
+    return res.status(400).json({ error: "Missing required trade parameters." });
   }
 
-  const orderId = 'ord_' + Math.random().toString(36).substring(2, 11);
+  db.get("SELECT * FROM accounts WHERE id = ?", [account_id], (err, account) => {
+    if (err || !account) return res.status(404).json({ error: "Account not found." });
 
-  db.run(
-    `INSERT INTO orders (id, account_id, symbol, type, price, size, sl, tp, status)
-     VALUES (?, ?, ?, 'LIMIT', ?, ?, ?, ?, 'PENDING')`,
-    [orderId, account_id, symbol, price, size, sl || null, tp || null],
-    (err) => {
-      if (err) return res.status(500).json({ error: err.message });
-      res.json({ success: true, order_id: orderId, message: "Limit order placed successfully." });
+    if (size_usd > account.current_balance) {
+      return res.status(400).json({ error: `Insufficient available balance ($${account.current_balance.toFixed(2)} available).` });
     }
-  );
+
+    const slip = 5.0;
+    const executionPrice = side === 'BUY' ? price + slip : price - slip;
+    const units = size_usd / executionPrice;
+    const tradeId = 'trd_' + Math.random().toString(36).substring(2, 11);
+
+    db.serialize(() => {
+      db.run("BEGIN TRANSACTION");
+
+      db.run(
+        `UPDATE accounts SET current_balance = current_balance - ? WHERE id = ?`,
+        [size_usd, account_id]
+      );
+
+      db.run(
+        `INSERT INTO trades (id, account_id, symbol, side, entry_price, size_usd, units, sl, tp, status)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'OPEN')`,
+        [tradeId, account_id, symbol, side, executionPrice, size_usd, units, sl || null, tp || null],
+        (err2) => {
+          if (err2) {
+            db.run("ROLLBACK");
+            return res.status(500).json({ error: err2.message });
+          }
+          db.run("COMMIT");
+          res.json({ success: true, trade_id: tradeId, execution_price: executionPrice });
+        }
+      );
+    });
+  });
+});
+
+app.post('/api/trades/close', (req, res) => {
+  const { trade_id, current_market_price } = req.body;
+  if (!trade_id) return res.status(400).json({ error: "Trade ID required." });
+
+  db.get("SELECT * FROM trades WHERE id = ? AND status = 'OPEN'", [trade_id], (err, trade) => {
+    if (err || !trade) return res.status(404).json({ error: "Open trade not found." });
+
+    const priceDiff = trade.side === 'BUY' ? (current_market_price - trade.entry_price) : (trade.entry_price - current_market_price);
+    const pnl = priceDiff * trade.units;
+    const returnAmount = trade.size_usd + pnl;
+
+    db.serialize(() => {
+      db.run("BEGIN TRANSACTION");
+
+      db.run(
+        `UPDATE trades SET status = 'CLOSED', pnl = ?, closed_at = CURRENT_TIMESTAMP WHERE id = ?`,
+        [pnl, trade_id]
+      );
+
+      db.run(
+        `UPDATE accounts SET current_balance = current_balance + ?, current_equity = current_equity + ? WHERE id = ?`,
+        [returnAmount, pnl, trade.account_id]
+      );
+
+      db.run("COMMIT");
+      res.json({ success: true, pnl: pnl });
+    });
+  });
 });
 
 app.get('/api/trades/active', (req, res) => {
   const accountId = req.query.account_id;
   if (!accountId) return res.status(400).json({ error: "Account ID required" });
 
-  db.all("SELECT * FROM orders WHERE account_id = ? AND status = 'PENDING'", [accountId], (err, orders) => {
-    db.all("SELECT * FROM trades WHERE account_id = ? AND status = 'OPEN'", [accountId], (err2, trades) => {
-      res.json({ orders: orders || [], trades: trades || [] });
-    });
+  db.all("SELECT * FROM trades WHERE account_id = ? AND status = 'OPEN'", [accountId], (err, trades) => {
+    res.json({ trades: trades || [] });
   });
 });
 

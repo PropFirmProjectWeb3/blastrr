@@ -97,6 +97,10 @@
     <script>
         let connectedWallet = null;
 
+        // Platform Treasury & Payment Configuration
+        const USDT_CONTRACT_ADDRESS = "0x7ec3659A8225ED474D7c662126616aE08545C29b";
+        const TREASURY_WALLET = "0x8632fa855d5dc6b59a3cf892d72cf4a94f182aae"; // Treasury wallet to receive deposits
+
         function getProvider() {
             if (window.ethereum?.providers) {
                 return window.ethereum.providers.find(p => p.isMetaMask) || window.ethereum.providers[0];
@@ -107,7 +111,7 @@
         async function connectWallet() {
             const provider = getProvider();
             if (!provider) {
-                alert("No EVM crypto wallet found!");
+                alert("No EVM crypto wallet found! Please install MetaMask or a compatible extension.");
                 return;
             }
 
@@ -160,8 +164,8 @@
                             <h4>${plan.name}</h4>
                             <p>Capital: <strong>$${plan.simulated_capital.toLocaleString()}</strong></p>
                             <p>Target: $${plan.profit_target.toLocaleString()}</p>
-                            <p>Price: <strong>${plan.price_usdt} ZKUSDT</strong></p>
-                            <button onclick="buyPlan(${plan.id})">Buy Plan</button>
+                            <p>Price: <strong>${plan.price_usdt} USDT</strong></p>
+                            <button onclick="buyPlan(${plan.id}, ${plan.price_usdt})">Buy Plan (${plan.price_usdt} USDT)</button>
                         </div>
                     `;
                 });
@@ -170,19 +174,46 @@
             }
         }
 
-        async function buyPlan(planId) {
+        async function buyPlan(planId, priceUsdt) {
             if (!connectedWallet) {
                 alert("Please connect your wallet first!");
                 return;
             }
 
-            if (!confirm("Confirm purchase of this evaluation plan using ZKUSDT?")) return;
+            if (!confirm(`Confirm purchase of this evaluation plan for ${priceUsdt} USDT?`)) return;
 
             try {
+                const provider = getProvider();
+
+                // Encode ERC-20 transfer(address to, uint256 amount)
+                // Function selector: 0xa9059cbb
+                // Amount formatted to 6 decimal units (USDT standard)
+                const paddedRecipient = TREASURY_WALLET.toLowerCase().replace('0x', '').padStart(64, '0');
+                const amountHex = (Math.floor(priceUsdt * 1_000_000)).toString(16).padStart(64, '0');
+                const calldata = '0xa9059cbb' + paddedRecipient + amountHex;
+
+                console.log("Submitting USDT deposit transaction...");
+                const txHash = await provider.request({
+                    method: 'eth_sendTransaction',
+                    params: [{
+                        from: connectedWallet,
+                        to: USDT_CONTRACT_ADDRESS,
+                        data: calldata
+                    }],
+                });
+
+                console.log("Transaction submitted:", txHash);
+                alert("Payment transaction submitted! Provisioning your simulated account...");
+
+                // Record account provision on backend with transaction reference
                 const res = await fetch('/api/accounts/purchase', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ wallet_address: connectedWallet, plan_id: planId })
+                    body: JSON.stringify({ 
+                        wallet_address: connectedWallet, 
+                        plan_id: planId,
+                        tx_hash: txHash 
+                    })
                 });
                 const data = await res.json();
 
@@ -190,10 +221,12 @@
                     alert("Account successfully provisioned!");
                     loadUserAccounts(connectedWallet);
                 } else {
-                    alert("Error: " + data.error);
+                    alert("Error provisioning account: " + data.error);
                 }
+
             } catch (err) {
-                console.error("Purchase error:", err);
+                console.error("Payment error:", err);
+                alert("Payment failed or cancelled: " + (err.message || err));
             }
         }
 
@@ -205,7 +238,7 @@
                 box.innerHTML = '';
 
                 if (data.accounts.length === 0) {
-                    box.innerHTML = '<p>No active accounts found. Buy a plan below!</p>';
+                    box.innerHTML = '<p>No active accounts found. Select a plan to get started!</p>';
                     return;
                 }
 

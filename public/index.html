@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Blastrr - Elite Crypto Prop Terminal</title>
+    <link rel="icon" type="image/png" href="favicon.png">
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap');
 
@@ -49,6 +50,12 @@
             text-shadow: 0 0 20px rgba(168, 85, 247, 0.4);
         }
         
+        .logo img {
+            height: 30px;
+            width: auto;
+            object-fit: contain;
+        }
+        
         nav { display: flex; gap: 6px; flex-wrap: wrap; }
         
         .nav-tab {
@@ -61,14 +68,25 @@
             border-radius: 8px;
             cursor: pointer;
             transition: all 0.2s ease;
+            opacity: 0.85;
         }
-        .nav-tab:hover { color: #f3f4f6; background: rgba(255, 255, 255, 0.03); border-color: rgba(255, 255, 255, 0.06); }
-        .nav-tab.active { color: #ffffff; background: linear-gradient(135deg, #7c3aed 0%, #6d28d9 100%); border-color: rgba(168, 85, 247, 0.3); box-shadow: 0 0 15px rgba(124, 58, 237, 0.35); }
+        .nav-tab:hover { color: #f3f4f6; background: rgba(255, 255, 255, 0.03); border-color: rgba(255, 255, 255, 0.06); opacity: 1; }
+        .nav-tab.active { color: #ffffff; background: linear-gradient(135deg, #7c3aed 0%, #6d28d9 100%); border-color: rgba(168, 85, 247, 0.3); box-shadow: 0 0 15px rgba(124, 58, 237, 0.35); opacity: 1; }
         .nav-tab.admin-tab { display: none; background: rgba(153, 27, 27, 0.3); color: #fca5a5; border-color: rgba(239, 68, 68, 0.2); }
         .nav-tab.admin-tab.active { background: #dc2626; color: #ffffff; border-color: #f87171; box-shadow: 0 0 15px rgba(220, 38, 38, 0.4); }
 
         .header-actions { display: flex; align-items: center; gap: 12px; }
         
+        /* Sleek Button Opacity 0.5 + Low-Key Glow */
+        button {
+            opacity: 0.5;
+            transition: all 0.25s ease;
+        }
+        button:hover {
+            opacity: 1;
+            transform: translateY(-1px);
+        }
+
         .btn-wallet { 
             background: linear-gradient(135deg, #7c3aed 0%, #6d28d9 100%); 
             color: white; 
@@ -78,10 +96,9 @@
             cursor: pointer; 
             font-weight: 600; 
             font-size: 13px;
-            transition: all 0.2s;
-            box-shadow: 0 4px 12px rgba(124, 58, 237, 0.25);
+            box-shadow: 0 0 12px rgba(124, 58, 237, 0.2);
         }
-        .btn-wallet:hover { background: linear-gradient(135deg, #8b5cf6, #7c3aed); box-shadow: 0 4px 20px rgba(124, 58, 237, 0.4); transform: translateY(-1px); }
+        .btn-wallet:hover { box-shadow: 0 0 20px rgba(124, 58, 237, 0.45); }
 
         .btn-share-x {
             background: #000000;
@@ -95,9 +112,9 @@
             display: inline-flex;
             align-items: center;
             gap: 5px;
-            transition: all 0.2s;
+            box-shadow: 0 0 10px rgba(29, 155, 240, 0.15);
         }
-        .btn-share-x:hover { background: #1d9bf0; border-color: #1d9bf0; box-shadow: 0 0 12px rgba(29, 155, 240, 0.4); }
+        .btn-share-x:hover { background: #1d9bf0; border-color: #1d9bf0; box-shadow: 0 0 18px rgba(29, 155, 240, 0.35); }
 
         .btn-new-wallet {
             background: rgba(37, 99, 235, 0.15);
@@ -109,9 +126,9 @@
             font-weight: 600;
             font-size: 13px;
             display: none;
-            transition: all 0.2s;
+            box-shadow: 0 0 10px rgba(59, 130, 246, 0.15);
         }
-        .btn-new-wallet:hover { background: rgba(37, 99, 235, 0.25); color: #93c5fd; }
+        .btn-new-wallet:hover { background: rgba(37, 99, 235, 0.25); color: #93c5fd; box-shadow: 0 0 18px rgba(59, 130, 246, 0.35); }
 
         .btn-disconnect {
             background: rgba(55, 65, 81, 0.4);
@@ -123,9 +140,9 @@
             font-weight: 600;
             font-size: 13px;
             display: none;
-            transition: all 0.2s;
+            box-shadow: 0 0 10px rgba(239, 68, 68, 0.15);
         }
-        .btn-disconnect:hover { background: rgba(153, 27, 27, 0.3); color: #fca5a5; border-color: rgba(239, 68, 68, 0.4); }
+        .btn-disconnect:hover { background: rgba(153, 27, 27, 0.3); color: #fca5a5; border-color: rgba(239, 68, 68, 0.4); box-shadow: 0 0 18px rgba(239, 68, 68, 0.35); }
 
         .wallet-select {
             background: rgba(17, 24, 39, 0.8);
@@ -137,7 +154,10 @@
             font-size: 13px;
             display: none;
             cursor: pointer;
+            opacity: 0.85;
+            box-shadow: 0 0 10px rgba(52, 211, 153, 0.15);
         }
+        .wallet-select:hover { opacity: 1; box-shadow: 0 0 16px rgba(52, 211, 153, 0.3); }
 
         .status-pill {
             padding: 5px 12px;
@@ -204,11 +224,11 @@
             box-shadow: 0 0 0 3px rgba(168, 85, 247, 0.2);
         }
 
-        .btn-buy { width: 100%; background: linear-gradient(135deg, #059669 0%, #047857 100%); color: white; border: 1px solid rgba(52, 211, 153, 0.3); padding: 12px; border-radius: 8px; font-weight: 700; cursor: pointer; font-size: 14px; margin-bottom: 10px; transition: all 0.2s; box-shadow: 0 4px 12px rgba(5, 150, 105, 0.25); }
-        .btn-buy:hover { background: linear-gradient(135deg, #10b981 0%, #059669 100%); box-shadow: 0 4px 20px rgba(16, 185, 129, 0.4); }
+        .btn-buy { width: 100%; background: linear-gradient(135deg, #059669 0%, #047857 100%); color: white; border: 1px solid rgba(52, 211, 153, 0.3); padding: 12px; border-radius: 8px; font-weight: 700; cursor: pointer; font-size: 14px; margin-bottom: 10px; box-shadow: 0 0 12px rgba(5, 150, 105, 0.2); }
+        .btn-buy:hover { box-shadow: 0 0 20px rgba(16, 185, 129, 0.4); }
         
-        .btn-sell { width: 100%; background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%); color: white; border: 1px solid rgba(248, 113, 113, 0.3); padding: 12px; border-radius: 8px; font-weight: 700; cursor: pointer; font-size: 14px; transition: all 0.2s; box-shadow: 0 4px 12px rgba(220, 38, 38, 0.25); }
-        .btn-sell:hover { background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%); box-shadow: 0 4px 20px rgba(239, 68, 68, 0.4); }
+        .btn-sell { width: 100%; background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%); color: white; border: 1px solid rgba(248, 113, 113, 0.3); padding: 12px; border-radius: 8px; font-weight: 700; cursor: pointer; font-size: 14px; box-shadow: 0 0 12px rgba(220, 38, 38, 0.2); }
+        .btn-sell:hover { box-shadow: 0 0 20px rgba(239, 68, 68, 0.4); }
 
         table { width: 100%; border-collapse: collapse; text-align: left; font-size: 13.5px; }
         th { background: rgba(5, 7, 11, 0.9); color: #9ca3af; padding: 12px 14px; font-weight: 600; border-bottom: 1px solid rgba(255, 255, 255, 0.08); text-transform: uppercase; font-size: 11px; letter-spacing: 0.5px; }
@@ -239,7 +259,10 @@
 <body>
 
     <header>
-        <div class="logo">⚡ BLASTRR</div>
+        <div class="logo">
+            <img src="logo.png" alt="Blastrr Logo" onerror="this.style.display='none'; this.nextElementSibling.style.display='inline';">
+            <span style="display:none;">⚡ BLASTRR</span>
+        </div>
         <nav>
             <button class="nav-tab active" onclick="switchView('tradeView')">Trade</button>
             <button class="nav-tab" onclick="switchView('accountsView')">My Accounts</button>

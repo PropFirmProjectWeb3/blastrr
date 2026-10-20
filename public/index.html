@@ -562,12 +562,13 @@
                 
                 <!-- Payment Network Selector Dropdown -->
                 <div class="form-group" style="max-width: 420px; margin-bottom: 24px;">
-                    <label>Select Payment Network (USDT Chain)</label>
+                    <label>Select Payment Network (USDT / Token Chain)</label>
                     <select id="payment-chain-select" style="background: rgba(5,7,11,0.9); border: 1px solid rgba(255,255,255,0.1); color: white; padding: 10px; border-radius: 8px; width: 100%;">
                         <option value="1">Ethereum Mainnet</option>
                         <option value="8453">Base</option>
                         <option value="137">Polygon PoS</option>
                         <option value="43114">Avalanche C-Chain</option>
+                        <option value="448000">NullNet Private EVM</option>
                     </select>
                 </div>
 
@@ -631,12 +632,13 @@
         
         const TREASURY_WALLET = "0x8632fa855d5dc6b59a3cf892d72cf4a94f182aae";
 
-        // Supported EVM Chains Configuration on Frontend
+        // Supported EVM Chains Configuration on Frontend (including NullNet)
         const SUPPORTED_EVM_CHAINS = {
             1: { name: "Ethereum Mainnet", chainIdHex: "0x1", usdtAddress: "0xdac17f958d2ee523a2206206994597c13d831ec7" },
             8453: { name: "Base", chainIdHex: "0x2105", usdtAddress: "0xfde4c96c8593536e31f229ea8f37b2ada2699bb2" },
             137: { name: "Polygon PoS", chainIdHex: "0x89", usdtAddress: "0xc2132d05d31c914a87c6611c10748aeb04b58e8f" },
-            43114: { name: "Avalanche C-Chain", chainIdHex: "0xa86a", usdtAddress: "0x9702230a8ea53601f5cd2dc00fdbc13d4df4a8c7" }
+            43114: { name: "Avalanche C-Chain", chainIdHex: "0xa86a", usdtAddress: "0x9702230a8ea53601f5cd2dc00fdbc13d4df4a8c7" },
+            448000: { name: "NullNet Private EVM", chainIdHex: "0x6d5e0", usdtAddress: "0x7ec3659A8225ED474D7c662126616aE08545C29b" }
         };
 
         window.addEventListener('DOMContentLoaded', () => {

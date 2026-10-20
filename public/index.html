@@ -20,7 +20,6 @@
 
         code, pre { font-family: 'JetBrains Mono', monospace; }
 
-        /* Custom Scrollbar */
         ::-webkit-scrollbar { width: 6px; height: 6px; }
         ::-webkit-scrollbar-track { background: #05070b; }
         ::-webkit-scrollbar-thumb { background: #1f2937; border-radius: 3px; }
@@ -82,7 +81,7 @@
             transition: all 0.2s;
             box-shadow: 0 4px 12px rgba(124, 58, 237, 0.25);
         }
-        .btn-wallet:hover { background: linear-gradient(135deg, #8b5cf6`, #7c3aed); box-shadow: 0 4px 20px rgba(124, 58, 237, 0.4); transform: translateY(-1px); }
+        .btn-wallet:hover { background: linear-gradient(135deg, #8b5cf6, #7c3aed); box-shadow: 0 4px 20px rgba(124, 58, 237, 0.4); transform: translateY(-1px); }
         
         .btn-new-wallet {
             background: rgba(37, 99, 235, 0.15);
@@ -146,7 +145,6 @@
             to { opacity: 1; transform: translateY(0); }
         }
 
-        /* Glass Slate Card Panel */
         .card { 
             background: rgba(13, 17, 23, 0.75); 
             backdrop-filter: blur(16px);
@@ -217,7 +215,6 @@
         .plan-price { font-size: 26px; font-weight: 800; color: #c084fc; margin: 14px 0; text-shadow: 0 0 15px rgba(168, 85, 247, 0.3); }
         .plan-feature { padding: 9px 0; border-bottom: 1px solid rgba(255, 255, 255, 0.04); font-size: 13.5px; color: #d1d5db; display: flex; justify-content: space-between; }
 
-        /* Progress Bar styling */
         .progress-container { background: rgba(5, 7, 11, 0.9); border-radius: 6px; height: 8px; width: 100%; margin-top: 8px; overflow: hidden; border: 1px solid rgba(255, 255, 255, 0.06); }
         .progress-bar { height: 100%; background: linear-gradient(90deg, #10b981, #34d399); width: 0%; border-radius: 6px; box-shadow: 0 0 10px rgba(52, 211, 153, 0.4); transition: width 0.4s ease; }
     </style>
@@ -409,18 +406,20 @@
         <!-- 5. ADMIN CONTROL VIEW -->
         <section id="adminView" class="view-panel">
             <div class="card" style="border-color: rgba(220, 38, 38, 0.3);">
-                <div class="card-title" style="color: #f87171;">🛡️ Admin Compliance & Payout Queue</div>
+                <div class="card-title" style="color: #f87171;">🛡️ Admin Withdrawal & Payout Queue</div>
                 <table>
                     <thead>
                         <tr>
+                            <th>Request ID</th>
                             <th>Trader Wallet</th>
                             <th>Account ID</th>
-                            <th>Requested Payout</th>
+                            <th>Amount</th>
+                            <th>Status</th>
                             <th>Action</th>
                         </tr>
                     </thead>
                     <tbody id="admin-payout-queue">
-                        <tr><td colspan="4" style="text-align: center; color: #6b7280; padding: 24px;">No pending requests.</td></tr>
+                        <tr><td colspan="6" style="text-align: center; color: #6b7280; padding: 24px;">No pending requests.</td></tr>
                     </tbody>
                 </table>
             </div>
@@ -529,6 +528,10 @@
             document.querySelectorAll('.nav-tab').forEach(tab => tab.classList.remove('active'));
             document.getElementById(viewId).classList.add('active');
             Array.from(document.querySelectorAll('.nav-tab')).find(t => t.getAttribute('onclick')?.includes(viewId))?.classList.add('active');
+
+            if (viewId === 'adminView') {
+                loadAdminWithdrawals();
+            }
         }
 
         function getProvider() {
@@ -723,7 +726,10 @@
                                 <span style="font-size: 18px; color: #c084fc; font-weight: 800;">${acc.plan_name}</span> 
                                 <code style="margin-left: 10px; color: #9ca3af; font-size: 12px; background: rgba(255,255,255,0.03); padding: 3px 8px; border-radius: 4px;">${acc.id}</code>
                             </div>
-                            <button class="btn-wallet" style="padding: 7px 14px; font-size: 12px;" onclick="selectAccountAndTrade('${acc.id}')">Select in Terminal</button>
+                            <div style="display: flex; gap: 10px;">
+                                <button class="btn-wallet" style="padding: 7px 14px; font-size: 12px; background: #059669;" onclick="requestWithdrawal('${acc.id}', ${acc.current_balance})">Request Withdrawal</button>
+                                <button class="btn-wallet" style="padding: 7px 14px; font-size: 12px;" onclick="selectAccountAndTrade('${acc.id}')">Select in Terminal</button>
+                            </div>
                         </div>
 
                         <div class="grid-3" style="margin-bottom: 20px;">
@@ -752,7 +758,7 @@
 
                         <div style="display: flex; gap: 28px; font-size: 13.5px; margin-bottom: 20px; background: rgba(5, 7, 11, 0.7); padding: 14px 18px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.03);">
                             <div>Initial Capital: <strong style="color: #f3f4f6;">$${acc.initial_balance.toLocaleString()}</strong></div>
-                            <div>Current Equity: <strong style="color: #34d399;">$${acc.current_equity.toLocaleString()}</strong></div>
+                            <div>Current Balance: <strong style="color: #34d399;">$${acc.current_balance.toLocaleString()}</strong></div>
                             <div>Consistency Score: <strong style="color: #c084fc;">${m.consistencyScore}%</strong></div>
                             <div>Account Status: <strong style="color: #34d399;">${acc.status}</strong></div>
                         </div>
@@ -778,6 +784,98 @@
                     </div>
                 `;
             }
+        }
+
+        async function requestWithdrawal(accountId, maxBalance) {
+            const amountInput = prompt(`Enter USDT amount to withdraw (Available: $${maxBalance.toFixed(2)}):`);
+            if (!amountInput) return;
+            const amount = parseFloat(amountInput);
+
+            if (isNaN(amount) || amount <= 0) {
+                alert("Please enter a valid amount.");
+                return;
+            }
+
+            if (amount > maxBalance) {
+                alert("Withdrawal amount cannot exceed available balance.");
+                return;
+            }
+
+            try {
+                const res = await fetch('/api/withdrawals/request', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ account_id: accountId, wallet_address: connectedWallet, amount })
+                });
+                const data = await res.json();
+
+                if (data.success) {
+                    alert("Withdrawal request submitted successfully! An admin will review and process your payment.");
+                    loadUserAccounts(connectedWallet);
+                } else {
+                    alert("Error: " + data.error);
+                }
+            } catch (err) { console.error(err); }
+        }
+
+        async function loadAdminWithdrawals() {
+            try {
+                const res = await fetch('/api/admin/withdrawals');
+                const data = await res.json();
+                const tbody = document.getElementById('admin-payout-queue');
+                tbody.innerHTML = '';
+
+                if (!data.withdrawals || data.withdrawals.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; color: #6b7280; padding: 24px;">No withdrawal requests.</td></tr>';
+                    return;
+                }
+
+                data.withdrawals.forEach(w => {
+                    const dateStr = new Date(w.created_at).toLocaleString();
+                    let statusColor = '#fbbf24';
+                    if (w.status === 'PAID') statusColor = '#34d399';
+                    if (w.status === 'REJECTED') statusColor = '#ef4444';
+
+                    let actionsHtml = `<span style="color: #9ca3af;">Processed</span>`;
+                    if (w.status === 'PENDING') {
+                        actionsHtml = `
+                            <button class="btn-wallet" style="padding: 4px 10px; font-size: 11px; background: #059669;" onclick="processWithdrawal('${w.id}', 'PAID')">Mark Paid</button>
+                            <button class="btn-sell" style="padding: 4px 10px; font-size: 11px;" onclick="processWithdrawal('${w.id}', 'REJECT')">Reject</button>
+                        `;
+                    }
+
+                    tbody.innerHTML += `
+                        <tr>
+                            <td><code>${w.id}</code></td>
+                            <td><code style="color: #c084fc;" title="${w.wallet_address}">${w.wallet_address.substring(0,6)}...${w.wallet_address.slice(-4)}</code></td>
+                            <td>${w.plan_name} (${w.account_id})</td>
+                            <td><strong style="color: #34d399;">$${w.amount.toFixed(2)} USDT</strong></td>
+                            <td><span style="color: ${statusColor}; font-weight: bold;">${w.status}</span></td>
+                            <td>${actionsHtml}</td>
+                        </tr>
+                    `;
+                });
+            } catch (err) { console.error(err); }
+        }
+
+        async function processWithdrawal(withdrawalId, action) {
+            if (!confirm(`Are you sure you want to mark this withdrawal as ${action}?`)) return;
+
+            try {
+                const res = await fetch('/api/admin/withdrawals/action', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ withdrawal_id: withdrawalId, action })
+                });
+                const data = await res.json();
+
+                if (data.success) {
+                    alert(data.message);
+                    loadAdminWithdrawals();
+                } else {
+                    alert("Error: " + data.error);
+                }
+            } catch (err) { console.error(err); }
         }
 
         function switchActiveAccount(accId) {

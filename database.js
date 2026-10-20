@@ -55,58 +55,20 @@ function initTables() {
       FOREIGN KEY(plan_id) REFERENCES plans(id)
     )`);
 
-    db.run(`CREATE TABLE IF NOT EXISTS orders (
-      id TEXT PRIMARY KEY,
-      account_id TEXT,
-      symbol TEXT,
-      type TEXT,
-      price REAL,
-      size REAL,
-      sl REAL,
-      tp REAL,
-      status TEXT DEFAULT 'PENDING',
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      FOREIGN KEY(account_id) REFERENCES accounts(id)
-    )`);
-
     db.run(`CREATE TABLE IF NOT EXISTS trades (
       id TEXT PRIMARY KEY,
       account_id TEXT,
-      order_id TEXT,
       symbol TEXT,
       side TEXT,
       entry_price REAL,
-      size REAL,
+      size_usd REAL,
+      units REAL,
       sl REAL,
       tp REAL,
       pnl REAL DEFAULT 0,
       status TEXT DEFAULT 'OPEN',
-      closed_at DATETIME,
-      FOREIGN KEY(account_id) REFERENCES accounts(id)
-    )`);
-
-    db.run(`CREATE TABLE IF NOT EXISTS daily_pnl_ledger (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      account_id TEXT NOT NULL,
-      ny_date TEXT NOT NULL,
-      daily_profit REAL DEFAULT 0,
-      daily_loss REAL DEFAULT 0,
-      FOREIGN KEY(account_id) REFERENCES accounts(id),
-      UNIQUE(account_id, ny_date)
-    )`);
-
-    db.run(`CREATE TABLE IF NOT EXISTS payouts (
-      id TEXT PRIMARY KEY,
-      account_id TEXT NOT NULL,
-      wallet_address TEXT NOT NULL,
-      requested_amount REAL NOT NULL,
-      trader_share_amount REAL NOT NULL,
-      platform_share_amount REAL NOT NULL,
-      status TEXT DEFAULT 'PENDING',
-      admin_notes TEXT,
-      tx_hash TEXT,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      processed_at DATETIME,
+      closed_at DATETIME,
       FOREIGN KEY(account_id) REFERENCES accounts(id)
     )`);
 
@@ -118,21 +80,6 @@ function initTables() {
       paid_amount REAL,
       commission_earned REAL,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-    )`);
-
-    db.run(`CREATE TABLE IF NOT EXISTS blacklisted_wallets (
-      wallet_address TEXT PRIMARY KEY,
-      reason TEXT,
-      banned_at DATETIME DEFAULT CURRENT_TIMESTAMP
-    )`);
-
-    db.run(`CREATE TABLE IF NOT EXISTS audit_logs (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      admin_wallet TEXT,
-      action TEXT,
-      target_account_id TEXT,
-      details TEXT,
-      timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
     )`);
   });
 }

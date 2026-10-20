@@ -139,6 +139,10 @@
         .plan-card { background: #111827; border: 1px solid #374151; border-radius: 8px; padding: 24px; text-align: center; display: flex; flex-direction: column; justify-content: space-between; }
         .plan-price { font-size: 24px; font-weight: bold; color: #a855f7; margin: 12px 0; }
         .plan-feature { padding: 8px 0; border-bottom: 1px solid #1f2937; font-size: 14px; color: #d1d5db; }
+
+        /* Progress Bar styling */
+        .progress-container { background: #111827; border-radius: 4px; height: 10px; width: 100%; margin-top: 6px; overflow: hidden; border: 1px solid #374151; }
+        .progress-bar { height: 100%; background: #10b981; width: 0%; transition: width 0.3s ease; }
     </style>
 </head>
 <body>
@@ -244,26 +248,13 @@
             </div>
         </section>
 
-        <!-- 2. ACCOUNTS VIEW -->
+        <!-- 2. ACCOUNTS VIEW WITH EXPANDABLE DETAILS -->
         <section id="accountsView" class="view-panel">
             <div class="card">
                 <div class="card-title">Your Prop Accounts Portfolio</div>
-                <table>
-                    <thead>
-                        <tr>
-                            <th>Account ID</th>
-                            <th>Plan Tier</th>
-                            <th>Initial Balance</th>
-                            <th>Available Balance</th>
-                            <th>Current Equity</th>
-                            <th>Status</th>
-                            <th>Action</th>
-                        </tr>
-                    </thead>
-                    <tbody id="accounts-table-body">
-                        <tr><td colspan="7" style="text-align: center; color: #6b7280;">Connect wallet to view your accounts.</td></tr>
-                    </tbody>
-                </table>
+                <div id="accounts-portfolio-container">
+                    <p style="text-align: center; color: #6b7280;">Connect wallet to view your accounts.</p>
+                </div>
             </div>
         </section>
 
@@ -565,7 +556,7 @@
             }
 
             document.getElementById('active-account-select').innerHTML = '<option value="">No Accounts Available</option>';
-            document.getElementById('accounts-table-body').innerHTML = '<tr><td colspan="7" style="text-align:center; color: #6b7280;">Connect wallet to view your accounts.</td></tr>';
+            document.getElementById('accounts-portfolio-container').innerHTML = '<p style="text-align: center; color: #6b7280;">Connect wallet to view your accounts.</p>';
             document.getElementById('open-trades-list').innerHTML = '<tr><td colspan="8" style="text-align: center; color: #6b7280;">Select an account to view open positions.</td></tr>';
             
             document.getElementById('profile-setup-box').style.display = 'block';
@@ -589,13 +580,11 @@
                 userAccounts = data.accounts || [];
 
                 const selectElem = document.getElementById('active-account-select');
-                const tableBody = document.getElementById('accounts-table-body');
                 selectElem.innerHTML = '';
-                tableBody.innerHTML = '';
 
                 if (userAccounts.length === 0) {
                     selectElem.innerHTML = '<option value="">No Accounts Available</option>';
-                    tableBody.innerHTML = '<tr><td colspan="7" style="text-align:center; color: #6b7280;">No accounts found. Purchase a plan in the marketplace!</td></tr>';
+                    document.getElementById('accounts-portfolio-container').innerHTML = '<p style="text-align: center; color: #6b7280;">No accounts found. Purchase a plan in the marketplace!</p>';
                     selectedAccountId = null;
                     activeAccount = null;
                     return;
@@ -607,27 +596,111 @@
                         activeAccount = acc;
                     }
                     if (acc.id === selectedAccountId) activeAccount = acc;
-
                     selectElem.innerHTML += `<option value="${acc.id}" ${acc.id === selectedAccountId ? 'selected' : ''}>${acc.plan_name} (${acc.id}) - Bal: $${acc.current_balance.toLocaleString()}</option>`;
-                    
-                    tableBody.innerHTML += `
-                        <tr>
-                            <td><code>${acc.id}</code></td>
-                            <td>${acc.plan_name}</td>
-                            <td>$${acc.initial_balance.toLocaleString()}</td>
-                            <td>$${acc.current_balance.toLocaleString()}</td>
-                            <td>$${acc.current_equity.toLocaleString()}</td>
-                            <td><span class="status-pill connected">${acc.status}</span></td>
-                            <td><button class="btn-wallet" style="padding:4px 8px; font-size:12px;" onclick="selectAccountAndTrade('${acc.id}')">Trade</button></td>
-                        </tr>
-                    `;
                 });
 
                 if (selectedAccountId) {
                     updateAvailableBalanceLabel();
                     loadOpenTrades(selectedAccountId);
                 }
+
+                renderAccountsPortfolio();
             } catch (err) { console.error(err); }
+        }
+
+        async function renderAccountsPortfolio() {
+            const container = document.getElementById('accounts-portfolio-container');
+            container.innerHTML = '';
+
+            for (const acc of userAccounts) {
+                const detailsRes = await fetch(`/api/accounts/details?account_id=${acc.id}`);
+                const details = await detailsRes.json();
+                const m = details.metrics;
+                const trades = details.trades;
+
+                let tradesRows = '';
+                if (trades.length === 0) {
+                    tradesRows = '<tr><td colspan="8" style="text-align: center; color: #6b7280;">No trades recorded for this account.</td></tr>';
+                } else {
+                    trades.forEach(t => {
+                        const pnlColor = t.pnl >= 0 ? '#34d399' : '#ef4444';
+                        tradesRows += `
+                            <tr>
+                                <td><code>${t.id}</code></td>
+                                <td>${t.symbol}</td>
+                                <td>${t.side}</td>
+                                <td>$${t.entry_price.toFixed(2)}</td>
+                                <td>$${t.size_usd.toLocaleString()}</td>
+                                <td>SL: ${t.sl || 'None'} / TP: ${t.tp || 'None'}</td>
+                                <td><span style="color: ${pnlColor}; font-weight: bold;">$${t.pnl.toFixed(2)}</span></td>
+                                <td><span style="color: ${t.status === 'OPEN' ? '#fbbf24' : '#9ca3af'};">${t.status}</span></td>
+                            </tr>
+                        `;
+                    });
+                }
+
+                container.innerHTML += `
+                    <div class="card" style="background: #111827; border: 1px solid #374151; margin-bottom: 20px;">
+                        <div class="card-title" style="display: flex; justify-content: space-between; align-items: center;">
+                            <div>
+                                <span style="font-size: 18px; color: #a855f7; font-weight: bold;">${acc.plan_name}</span> 
+                                <code style="margin-left: 8px; color: #9ca3af; font-size: 13px;">${acc.id}</code>
+                            </div>
+                            <button class="btn-wallet" style="padding: 6px 12px; font-size: 13px;" onclick="selectAccountAndTrade('${acc.id}')">Select in Terminal</button>
+                        </div>
+
+                        <div class="grid-3" style="margin-bottom: 16px;">
+                            <div>
+                                <div style="display: flex; justify-content: space-between; font-size: 13px; color: #9ca3af;">
+                                    <span>Profit Target ($${acc.profit_target.toLocaleString()})</span>
+                                    <span style="color: #34d399; font-weight: bold;">${m.profitProgress}%</span>
+                                </div>
+                                <div class="progress-container"><div class="progress-bar" style="width: ${m.profitProgress}%;"></div></div>
+                            </div>
+                            <div>
+                                <div style="display: flex; justify-content: space-between; font-size: 13px; color: #9ca3af;">
+                                    <span>Daily Loss Limit (DLL)</span>
+                                    <span style="color: #ef4444; font-weight: bold;">${m.dllProgress}%</span>
+                                </div>
+                                <div class="progress-container"><div class="progress-bar" style="background: #ef4444; width: ${m.dllProgress}%;"></div></div>
+                            </div>
+                            <div>
+                                <div style="display: flex; justify-content: space-between; font-size: 13px; color: #9ca3af;">
+                                    <span>Max Drawdown (Max DD)</span>
+                                    <span style="color: #f59e0b; font-weight: bold;">${m.ddProgress}%</span>
+                                </div>
+                                <div class="progress-container"><div class="progress-bar" style="background: #f59e0b; width: ${m.ddProgress}%;"></div></div>
+                            </div>
+                        </div>
+
+                        <div style="display: flex; gap: 24px; font-size: 14px; margin-bottom: 16px; background: #1f2937; padding: 12px; border-radius: 6px;">
+                            <div>Initial Capital: <strong>$${acc.initial_balance.toLocaleString()}</strong></div>
+                            <div>Current Equity: <strong style="color: #34d399;">$${acc.current_equity.toLocaleString()}</strong></div>
+                            <div>Consistency Score: <strong style="color: #a855f7;">${m.consistencyScore}%</strong></div>
+                            <div>Account Status: <strong style="color: #34d399;">${acc.status}</strong></div>
+                        </div>
+
+                        <div class="card-title" style="font-size: 15px; margin-top: 10px; border-bottom: 1px solid #374151; padding-bottom: 6px;">Account Trade History</div>
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Trade ID</th>
+                                    <th>Symbol</th>
+                                    <th>Side</th>
+                                    <th>Entry Price</th>
+                                    <th>Size ($)</th>
+                                    <th>SL / TP</th>
+                                    <th>Realized / PnL</th>
+                                    <th>Status</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${tradesRows}
+                            </tbody>
+                        </table>
+                    </div>
+                `;
+            }
         }
 
         function switchActiveAccount(accId) {

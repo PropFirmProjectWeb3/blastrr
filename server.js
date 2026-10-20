@@ -128,7 +128,6 @@ app.get('/api/accounts', (req, res) => {
   );
 });
 
-// Detailed account analytics & trades for the expanded view
 app.get('/api/accounts/details', (req, res) => {
   const accountId = req.query.account_id;
   if (!accountId) return res.status(400).json({ error: "Account ID required" });
@@ -141,7 +140,6 @@ app.get('/api/accounts/details', (req, res) => {
       if (err || !account) return res.status(404).json({ error: "Account not found" });
 
       db.all(`SELECT * FROM trades WHERE account_id = ? ORDER BY created_at DESC`, [accountId], (err2, trades) => {
-        // Calculate metrics
         const totalProfit = account.current_equity - account.initial_balance;
         const profitProgress = Math.min(100, Math.max(0, (totalProfit / account.profit_target) * 100));
         
@@ -153,7 +151,6 @@ app.get('/api/accounts/details', (req, res) => {
         const currentDLL = Math.max(0, account.daily_starting_balance - account.current_equity);
         const dllProgress = Math.min(100, Math.max(0, (currentDLL / maxAllowedDLL) * 100));
 
-        // Consistency score heuristic based on trade distribution or win rate
         let consistencyScore = 100;
         if (trades && trades.length > 0) {
           const closedTrades = trades.filter(t => t.status === 'CLOSED');

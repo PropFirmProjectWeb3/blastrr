@@ -37,6 +37,8 @@
             position: sticky;
             top: 0;
             z-index: 1000;
+            flex-wrap: wrap;
+            gap: 12px;
         }
 
         .logo { 
@@ -68,42 +70,42 @@
             border-radius: 8px;
             cursor: pointer;
             transition: all 0.2s ease;
-            opacity: 0.85;
+            background: radial-gradient(circle at center, rgba(31, 41, 55, 0.4) 0%, rgba(15, 23, 42, 0.75) 100%);
+            border-color: rgba(255, 255, 255, 0.04);
         }
-        .nav-tab:hover { color: #f3f4f6; background: rgba(255, 255, 255, 0.03); border-color: rgba(255, 255, 255, 0.06); opacity: 1; }
-        .nav-tab.active { color: #ffffff; background: linear-gradient(135deg, #7c3aed 0%, #6d28d9 100%); border-color: rgba(168, 85, 247, 0.3); box-shadow: 0 0 15px rgba(124, 58, 237, 0.35); opacity: 1; }
-        .nav-tab.admin-tab { display: none; background: rgba(153, 27, 27, 0.3); color: #fca5a5; border-color: rgba(239, 68, 68, 0.2); }
+        .nav-tab:hover { color: #f3f4f6; background: radial-gradient(circle at center, rgba(55, 65, 81, 0.6) 0%, rgba(31, 41, 55, 0.85) 100%); border-color: rgba(255, 255, 255, 0.1); }
+        .nav-tab.active { color: #ffffff; background: linear-gradient(135deg, #7c3aed 0%, #4c1d95 100%); border-color: rgba(168, 85, 247, 0.4); box-shadow: 0 0 15px rgba(124, 58, 237, 0.35); }
+        .nav-tab.admin-tab { display: none; background: radial-gradient(circle at center, rgba(153, 27, 27, 0.4) 0%, rgba(69, 10, 10, 0.8) 100%); color: #fca5a5; border-color: rgba(239, 68, 68, 0.2); }
         .nav-tab.admin-tab.active { background: #dc2626; color: #ffffff; border-color: #f87171; box-shadow: 0 0 15px rgba(220, 38, 38, 0.4); }
 
-        .header-actions { display: flex; align-items: center; gap: 12px; }
+        .header-actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
         
-        /* Sleek Button Opacity 0.5 + Low-Key Glow */
+        /* Transparent Gradient Buttons (Darker Toward Edges) */
         button {
-            opacity: 0.5;
             transition: all 0.25s ease;
+            backdrop-filter: blur(8px);
         }
         button:hover {
-            opacity: 1;
             transform: translateY(-1px);
         }
 
         .btn-wallet { 
-            background: linear-gradient(135deg, #7c3aed 0%, #6d28d9 100%); 
+            background: radial-gradient(circle at center, rgba(124, 58, 237, 0.6) 0%, rgba(76, 29, 149, 0.9) 100%); 
             color: white; 
-            border: 1px solid rgba(168, 85, 247, 0.4); 
+            border: 1px solid rgba(168, 85, 247, 0.35); 
             padding: 9px 18px; 
             border-radius: 8px; 
             cursor: pointer; 
             font-weight: 600; 
             font-size: 13px;
-            box-shadow: 0 0 12px rgba(124, 58, 237, 0.2);
+            box-shadow: inset 0 0 12px rgba(0, 0, 0, 0.4), 0 0 12px rgba(124, 58, 237, 0.2);
         }
-        .btn-wallet:hover { box-shadow: 0 0 20px rgba(124, 58, 237, 0.45); }
+        .btn-wallet:hover { box-shadow: inset 0 0 15px rgba(0, 0, 0, 0.5), 0 0 20px rgba(124, 58, 237, 0.45); }
 
         .btn-share-x {
-            background: #000000;
+            background: radial-gradient(circle at center, rgba(29, 155, 240, 0.4) 0%, rgba(10, 25, 47, 0.85) 100%);
             color: #ffffff;
-            border: 1px solid rgba(255, 255, 255, 0.2);
+            border: 1px solid rgba(29, 155, 240, 0.3);
             padding: 5px 12px;
             border-radius: 6px;
             cursor: pointer;
@@ -112,12 +114,12 @@
             display: inline-flex;
             align-items: center;
             gap: 5px;
-            box-shadow: 0 0 10px rgba(29, 155, 240, 0.15);
+            box-shadow: inset 0 0 8px rgba(0, 0, 0, 0.4), 0 0 10px rgba(29, 155, 240, 0.15);
         }
-        .btn-share-x:hover { background: #1d9bf0; border-color: #1d9bf0; box-shadow: 0 0 18px rgba(29, 155, 240, 0.35); }
+        .btn-share-x:hover { background: radial-gradient(circle at center, rgba(29, 155, 240, 0.6) 0%, rgba(15, 35, 65, 0.9) 100%); box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.5), 0 0 18px rgba(29, 155, 240, 0.35); }
 
         .btn-new-wallet {
-            background: rgba(37, 99, 235, 0.15);
+            background: radial-gradient(circle at center, rgba(37, 99, 235, 0.4) 0%, rgba(15, 23, 42, 0.85) 100%);
             color: #60a5fa;
             border: 1px solid rgba(59, 130, 246, 0.3);
             padding: 9px 14px;
@@ -126,26 +128,26 @@
             font-weight: 600;
             font-size: 13px;
             display: none;
-            box-shadow: 0 0 10px rgba(59, 130, 246, 0.15);
+            box-shadow: inset 0 0 8px rgba(0, 0, 0, 0.4), 0 0 10px rgba(59, 130, 246, 0.15);
         }
-        .btn-new-wallet:hover { background: rgba(37, 99, 235, 0.25); color: #93c5fd; box-shadow: 0 0 18px rgba(59, 130, 246, 0.35); }
+        .btn-new-wallet:hover { background: radial-gradient(circle at center, rgba(37, 99, 235, 0.6) 0%, rgba(23, 37, 84, 0.9) 100%); color: #93c5fd; box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.5), 0 0 18px rgba(59, 130, 246, 0.35); }
 
         .btn-disconnect {
-            background: rgba(55, 65, 81, 0.4);
+            background: radial-gradient(circle at center, rgba(220, 38, 38, 0.35) 0%, rgba(69, 10, 10, 0.8) 100%);
             color: #d1d5db;
-            border: 1px solid rgba(75, 85, 99, 0.4);
+            border: 1px solid rgba(239, 68, 68, 0.3);
             padding: 9px 14px;
             border-radius: 8px;
             cursor: pointer;
             font-weight: 600;
             font-size: 13px;
             display: none;
-            box-shadow: 0 0 10px rgba(239, 68, 68, 0.15);
+            box-shadow: inset 0 0 8px rgba(0, 0, 0, 0.4), 0 0 10px rgba(239, 68, 68, 0.15);
         }
-        .btn-disconnect:hover { background: rgba(153, 27, 27, 0.3); color: #fca5a5; border-color: rgba(239, 68, 68, 0.4); box-shadow: 0 0 18px rgba(239, 68, 68, 0.35); }
+        .btn-disconnect:hover { background: radial-gradient(circle at center, rgba(220, 38, 38, 0.6) 0%, rgba(127, 29, 29, 0.9) 100%); color: #fca5a5; border-color: rgba(239, 68, 68, 0.5); box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.5), 0 0 18px rgba(239, 68, 68, 0.35); }
 
         .wallet-select {
-            background: rgba(17, 24, 39, 0.8);
+            background: radial-gradient(circle at center, rgba(5, 150, 105, 0.3) 0%, rgba(6, 78, 59, 0.8) 100%);
             border: 1px solid rgba(52, 211, 153, 0.4);
             color: #34d399;
             padding: 8px 14px;
@@ -154,10 +156,9 @@
             font-size: 13px;
             display: none;
             cursor: pointer;
-            opacity: 0.85;
-            box-shadow: 0 0 10px rgba(52, 211, 153, 0.15);
+            box-shadow: inset 0 0 8px rgba(0, 0, 0, 0.4), 0 0 10px rgba(52, 211, 153, 0.15);
         }
-        .wallet-select:hover { opacity: 1; box-shadow: 0 0 16px rgba(52, 211, 153, 0.3); }
+        .wallet-select:hover { box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.5), 0 0 16px rgba(52, 211, 153, 0.3); }
 
         .status-pill {
             padding: 5px 12px;
@@ -200,6 +201,8 @@
             display: flex; 
             justify-content: space-between; 
             align-items: center; 
+            flex-wrap: wrap;
+            gap: 10px;
         }
 
         .trade-grid { display: grid; grid-template-columns: 3fr 1fr; gap: 24px; }
@@ -224,13 +227,14 @@
             box-shadow: 0 0 0 3px rgba(168, 85, 247, 0.2);
         }
 
-        .btn-buy { width: 100%; background: linear-gradient(135deg, #059669 0%, #047857 100%); color: white; border: 1px solid rgba(52, 211, 153, 0.3); padding: 12px; border-radius: 8px; font-weight: 700; cursor: pointer; font-size: 14px; margin-bottom: 10px; box-shadow: 0 0 12px rgba(5, 150, 105, 0.2); }
-        .btn-buy:hover { box-shadow: 0 0 20px rgba(16, 185, 129, 0.4); }
+        .btn-buy { width: 100%; background: radial-gradient(circle at center, rgba(5, 150, 105, 0.5) 0%, rgba(4, 120, 87, 0.9) 100%); color: white; border: 1px solid rgba(52, 211, 153, 0.35); padding: 12px; border-radius: 8px; font-weight: 700; cursor: pointer; font-size: 14px; margin-bottom: 10px; box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.4), 0 0 12px rgba(5, 150, 105, 0.2); }
+        .btn-buy:hover { box-shadow: inset 0 0 12px rgba(0, 0, 0, 0.5), 0 0 20px rgba(16, 185, 129, 0.4); }
         
-        .btn-sell { width: 100%; background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%); color: white; border: 1px solid rgba(248, 113, 113, 0.3); padding: 12px; border-radius: 8px; font-weight: 700; cursor: pointer; font-size: 14px; box-shadow: 0 0 12px rgba(220, 38, 38, 0.2); }
-        .btn-sell:hover { box-shadow: 0 0 20px rgba(239, 68, 68, 0.4); }
+        .btn-sell { width: 100%; background: radial-gradient(circle at center, rgba(220, 38, 38, 0.5) 0%, rgba(153, 27, 27, 0.9) 100%); color: white; border: 1px solid rgba(248, 113, 113, 0.35); padding: 12px; border-radius: 8px; font-weight: 700; cursor: pointer; font-size: 14px; box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.4), 0 0 12px rgba(220, 38, 38, 0.2); }
+        .btn-sell:hover { box-shadow: inset 0 0 12px rgba(0, 0, 0, 0.5), 0 0 20px rgba(239, 68, 68, 0.4); }
 
-        table { width: 100%; border-collapse: collapse; text-align: left; font-size: 13.5px; }
+        .table-responsive { width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+        table { width: 100%; border-collapse: collapse; text-align: left; font-size: 13.5px; min-width: 600px; }
         th { background: rgba(5, 7, 11, 0.9); color: #9ca3af; padding: 12px 14px; font-weight: 600; border-bottom: 1px solid rgba(255, 255, 255, 0.08); text-transform: uppercase; font-size: 11px; letter-spacing: 0.5px; }
         td { padding: 13px 14px; border-bottom: 1px solid rgba(255, 255, 255, 0.04); color: #e5e7eb; }
         tr:hover td { background: rgba(255, 255, 255, 0.015); }
@@ -254,6 +258,21 @@
 
         .progress-container { background: rgba(5, 7, 11, 0.9); border-radius: 6px; height: 8px; width: 100%; margin-top: 8px; overflow: hidden; border: 1px solid rgba(255, 255, 255, 0.06); }
         .progress-bar { height: 100%; background: linear-gradient(90deg, #10b981, #34d399); width: 0%; border-radius: 6px; box-shadow: 0 0 10px rgba(52, 211, 153, 0.4); transition: width 0.4s ease; }
+
+        /* Mobile Responsiveness Media Queries */
+        @media (max-width: 968px) {
+            .trade-grid { grid-template-columns: 1fr; }
+            header { padding: 12px 16px; flex-direction: column; align-items: stretch; }
+            nav { justify-content: center; }
+            .header-actions { justify-content: center; }
+            main { padding: 14px; }
+        }
+
+        @media (max-width: 640px) {
+            .nav-tab { font-size: 12px; padding: 6px 10px; }
+            .card { padding: 16px; }
+            .logo { font-size: 18px; }
+        }
     </style>
 </head>
 <body>
@@ -286,9 +305,9 @@
             <div class="trade-grid">
                 <div>
                     <div class="card">
-                        <div class="card-title" style="display: flex; justify-content: space-between; align-items: center;">
+                        <div class="card-title">
                             <span id="chart-title">TradingView Chart Terminal</span>
-                            <div style="display: flex; align-items: center; gap: 8px;">
+                            <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
                                 <button class="btn-wallet" style="padding: 5px 10px; font-size: 11px;" onclick="manualRefreshData()">🔄 Refresh</button>
                                 <label style="font-size: 11px; color: #9ca3af; text-transform: uppercase; font-weight: 700;">Active Account:</label>
                                 <select id="active-account-select" onchange="switchActiveAccount(this.value)" style="background: #05070b; border: 1px solid rgba(255, 255, 255, 0.1); color: white; padding: 6px 10px; border-radius: 6px; font-size: 13px;">
@@ -301,23 +320,25 @@
 
                     <div class="card">
                         <div class="card-title">Open Positions & PnL</div>
-                        <table>
-                            <thead>
-                                <tr>
-                                    <th>ID</th>
-                                    <th>Symbol</th>
-                                    <th>Side</th>
-                                    <th>Entry Price</th>
-                                    <th>Size ($)</th>
-                                    <th>SL / TP</th>
-                                    <th>Live PnL</th>
-                                    <th>Action</th>
-                                </tr>
-                            </thead>
-                            <tbody id="open-trades-list">
-                                <tr><td colspan="8" style="text-align: center; color: #6b7280; padding: 24px;">Select an account to view open positions.</td></tr>
-                            </tbody>
-                        </table>
+                        <div class="table-responsive">
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th>ID</th>
+                                        <th>Symbol</th>
+                                        <th>Side</th>
+                                        <th>Entry Price</th>
+                                        <th>Size ($)</th>
+                                        <th>SL / TP</th>
+                                        <th>Live PnL</th>
+                                        <th>Action</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="open-trades-list">
+                                    <tr><td colspan="8" style="text-align: center; color: #6b7280; padding: 24px;">Select an account to view open positions.</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
                     </div>
                 </div>
 
@@ -380,9 +401,9 @@
         <!-- 3. LEADERBOARD VIEW -->
         <section id="leaderboardView" class="view-panel">
             <div class="card">
-                <div class="card-title" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; margin-bottom: 8px;">
+                <div class="card-title" style="margin-bottom: 8px;">
                     <div>🏆 Global Trader Leaderboard</div>
-                    <div style="display: flex; gap: 8px;">
+                    <div style="display: flex; gap: 8px; flex-wrap: wrap;">
                         <button id="lb-btn-daily" class="nav-tab active" onclick="switchLeaderboardMode('DAILY')">Daily Profit</button>
                         <button id="lb-btn-monthly" class="nav-tab" onclick="switchLeaderboardMode('MONTHLY')">Monthly Profit</button>
                         <button id="lb-btn-payouts" class="nav-tab" onclick="switchLeaderboardMode('PAYOUTS')">Lifetime Payouts</button>
@@ -394,24 +415,26 @@
                 </p>
 
                 <div style="display: flex; gap: 12px; margin-bottom: 20px; flex-wrap: wrap; align-items: center;">
-                    <input type="text" id="lb-search-input" placeholder="🔍 Search username to find rank..." onkeyup="filterLeaderboardTable()" style="max-width: 350px; background: rgba(5,7,11,0.9); border: 1px solid rgba(255,255,255,0.08); color: white; padding: 10px 14px; border-radius: 8px; font-size: 13.5px;">
+                    <input type="text" id="lb-search-input" placeholder="🔍 Search username to find rank..." onkeyup="filterLeaderboardTable()" style="max-width: 350px; background: rgba(5,7,11,0.9); border: 1px solid rgba(255,255,255,0.08); color: white; padding: 10px 14px; border-radius: 8px; font-size: 13.5px; width: 100%;">
                     <span id="lb-my-rank-label" style="color: #c084fc; font-weight: 600; font-size: 13.5px; display: none;">Your Rank: #-</span>
                 </div>
 
-                <table>
-                    <thead>
-                        <tr>
-                            <th>Rank</th>
-                            <th>Trader Username</th>
-                            <th>Promo Code</th>
-                            <th id="lb-metric-col-header">Daily Realized Profit</th>
-                            <th>Action</th>
-                        </tr>
-                    </thead>
-                    <tbody id="leaderboard-table-body">
-                        <tr><td colspan="5" style="text-align: center; color: #6b7280; padding: 24px;">Loading leaderboard...</td></tr>
-                    </tbody>
-                </table>
+                <div class="table-responsive">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Rank</th>
+                                <th>Trader Username</th>
+                                <th>Promo Code</th>
+                                <th id="lb-metric-col-header">Daily Realized Profit</th>
+                                <th>Action</th>
+                            </tr>
+                        </thead>
+                        <tbody id="leaderboard-table-body">
+                            <tr><td colspan="5" style="text-align: center; color: #6b7280; padding: 24px;">Loading leaderboard...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
             </div>
         </section>
 
@@ -462,19 +485,21 @@
                     </div>
 
                     <div class="card-title" style="font-size: 15px; border-bottom: 1px solid rgba(255, 255, 255, 0.06); padding-bottom: 12px;">Commission Earnings History</div>
-                    <table>
-                        <thead>
-                            <tr>
-                                <th>Buyer Username</th>
-                                <th>Plan Purchased</th>
-                                <th>Commission Earned (2%)</th>
-                                <th>Date</th>
-                            </tr>
-                        </thead>
-                        <tbody id="ref-transactions-list">
-                            <tr><td colspan="4" style="text-align: center; color: #6b7280; padding: 24px;">No sales recorded yet.</td></tr>
-                        </tbody>
-                    </table>
+                    <div class="table-responsive">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Buyer Username</th>
+                                    <th>Plan Purchased</th>
+                                    <th>Commission Earned (2%)</th>
+                                    <th>Date</th>
+                                </tr>
+                            </thead>
+                            <tbody id="ref-transactions-list">
+                                <tr><td colspan="4" style="text-align: center; color: #6b7280; padding: 24px;">No sales recorded yet.</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
             </div>
         </section>
@@ -485,8 +510,8 @@
                 <div class="card-title">Evaluation Plans Marketplace</div>
                 <div class="form-group" style="max-width: 420px; margin-bottom: 24px;">
                     <label>Have a Creator Promo Code? (Applied at Checkout)</label>
-                    <div style="display: flex; gap: 10px;">
-                        <input type="text" id="applied-promo" placeholder="Enter Code (e.g. VIP90)">
+                    <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                        <input type="text" id="applied-promo" placeholder="Enter Code (e.g. VIP90)" style="flex: 1;">
                         <button class="btn-wallet" style="padding: 0 20px;" onclick="applyPromo()">Apply</button>
                     </div>
                     <small id="promo-feedback" style="color: #34d399; display: block; margin-top: 6px; font-weight: 600;"></small>
@@ -501,22 +526,24 @@
         <section id="adminView" class="view-panel">
             <div class="card" style="border-color: rgba(220, 38, 38, 0.3);">
                 <div class="card-title" style="color: #f87171;">🛡️ Admin Withdrawal & Payout Queue</div>
-                <table>
-                    <thead>
-                        <tr>
-                            <th>Request ID</th>
-                            <th>Type</th>
-                            <th>Trader Wallet</th>
-                            <th>Account / Details</th>
-                            <th>Amount</th>
-                            <th>Status</th>
-                            <th>Action</th>
-                        </tr>
-                    </thead>
-                    <tbody id="admin-payout-queue">
-                        <tr><td colspan="7" style="text-align: center; color: #6b7280; padding: 24px;">No pending requests.</td></tr>
-                    </tbody>
-                </table>
+                <div class="table-responsive">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Request ID</th>
+                                <th>Type</th>
+                                <th>Trader Wallet</th>
+                                <th>Account / Details</th>
+                                <th>Amount</th>
+                                <th>Status</th>
+                                <th>Action</th>
+                            </tr>
+                        </thead>
+                        <tbody id="admin-payout-queue">
+                            <tr><td colspan="7" style="text-align: center; color: #6b7280; padding: 24px;">No pending requests.</td></tr>
+                        </tbody>
+                    </table>
+                </div>
             </div>
         </section>
     </main>
@@ -965,12 +992,12 @@
                 if (!cardElem) {
                     const cardHtml = `
                         <div id="acc-card-${acc.id}" class="card" style="background: rgba(8, 12, 18, 0.85); border: 1px solid rgba(255, 255, 255, 0.05); margin-bottom: 24px;">
-                            <div class="card-title" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                            <div class="card-title" style="margin-bottom: 20px;">
                                 <div>
                                     <span style="font-size: 18px; color: #c084fc; font-weight: 800;">${acc.plan_name}</span> 
                                     <code style="margin-left: 10px; color: #9ca3af; font-size: 12px; background: rgba(255,255,255,0.03); padding: 3px 8px; border-radius: 4px;">${acc.id}</code>
                                 </div>
-                                <div style="display: flex; gap: 10px;">
+                                <div style="display: flex; gap: 10px; flex-wrap: wrap;">
                                     <button class="btn-wallet" style="padding: 7px 14px; font-size: 12px; background: #059669;" onclick="requestWithdrawal('${acc.id}', ${acc.current_balance})">Request Withdrawal</button>
                                     <button class="btn-wallet" style="padding: 7px 14px; font-size: 12px;" onclick="selectAccountAndTrade('${acc.id}')">Select in Terminal</button>
                                 </div>
@@ -1000,7 +1027,7 @@
                                 </div>
                             </div>
 
-                            <div style="display: flex; gap: 28px; font-size: 13.5px; margin-bottom: 20px; background: rgba(5, 7, 11, 0.7); padding: 14px 18px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.03);">
+                            <div style="display: flex; gap: 20px; font-size: 13.5px; margin-bottom: 20px; background: rgba(5, 7, 11, 0.7); padding: 14px 18px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.03); flex-wrap: wrap;">
                                 <div>Initial Capital: <strong style="color: #f3f4f6;">$${acc.initial_balance.toLocaleString()}</strong></div>
                                 <div>Current Balance: <strong id="bal-val-${acc.id}" style="color: #34d399;">$${acc.current_balance.toLocaleString()}</strong></div>
                                 <div>Consistency Score: <strong id="cs-val-${acc.id}" style="color: #c084fc;">${m.consistencyScore}%</strong></div>
@@ -1008,22 +1035,24 @@
                             </div>
 
                             <div class="card-title" style="font-size: 14px; margin-top: 14px; border-bottom: 1px solid rgba(255, 255, 255, 0.06); padding-bottom: 8px;">Account Trade History</div>
-                            <table>
-                                <thead>
-                                    <tr>
-                                        <th>Trade ID</th>
-                                        <th>Symbol</th>
-                                        <th>Side</th>
-                                        <th>Entry Price</th>
-                                        <th>Size ($)</th>
-                                        <th>SL / TP</th>
-                                        <th>Realized / PnL</th>
-                                        <th>Status</th>
-                                        <th>Share</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="trades-body-${acc.id}"></tbody>
-                            </table>
+                            <div class="table-responsive">
+                                <table>
+                                    <thead>
+                                        <tr>
+                                            <th>Trade ID</th>
+                                            <th>Symbol</th>
+                                            <th>Side</th>
+                                            <th>Entry Price</th>
+                                            <th>Size ($)</th>
+                                            <th>SL / TP</th>
+                                            <th>Realized / PnL</th>
+                                            <th>Status</th>
+                                            <th>Share</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="trades-body-${acc.id}"></tbody>
+                                </table>
+                            </div>
                         </div>
                     `;
                     container.insertAdjacentHTML('beforeend', cardHtml);

@@ -1,70 +1,50 @@
-// Seed default plans if none exist
-function seedPlans() {
-  db.get("SELECT COUNT(*) as count FROM plans", (err, row) => {
-    if (row.count === 0) {
-      db.run(`INSERT INTO plans (name, price_usdt, simulated_capital, profit_target, max_drawdown_pct, daily_loss_pct, max_single_day_profit_pct) VALUES 
-        ('Starter $10k', 50, 10000, 1000, 10.0, 5.0, 40.0),
-        ('Pro $50k', 200, 50000, 5000, 10.0, 5.0, 40.0),
-        ('Elite $100k', 350, 100000, 10000, 8.0, 4.0, 35.0)`);
-      console.log("Default prop plans seeded.");
-    }
-  });
-}
-seedPlans();
-
-// Endpoint: Get all active plans
-app.get('/api/plans', (req, res) => {
-  db.all("SELECT * FROM plans", [], (err, rows) => {
-    if (err) return res.status(500).json({ error: err.message });
-    res.json({ plans: rows });
-  });
-});
-
-// Endpoint: Get user's active accounts
-app.get('/api/accounts', (req, res) => {
+// Endpoint: Get active account for a wallet (Enforcing 1 active account rule)
+app.get('/api/accounts/active', (req, res) => {
   const wallet = req.query.wallet;
   if (!wallet) return res.status(400).json({ error: "Wallet required" });
 
-  db.all(
+  db.get(
     `SELECT a.*, p.name as plan_name FROM accounts a 
      JOIN plans p ON a.plan_id = p.id 
-     WHERE LOWER(a.wallet_address) = LOWER(?)`,
+     WHERE LOWER(a.wallet_address) = LOWER(?) AND a.status = 'ACTIVE' 
+     LIMIT 1`,
     [wallet],
-    (err, rows) => {
+    (err, row) => {
       if (err) return res.status(500).json({ error: err.message });
-      res.json({ accounts: rows });
+      res.json({ account: row || null });
     }
   );
 });
 
-// Endpoint: Purchase a plan & provision a simulated account
-app.post('/api/accounts/purchase', (req, res) => {
-  const { wallet_address, plan_id } = req.body;
-  if (!wallet_address || !plan_id) {
-    return res.status(400).json({ error: "Wallet address and plan ID required" });
+// Endpoint: Place a new limit order
+app.post('/api/orders/place', (req, res) => {
+  const { account_id, symbol, side, price, size, sl, tp } = req.body;
+  
+  if (!account_id || !symbol || !side || !price || !size) {
+    return res.status(400).json({ error: "Missing required order parameters." });
   }
 
-  // 1. Get plan details
-  db.get("SELECT * FROM plans WHERE id = ?", [plan_id], (err, plan) => {
-    if (err || !plan) return res.status(404).json({ error: "Plan not found" });
+  const orderId = 'ord_' + Math.random().toString(36).substring(2, 11);
 
-    // 2. Ensure user exists
-    db.run("INSERT OR IGNORE INTO users (wallet_address) VALUES (?)", [wallet_address], () => {
-      
-      // 3. Generate unique account ID (UUID-like)
-      const accountId = 'acc_' + Math.random().toString(36).substring(2, 11);
-      const initialCapital = plan.simulated_capital;
+  db.run(
+    `INSERT INTO orders (id, account_id, symbol, type, price, size, sl, tp, status)
+     VALUES (?, ?, ?, 'LIMIT', ?, ?, ?, ?, 'PENDING')`,
+    [orderId, account_id, symbol, price, size, sl || null, tp || null],
+    (err) => {
+      if (err) return res.status(500).json({ error: err.message });
+      res.json({ success: true, order_id: orderId, message: "Limit order placed successfully." });
+    }
+  );
+});
 
-      // 4. Insert new simulated account
-      db.run(
-        `INSERT INTO accounts (id, wallet_address, plan_id, initial_balance, current_balance, current_equity, high_water_mark, daily_starting_balance, status)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'ACTIVE')`,
-        [accountId, wallet_address, plan_id, initialCapital, initialCapital, initialCapital, initialCapital, initialCapital],
-        (err) => {
-          if (err) return res.status(500).json({ error: err.message });
-          res.json({ success: true, account_id: accountId, message: "Simulated account successfully provisioned!" });
-        }
-      );
+// Endpoint: Get open orders and trades for an account
+app.get('/api/trades/active', (req, res) => {
+  const accountId = req.query.account_id;
+  if (!accountId) return res.status(400).json({ error: "Account ID required" });
+
+  db.all("SELECT * FROM orders WHERE account_id = ? AND status = 'PENDING'", [accountId], (err, orders) => {
+    db.all("SELECT * FROM trades WHERE account_id = ? AND status = 'OPEN'", [accountId], (err2, trades) => {
+      res.json({ orders, trades });
     });
   });
 });

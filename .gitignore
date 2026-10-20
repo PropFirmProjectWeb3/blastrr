@@ -1,0 +1,5 @@
+node_modules/
+blastrr.db
+.env
+*.log
+.DS_Store

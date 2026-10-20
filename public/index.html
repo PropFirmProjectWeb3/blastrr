@@ -3,146 +3,223 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Blastrr - Crypto Prop Terminal</title>
+    <title>Blastrr - Elite Crypto Prop Terminal</title>
     <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap');
+
         * { box-sizing: border-box; }
+        
         body { 
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; 
-            background: #0f1117; 
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; 
+            background: #05070b; 
             color: #f3f4f6; 
             margin: 0; 
             padding: 0; 
+            overflow-x: hidden;
         }
+
+        code, pre { font-family: 'JetBrains Mono', monospace; }
+
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: #05070b; }
+        ::-webkit-scrollbar-thumb { background: #1f2937; border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: #7c3aed; }
 
         header { 
             display: flex; 
             justify-content: space-between; 
             align-items: center; 
-            background: #111827;
-            border-bottom: 1px solid #1f2937; 
-            padding: 12px 24px; 
+            background: rgba(10, 12, 16, 0.85);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.06); 
+            padding: 14px 28px; 
+            position: sticky;
+            top: 0;
+            z-index: 1000;
         }
-        .logo { font-size: 22px; font-weight: 800; color: #a855f7; display: flex; align-items: center; gap: 8px; }
+
+        .logo { 
+            font-size: 22px; 
+            font-weight: 800; 
+            color: #c084fc; 
+            display: flex; 
+            align-items: center; 
+            gap: 10px;
+            letter-spacing: -0.5px;
+            text-shadow: 0 0 20px rgba(168, 85, 247, 0.4);
+        }
         
-        nav { display: flex; gap: 8px; flex-wrap: wrap; }
+        nav { display: flex; gap: 6px; flex-wrap: wrap; }
+        
         .nav-tab {
             background: transparent;
             color: #9ca3af;
-            border: none;
+            border: 1px solid transparent;
             padding: 8px 16px;
-            font-size: 14px;
+            font-size: 13px;
             font-weight: 600;
-            border-radius: 6px;
+            border-radius: 8px;
             cursor: pointer;
-            transition: all 0.2s;
+            transition: all 0.2s ease;
         }
-        .nav-tab:hover { color: #f3f4f6; background: #1f2937; }
-        .nav-tab.active { color: #ffffff; background: #7c3aed; }
-        .nav-tab.admin-tab { display: none; background: #991b1b; color: #fef2f2; }
-        .nav-tab.admin-tab.active { background: #dc2626; }
+        .nav-tab:hover { color: #f3f4f6; background: rgba(255, 255, 255, 0.03); border-color: rgba(255, 255, 255, 0.06); }
+        .nav-tab.active { color: #ffffff; background: linear-gradient(135deg, #7c3aed 0%, #6d28d9 100%); border-color: rgba(168, 85, 247, 0.3); box-shadow: 0 0 15px rgba(124, 58, 237, 0.35); }
+        .nav-tab.admin-tab { display: none; background: rgba(153, 27, 27, 0.3); color: #fca5a5; border-color: rgba(239, 68, 68, 0.2); }
+        .nav-tab.admin-tab.active { background: #dc2626; color: #ffffff; border-color: #f87171; box-shadow: 0 0 15px rgba(220, 38, 38, 0.4); }
 
-        .header-actions { display: flex; align-items: center; gap: 10px; }
+        .header-actions { display: flex; align-items: center; gap: 12px; }
+        
         .btn-wallet { 
-            background: #7c3aed; 
+            background: linear-gradient(135deg, #7c3aed 0%, #6d28d9 100%); 
             color: white; 
-            border: none; 
-            padding: 8px 16px; 
-            border-radius: 6px; 
+            border: 1px solid rgba(168, 85, 247, 0.4); 
+            padding: 9px 18px; 
+            border-radius: 8px; 
             cursor: pointer; 
-            font-weight: bold; 
-            font-size: 14px;
-            transition: background 0.2s;
+            font-weight: 600; 
+            font-size: 13px;
+            transition: all 0.2s;
+            box-shadow: 0 4px 12px rgba(124, 58, 237, 0.25);
         }
-        .btn-wallet:hover { background: #6d28d9; }
+        .btn-wallet:hover { background: linear-gradient(135deg, #8b5cf6`, #7c3aed); box-shadow: 0 4px 20px rgba(124, 58, 237, 0.4); transform: translateY(-1px); }
         
         .btn-new-wallet {
-            background: #2563eb;
-            color: white;
-            border: none;
-            padding: 8px 12px;
-            border-radius: 6px;
-            cursor: pointer;
-            font-weight: 600;
-            font-size: 13px;
-            display: none;
-            transition: background 0.2s;
-        }
-        .btn-new-wallet:hover { background: #1d4ed8; }
-
-        .btn-disconnect {
-            background: #374151;
-            color: #f3f4f6;
-            border: 1px solid #4b5563;
-            padding: 8px 12px;
-            border-radius: 6px;
+            background: rgba(37, 99, 235, 0.15);
+            color: #60a5fa;
+            border: 1px solid rgba(59, 130, 246, 0.3);
+            padding: 9px 14px;
+            border-radius: 8px;
             cursor: pointer;
             font-weight: 600;
             font-size: 13px;
             display: none;
             transition: all 0.2s;
         }
-        .btn-disconnect:hover { background: #991b1b; color: #ffffff; border-color: #ef4444; }
+        .btn-new-wallet:hover { background: rgba(37, 99, 235, 0.25); color: #93c5fd; }
+
+        .btn-disconnect {
+            background: rgba(55, 65, 81, 0.4);
+            color: #d1d5db;
+            border: 1px solid rgba(75, 85, 99, 0.4);
+            padding: 9px 14px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 13px;
+            display: none;
+            transition: all 0.2s;
+        }
+        .btn-disconnect:hover { background: rgba(153, 27, 27, 0.3); color: #fca5a5; border-color: rgba(239, 68, 68, 0.4); }
 
         .wallet-select {
-            background: #1f2937;
-            border: 1px solid #34d399;
+            background: rgba(17, 24, 39, 0.8);
+            border: 1px solid rgba(52, 211, 153, 0.4);
             color: #34d399;
-            padding: 7px 12px;
-            border-radius: 6px;
-            font-weight: bold;
+            padding: 8px 14px;
+            border-radius: 8px;
+            font-weight: 600;
             font-size: 13px;
             display: none;
             cursor: pointer;
         }
 
         .status-pill {
-            padding: 4px 10px;
+            padding: 5px 12px;
             border-radius: 20px;
-            font-size: 12px;
-            font-weight: 600;
-            background: #374151;
+            font-size: 11px;
+            font-weight: 700;
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
+            background: rgba(55, 65, 81, 0.3);
             color: #9ca3af;
+            border: 1px solid rgba(255, 255, 255, 0.05);
         }
-        .status-pill.connected { background: #065f46; color: #34d399; }
+        .status-pill.connected { background: rgba(6, 95, 70, 0.3); color: #34d399; border-color: rgba(52, 211, 153, 0.3); box-shadow: 0 0 12px rgba(52, 211, 153, 0.15); }
 
-        main { padding: 24px; max-width: 1400px; margin: 0 auto; }
+        main { padding: 28px; max-width: 1440px; margin: 0 auto; }
         .view-panel { display: none; }
-        .view-panel.active { display: block; }
+        .view-panel.active { display: block; animation: fadeIn 0.25s ease-out; }
 
-        .card { background: #1f2937; border: 1px solid #374151; border-radius: 8px; padding: 20px; margin-bottom: 20px; }
-        .card-title { margin-top: 0; margin-bottom: 16px; font-size: 18px; color: #f3f4f6; display: flex; justify-content: space-between; align-items: center; }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(4px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
 
-        .trade-grid { display: grid; grid-template-columns: 3fr 1fr; gap: 20px; }
+        /* Glass Slate Card Panel */
+        .card { 
+            background: rgba(13, 17, 23, 0.75); 
+            backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.06); 
+            border-radius: 12px; 
+            padding: 22px; 
+            margin-bottom: 24px; 
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+        }
+        .card-title { 
+            margin-top: 0; 
+            margin-bottom: 18px; 
+            font-size: 16px; 
+            font-weight: 700;
+            letter-spacing: -0.2px;
+            color: #f3f4f6; 
+            display: flex; 
+            justify-content: space-between; 
+            align-items: center; 
+        }
+
+        .trade-grid { display: grid; grid-template-columns: 3fr 1fr; gap: 24px; }
         .grid-3 { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px; }
-        .plans-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 20px; }
+        .plans-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(265px, 1fr)); gap: 24px; }
 
-        .form-group { margin-bottom: 14px; }
-        .form-group label { display: block; font-size: 12px; color: #9ca3af; margin-bottom: 6px; text-transform: uppercase; font-weight: 600; }
+        .form-group { margin-bottom: 16px; }
+        .form-group label { display: block; font-size: 11px; color: #9ca3af; margin-bottom: 6px; text-transform: uppercase; font-weight: 700; letter-spacing: 0.5px; }
         .form-group input, .form-group select {
             width: 100%;
-            background: #111827;
-            border: 1px solid #374151;
+            background: rgba(5, 7, 11, 0.85);
+            border: 1px solid rgba(255, 255, 255, 0.08);
             color: white;
-            padding: 10px;
-            border-radius: 6px;
+            padding: 11px 14px;
+            border-radius: 8px;
             font-size: 14px;
+            transition: all 0.2s;
         }
-        .btn-buy { width: 100%; background: #10b981; color: white; border: none; padding: 12px; border-radius: 6px; font-weight: bold; cursor: pointer; font-size: 15px; margin-bottom: 8px; }
-        .btn-buy:hover { background: #059669; }
-        .btn-sell { width: 100%; background: #ef4444; color: white; border: none; padding: 12px; border-radius: 6px; font-weight: bold; cursor: pointer; font-size: 15px; }
-        .btn-sell:hover { background: #dc2626; }
+        .form-group input:focus, .form-group select:focus {
+            outline: none;
+            border-color: #a855f7;
+            box-shadow: 0 0 0 3px rgba(168, 85, 247, 0.2);
+        }
 
-        table { width: 100%; border-collapse: collapse; text-align: left; font-size: 14px; }
-        th { background: #111827; color: #9ca3af; padding: 10px 12px; font-weight: 600; border-bottom: 1px solid #374151; }
-        td { padding: 12px; border-bottom: 1px solid #374151; color: #e5e7eb; }
+        .btn-buy { width: 100%; background: linear-gradient(135deg, #059669 0%, #047857 100%); color: white; border: 1px solid rgba(52, 211, 153, 0.3); padding: 12px; border-radius: 8px; font-weight: 700; cursor: pointer; font-size: 14px; margin-bottom: 10px; transition: all 0.2s; box-shadow: 0 4px 12px rgba(5, 150, 105, 0.25); }
+        .btn-buy:hover { background: linear-gradient(135deg, #10b981 0%, #059669 100%); box-shadow: 0 4px 20px rgba(16, 185, 129, 0.4); }
+        
+        .btn-sell { width: 100%; background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%); color: white; border: 1px solid rgba(248, 113, 113, 0.3); padding: 12px; border-radius: 8px; font-weight: 700; cursor: pointer; font-size: 14px; transition: all 0.2s; box-shadow: 0 4px 12px rgba(220, 38, 38, 0.25); }
+        .btn-sell:hover { background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%); box-shadow: 0 4px 20px rgba(239, 68, 68, 0.4); }
 
-        .plan-card { background: #111827; border: 1px solid #374151; border-radius: 8px; padding: 24px; text-align: center; display: flex; flex-direction: column; justify-content: space-between; }
-        .plan-price { font-size: 24px; font-weight: bold; color: #a855f7; margin: 12px 0; }
-        .plan-feature { padding: 8px 0; border-bottom: 1px solid #1f2937; font-size: 14px; color: #d1d5db; }
+        table { width: 100%; border-collapse: collapse; text-align: left; font-size: 13.5px; }
+        th { background: rgba(5, 7, 11, 0.9); color: #9ca3af; padding: 12px 14px; font-weight: 600; border-bottom: 1px solid rgba(255, 255, 255, 0.08); text-transform: uppercase; font-size: 11px; letter-spacing: 0.5px; }
+        td { padding: 13px 14px; border-bottom: 1px solid rgba(255, 255, 255, 0.04); color: #e5e7eb; }
+        tr:hover td { background: rgba(255, 255, 255, 0.015); }
+
+        .plan-card { 
+            background: rgba(9, 13, 19, 0.9); 
+            border: 1px solid rgba(255, 255, 255, 0.06); 
+            border-radius: 12px; 
+            padding: 26px; 
+            text-align: center; 
+            display: flex; 
+            flex-direction: column; 
+            justify-content: space-between;
+            transition: all 0.25s;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+        }
+        .plan-card:hover { border-color: rgba(168, 85, 247, 0.4); transform: translateY(-3px); box-shadow: 0 12px 32px rgba(124, 58, 237, 0.15); }
+        .plan-price { font-size: 26px; font-weight: 800; color: #c084fc; margin: 14px 0; text-shadow: 0 0 15px rgba(168, 85, 247, 0.3); }
+        .plan-feature { padding: 9px 0; border-bottom: 1px solid rgba(255, 255, 255, 0.04); font-size: 13.5px; color: #d1d5db; display: flex; justify-content: space-between; }
 
         /* Progress Bar styling */
-        .progress-container { background: #111827; border-radius: 4px; height: 10px; width: 100%; margin-top: 6px; overflow: hidden; border: 1px solid #374151; }
-        .progress-bar { height: 100%; background: #10b981; width: 0%; transition: width 0.3s ease; }
+        .progress-container { background: rgba(5, 7, 11, 0.9); border-radius: 6px; height: 8px; width: 100%; margin-top: 8px; overflow: hidden; border: 1px solid rgba(255, 255, 255, 0.06); }
+        .progress-bar { height: 100%; background: linear-gradient(90deg, #10b981, #34d399); width: 0%; border-radius: 6px; box-shadow: 0 0 10px rgba(52, 211, 153, 0.4); transition: width 0.4s ease; }
     </style>
 </head>
 <body>
@@ -174,13 +251,13 @@
                         <div class="card-title" style="display: flex; justify-content: space-between; align-items: center;">
                             <span id="chart-title">TradingView Chart Terminal</span>
                             <div style="display: flex; align-items: center; gap: 8px;">
-                                <label style="font-size: 12px; color: #9ca3af; text-transform: uppercase;">Active Account:</label>
-                                <select id="active-account-select" onchange="switchActiveAccount(this.value)" style="background: #111827; border: 1px solid #374151; color: white; padding: 6px; border-radius: 4px; font-size: 13px;">
+                                <label style="font-size: 11px; color: #9ca3af; text-transform: uppercase; font-weight: 700;">Active Account:</label>
+                                <select id="active-account-select" onchange="switchActiveAccount(this.value)" style="background: #05070b; border: 1px solid rgba(255, 255, 255, 0.1); color: white; padding: 6px 10px; border-radius: 6px; font-size: 13px;">
                                     <option value="">No Accounts Found</option>
                                 </select>
                             </div>
                         </div>
-                        <div id="tradingview-widget-container" style="width: 100%; height: 500px;"></div>
+                        <div id="tradingview-widget-container" style="width: 100%; height: 500px; border-radius: 8px; overflow: hidden;"></div>
                     </div>
 
                     <div class="card">
@@ -199,7 +276,7 @@
                                 </tr>
                             </thead>
                             <tbody id="open-trades-list">
-                                <tr><td colspan="8" style="text-align: center; color: #6b7280;">Select an account to view open positions.</td></tr>
+                                <tr><td colspan="8" style="text-align: center; color: #6b7280; padding: 24px;">Select an account to view open positions.</td></tr>
                             </tbody>
                         </table>
                     </div>
@@ -225,12 +302,12 @@
                         </div>
                         <div class="form-group">
                             <label>Live Market Price (USDT)</label>
-                            <input type="number" id="order-price" readonly style="background: #0b0d12; color: #34d399; font-weight: bold;">
+                            <input type="number" id="order-price" readonly style="background: rgba(5, 7, 11, 0.95); color: #34d399; font-weight: bold; border-color: rgba(52, 211, 153, 0.2);">
                         </div>
                         <div class="form-group">
                             <label>Position Size ($ USD)</label>
                             <input type="number" id="order-size-usd" placeholder="1000" min="10">
-                            <small id="available-bal-label" style="color: #9ca3af; display: block; margin-top: 4px;">Available Balance: $0.00</small>
+                            <small id="available-bal-label" style="color: #9ca3af; display: block; margin-top: 6px; font-weight: 500;">Available Balance: $0.00</small>
                         </div>
                         <div class="form-group">
                             <label>Stop Loss (SL)</label>
@@ -248,12 +325,12 @@
             </div>
         </section>
 
-        <!-- 2. ACCOUNTS VIEW WITH EXPANDABLE DETAILS -->
+        <!-- 2. ACCOUNTS VIEW -->
         <section id="accountsView" class="view-panel">
             <div class="card">
                 <div class="card-title">Your Prop Accounts Portfolio</div>
                 <div id="accounts-portfolio-container">
-                    <p style="text-align: center; color: #6b7280;">Connect wallet to view your accounts.</p>
+                    <p style="text-align: center; color: #6b7280; padding: 30px;">Connect wallet to view your accounts.</p>
                 </div>
             </div>
         </section>
@@ -263,8 +340,8 @@
             <div class="card">
                 <div class="card-title">Your Creator & Affiliate Profile</div>
                 <div id="profile-setup-box">
-                    <p style="color: #9ca3af; font-size: 14px; margin-bottom: 16px;">
-                        Create your unique username and custom promo code. Earn a <strong>fixed 2% cash commission</strong> on every plan purchase made using your code!
+                    <p style="color: #9ca3af; font-size: 14px; margin-bottom: 20px; line-height: 1.5;">
+                        Create your unique username and custom promo code. Earn a <strong style="color: #c084fc;">fixed 2% cash commission</strong> on every plan purchase made using your code!
                     </p>
                     <div class="form-group">
                         <label>Unique Username</label>
@@ -274,26 +351,26 @@
                         <label>Your Custom Promo Code</label>
                         <input type="text" id="prof-code" placeholder="e.g. SATOSHI90">
                     </div>
-                    <button class="btn-wallet" style="width: 100%; margin-top: 10px;" onclick="saveProfile()">Save Profile & Generate Code</button>
+                    <button class="btn-wallet" style="width: 100%; margin-top: 10px; padding: 12px;" onclick="saveProfile()">Save Profile & Generate Code</button>
                 </div>
 
-                <div id="profile-display-box" style="display: none; margin-top: 20px; border-top: 1px solid #374151; padding-top: 20px;">
-                    <p><strong>Username:</strong> <span id="disp-username" style="color: #a855f7;">-</span></p>
-                    <p><strong>Your Promo Code:</strong> <code id="disp-code" style="background: #111827; padding: 4px 8px; border-radius: 4px; color: #34d399;">-</code></p>
-                    <p><strong>Shareable Referral Link:</strong> <input type="text" id="disp-link" readonly style="background: #111827; border: 1px solid #374151; color: #9ca3af; padding: 6px; width: 100%; margin-top: 6px;"></p>
+                <div id="profile-display-box" style="display: none; margin-top: 20px; border-top: 1px solid rgba(255, 255, 255, 0.06); padding-top: 24px;">
+                    <p><strong>Username:</strong> <span id="disp-username" style="color: #c084fc; font-weight: 600;">-</span></p>
+                    <p><strong>Your Promo Code:</strong> <code id="disp-code" style="background: rgba(5, 7, 11, 0.9); padding: 4px 10px; border-radius: 6px; color: #34d399; border: 1px solid rgba(52, 211, 153, 0.2);">-</code></p>
+                    <p><strong>Shareable Referral Link:</strong> <input type="text" id="disp-link" readonly style="background: rgba(5, 7, 11, 0.9); border: 1px solid rgba(255, 255, 255, 0.08); color: #9ca3af; padding: 8px 12px; width: 100%; margin-top: 6px; border-radius: 8px;"></p>
                     
-                    <div class="grid-3" style="margin-top: 20px; margin-bottom: 24px;">
-                        <div class="card" style="background: #111827; margin:0;">
-                            <div class="card-title" style="font-size: 14px;">Total Referred Traders</div>
-                            <p id="stat-ref-count" style="font-size: 22px; font-weight: bold; color: #34d399; margin: 0;">0</p>
+                    <div class="grid-3" style="margin-top: 24px; margin-bottom: 28px;">
+                        <div class="card" style="background: rgba(5, 7, 11, 0.6); margin:0;">
+                            <div class="card-title" style="font-size: 13px; color: #9ca3af; margin-bottom: 8px;">Total Referred Traders</div>
+                            <p id="stat-ref-count" style="font-size: 26px; font-weight: 800; color: #34d399; margin: 0;">0</p>
                         </div>
-                        <div class="card" style="background: #111827; margin:0;">
-                            <div class="card-title" style="font-size: 14px;">Total 2% Commission Earned</div>
-                            <p id="stat-ref-earnings" style="font-size: 22px; font-weight: bold; color: #a855f7; margin: 0;">$0.00 USDT</p>
+                        <div class="card" style="background: rgba(5, 7, 11, 0.6); margin:0;">
+                            <div class="card-title" style="font-size: 13px; color: #9ca3af; margin-bottom: 8px;">Total 2% Commission Earned</div>
+                            <p id="stat-ref-earnings" style="font-size: 26px; font-weight: 800; color: #c084fc; margin: 0;">$0.00 USDT</p>
                         </div>
                     </div>
 
-                    <div class="card-title" style="font-size: 16px; border-bottom: 1px solid #374151; padding-bottom: 10px;">Commission Earnings History</div>
+                    <div class="card-title" style="font-size: 15px; border-bottom: 1px solid rgba(255, 255, 255, 0.06); padding-bottom: 12px;">Commission Earnings History</div>
                     <table>
                         <thead>
                             <tr>
@@ -304,7 +381,7 @@
                             </tr>
                         </thead>
                         <tbody id="ref-transactions-list">
-                            <tr><td colspan="4" style="text-align: center; color: #6b7280;">No sales recorded yet.</td></tr>
+                            <tr><td colspan="4" style="text-align: center; color: #6b7280; padding: 24px;">No sales recorded yet.</td></tr>
                         </tbody>
                     </table>
                 </div>
@@ -315,23 +392,23 @@
         <section id="buyView" class="view-panel">
             <div class="card">
                 <div class="card-title">Evaluation Plans Marketplace</div>
-                <div class="form-group" style="max-width: 400px; margin-bottom: 20px;">
+                <div class="form-group" style="max-width: 420px; margin-bottom: 24px;">
                     <label>Have a Creator Promo Code? (Applied at Checkout)</label>
-                    <div style="display: flex; gap: 8px;">
+                    <div style="display: flex; gap: 10px;">
                         <input type="text" id="applied-promo" placeholder="Enter Code (e.g. VIP90)">
-                        <button class="btn-wallet" onclick="applyPromo()">Apply</button>
+                        <button class="btn-wallet" style="padding: 0 20px;" onclick="applyPromo()">Apply</button>
                     </div>
-                    <small id="promo-feedback" style="color: #34d399; display: block; margin-top: 4px;"></small>
+                    <small id="promo-feedback" style="color: #34d399; display: block; margin-top: 6px; font-weight: 600;"></small>
                 </div>
                 <div id="plans-container" class="plans-grid">
-                    <p>Loading plans...</p>
+                    <p style="color: #6b7280;">Loading plans...</p>
                 </div>
             </div>
         </section>
 
         <!-- 5. ADMIN CONTROL VIEW -->
         <section id="adminView" class="view-panel">
-            <div class="card" style="border-color: #991b1b;">
+            <div class="card" style="border-color: rgba(220, 38, 38, 0.3);">
                 <div class="card-title" style="color: #f87171;">🛡️ Admin Compliance & Payout Queue</div>
                 <table>
                     <thead>
@@ -343,7 +420,7 @@
                         </tr>
                     </thead>
                     <tbody id="admin-payout-queue">
-                        <tr><td colspan="4" style="text-align: center; color: #6b7280;">No pending requests.</td></tr>
+                        <tr><td colspan="4" style="text-align: center; color: #6b7280; padding: 24px;">No pending requests.</td></tr>
                     </tbody>
                 </table>
             </div>
@@ -402,7 +479,7 @@
                 "theme": "dark",
                 "style": "1",
                 "locale": "en",
-                "toolbar_bg": "#1f2937",
+                "toolbar_bg": "#090d13",
                 "container_id": "tradingview-widget-container"
             });
         }
@@ -556,8 +633,8 @@
             }
 
             document.getElementById('active-account-select').innerHTML = '<option value="">No Accounts Available</option>';
-            document.getElementById('accounts-portfolio-container').innerHTML = '<p style="text-align: center; color: #6b7280;">Connect wallet to view your accounts.</p>';
-            document.getElementById('open-trades-list').innerHTML = '<tr><td colspan="8" style="text-align: center; color: #6b7280;">Select an account to view open positions.</td></tr>';
+            document.getElementById('accounts-portfolio-container').innerHTML = '<p style="text-align: center; color: #6b7280; padding: 30px;">Connect wallet to view your accounts.</p>';
+            document.getElementById('open-trades-list').innerHTML = '<tr><td colspan="8" style="text-align: center; color: #6b7280; padding: 24px;">Select an account to view open positions.</td></tr>';
             
             document.getElementById('profile-setup-box').style.display = 'block';
             document.getElementById('profile-display-box').style.display = 'none';
@@ -584,7 +661,7 @@
 
                 if (userAccounts.length === 0) {
                     selectElem.innerHTML = '<option value="">No Accounts Available</option>';
-                    document.getElementById('accounts-portfolio-container').innerHTML = '<p style="text-align: center; color: #6b7280;">No accounts found. Purchase a plan in the marketplace!</p>';
+                    document.getElementById('accounts-portfolio-container').innerHTML = '<p style="text-align: center; color: #6b7280; padding: 30px;">No accounts found. Purchase a plan in the marketplace!</p>';
                     selectedAccountId = null;
                     activeAccount = null;
                     return;
@@ -620,7 +697,7 @@
 
                 let tradesRows = '';
                 if (trades.length === 0) {
-                    tradesRows = '<tr><td colspan="8" style="text-align: center; color: #6b7280;">No trades recorded for this account.</td></tr>';
+                    tradesRows = '<tr><td colspan="8" style="text-align: center; color: #6b7280; padding: 20px;">No trades recorded for this account.</td></tr>';
                 } else {
                     trades.forEach(t => {
                         const pnlColor = t.pnl >= 0 ? '#34d399' : '#ef4444';
@@ -628,59 +705,59 @@
                             <tr>
                                 <td><code>${t.id}</code></td>
                                 <td>${t.symbol}</td>
-                                <td>${t.side}</td>
+                                <td><span style="color: ${t.side === 'BUY' ? '#34d399' : '#ef4444'}; font-weight: bold;">${t.side}</span></td>
                                 <td>$${t.entry_price.toFixed(2)}</td>
                                 <td>$${t.size_usd.toLocaleString()}</td>
                                 <td>SL: ${t.sl || 'None'} / TP: ${t.tp || 'None'}</td>
                                 <td><span style="color: ${pnlColor}; font-weight: bold;">$${t.pnl.toFixed(2)}</span></td>
-                                <td><span style="color: ${t.status === 'OPEN' ? '#fbbf24' : '#9ca3af'};">${t.status}</span></td>
+                                <td><span style="color: ${t.status === 'OPEN' ? '#fbbf24' : '#9ca3af'}; font-weight: 600;">${t.status}</span></td>
                             </tr>
                         `;
                     });
                 }
 
                 container.innerHTML += `
-                    <div class="card" style="background: #111827; border: 1px solid #374151; margin-bottom: 20px;">
-                        <div class="card-title" style="display: flex; justify-content: space-between; align-items: center;">
+                    <div class="card" style="background: rgba(8, 12, 18, 0.85); border: 1px solid rgba(255, 255, 255, 0.05); margin-bottom: 24px;">
+                        <div class="card-title" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
                             <div>
-                                <span style="font-size: 18px; color: #a855f7; font-weight: bold;">${acc.plan_name}</span> 
-                                <code style="margin-left: 8px; color: #9ca3af; font-size: 13px;">${acc.id}</code>
+                                <span style="font-size: 18px; color: #c084fc; font-weight: 800;">${acc.plan_name}</span> 
+                                <code style="margin-left: 10px; color: #9ca3af; font-size: 12px; background: rgba(255,255,255,0.03); padding: 3px 8px; border-radius: 4px;">${acc.id}</code>
                             </div>
-                            <button class="btn-wallet" style="padding: 6px 12px; font-size: 13px;" onclick="selectAccountAndTrade('${acc.id}')">Select in Terminal</button>
+                            <button class="btn-wallet" style="padding: 7px 14px; font-size: 12px;" onclick="selectAccountAndTrade('${acc.id}')">Select in Terminal</button>
                         </div>
 
-                        <div class="grid-3" style="margin-bottom: 16px;">
+                        <div class="grid-3" style="margin-bottom: 20px;">
                             <div>
-                                <div style="display: flex; justify-content: space-between; font-size: 13px; color: #9ca3af;">
+                                <div style="display: flex; justify-content: space-between; font-size: 12px; color: #9ca3af; font-weight: 600;">
                                     <span>Profit Target ($${acc.profit_target.toLocaleString()})</span>
                                     <span style="color: #34d399; font-weight: bold;">${m.profitProgress}%</span>
                                 </div>
                                 <div class="progress-container"><div class="progress-bar" style="width: ${m.profitProgress}%;"></div></div>
                             </div>
                             <div>
-                                <div style="display: flex; justify-content: space-between; font-size: 13px; color: #9ca3af;">
+                                <div style="display: flex; justify-content: space-between; font-size: 12px; color: #9ca3af; font-weight: 600;">
                                     <span>Daily Loss Limit (DLL)</span>
                                     <span style="color: #ef4444; font-weight: bold;">${m.dllProgress}%</span>
                                 </div>
-                                <div class="progress-container"><div class="progress-bar" style="background: #ef4444; width: ${m.dllProgress}%;"></div></div>
+                                <div class="progress-container"><div class="progress-bar" style="background: linear-gradient(90deg, #dc2626, #ef4444); box-shadow: 0 0 10px rgba(239, 68, 68, 0.4); width: ${m.dllProgress}%;"></div></div>
                             </div>
                             <div>
-                                <div style="display: flex; justify-content: space-between; font-size: 13px; color: #9ca3af;">
+                                <div style="display: flex; justify-content: space-between; font-size: 12px; color: #9ca3af; font-weight: 600;">
                                     <span>Max Drawdown (Max DD)</span>
                                     <span style="color: #f59e0b; font-weight: bold;">${m.ddProgress}%</span>
                                 </div>
-                                <div class="progress-container"><div class="progress-bar" style="background: #f59e0b; width: ${m.ddProgress}%;"></div></div>
+                                <div class="progress-container"><div class="progress-bar" style="background: linear-gradient(90deg, #d97706, #f59e0b); box-shadow: 0 0 10px rgba(245, 158, 11, 0.4); width: ${m.ddProgress}%;"></div></div>
                             </div>
                         </div>
 
-                        <div style="display: flex; gap: 24px; font-size: 14px; margin-bottom: 16px; background: #1f2937; padding: 12px; border-radius: 6px;">
-                            <div>Initial Capital: <strong>$${acc.initial_balance.toLocaleString()}</strong></div>
+                        <div style="display: flex; gap: 28px; font-size: 13.5px; margin-bottom: 20px; background: rgba(5, 7, 11, 0.7); padding: 14px 18px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.03);">
+                            <div>Initial Capital: <strong style="color: #f3f4f6;">$${acc.initial_balance.toLocaleString()}</strong></div>
                             <div>Current Equity: <strong style="color: #34d399;">$${acc.current_equity.toLocaleString()}</strong></div>
-                            <div>Consistency Score: <strong style="color: #a855f7;">${m.consistencyScore}%</strong></div>
+                            <div>Consistency Score: <strong style="color: #c084fc;">${m.consistencyScore}%</strong></div>
                             <div>Account Status: <strong style="color: #34d399;">${acc.status}</strong></div>
                         </div>
 
-                        <div class="card-title" style="font-size: 15px; margin-top: 10px; border-bottom: 1px solid #374151; padding-bottom: 6px;">Account Trade History</div>
+                        <div class="card-title" style="font-size: 14px; margin-top: 14px; border-bottom: 1px solid rgba(255, 255, 255, 0.06); padding-bottom: 8px;">Account Trade History</div>
                         <table>
                             <thead>
                                 <tr>
@@ -735,7 +812,7 @@
             tbody.innerHTML = '';
 
             if (!data.trades || data.trades.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="8" style="text-align: center; color: #6b7280;">No open positions for this account.</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="8" style="text-align: center; color: #6b7280; padding: 24px;">No open positions for this account.</td></tr>';
                 return;
             }
 
@@ -754,7 +831,7 @@
                         <td>$${trd.size_usd.toLocaleString()}</td>
                         <td>SL: ${trd.sl || 'None'} / TP: ${trd.tp || 'None'}</td>
                         <td><span style="color: ${pnlColor}; font-weight: bold;">$${pnl.toFixed(2)}</span></td>
-                        <td><button class="btn-sell" style="padding:4px 8px; font-size:12px;" onclick="closeTrade('${trd.id}', ${currentPrice})">Close Early</button></td>
+                        <td><button class="btn-sell" style="padding:5px 10px; font-size:11px;" onclick="closeTrade('${trd.id}', ${currentPrice})">Close Early</button></td>
                     </tr>
                 `;
             });
@@ -836,20 +913,20 @@
 
                 if (activePromoCode) {
                     displayPrice = plan.price_usdt;
-                    priceHtml = `<span style="text-decoration: line-through; color: #6b7280; font-size: 16px;">$${plan.base_price_usdt.toLocaleString()}</span> <span style="color: #34d399;">$${plan.price_usdt.toLocaleString()} USDT</span>`;
+                    priceHtml = `<span style="text-decoration: line-through; color: #6b7280; font-size: 15px;">$${plan.base_price_usdt.toLocaleString()}</span> <span style="color: #34d399;">$${plan.price_usdt.toLocaleString()} USDT</span>`;
                 }
 
                 container.innerHTML += `
                     <div class="plan-card">
                         <div>
-                            <h3 style="margin:0; color:#a855f7;">${plan.name}</h3>
+                            <h3 style="margin:0; color:#c084fc; font-size: 18px; font-weight: 800;">${plan.name}</h3>
                             <div class="plan-price">${priceHtml}</div>
-                            <div class="plan-feature">Simulated Capital: <strong>$${plan.simulated_capital.toLocaleString()}</strong></div>
-                            <div class="plan-feature">Profit Target: <strong>$${plan.profit_target.toLocaleString()}</strong></div>
-                            <div class="plan-feature">Daily Loss Limit: <strong>$${(plan.simulated_capital * (plan.daily_loss_pct / 100)).toLocaleString()}</strong> (${plan.daily_loss_pct}%)</div>
-                            <div class="plan-feature">Max Drawdown: <strong>$${(plan.simulated_capital * (plan.max_drawdown_pct / 100)).toLocaleString()}</strong> (${plan.max_drawdown_pct}%)</div>
+                            <div class="plan-feature"><span>Simulated Capital:</span> <strong>$${plan.simulated_capital.toLocaleString()}</strong></div>
+                            <div class="plan-feature"><span>Profit Target:</span> <strong>$${plan.profit_target.toLocaleString()}</strong></div>
+                            <div class="plan-feature"><span>Daily Loss Limit:</span> <strong>$${(plan.simulated_capital * (plan.daily_loss_pct / 100)).toLocaleString()}</strong> (${plan.daily_loss_pct}%)</div>
+                            <div class="plan-feature"><span>Max Drawdown:</span> <strong>$${(plan.simulated_capital * (plan.max_drawdown_pct / 100)).toLocaleString()}</strong> (${plan.max_drawdown_pct}%)</div>
                         </div>
-                        <button class="btn-wallet" style="margin-top:20px; width:100%;" onclick="buyPlan(${plan.id}, ${displayPrice})">Buy Plan ($${displayPrice})</button>
+                        <button class="btn-wallet" style="margin-top:24px; width:100%; padding: 12px;" onclick="buyPlan(${plan.id}, ${displayPrice})">Buy Plan ($${displayPrice})</button>
                     </div>
                 `;
             });
@@ -909,7 +986,7 @@
                 tbody.innerHTML = '';
 
                 if (!data.referrals || data.referrals.length === 0) {
-                    tbody.innerHTML = '<tr><td colspan="4" style="text-align: center; color: #6b7280;">No sales recorded yet.</td></tr>';
+                    tbody.innerHTML = '<tr><td colspan="4" style="text-align: center; color: #6b7280; padding: 24px;">No sales recorded yet.</td></tr>';
                     return;
                 }
 
@@ -921,7 +998,7 @@
                             <td><strong>${buyerName}</strong></td>
                             <td>${ref.plan_name}</td>
                             <td><span style="color: #34d399; font-weight: bold;">+$${ref.commission_earned.toFixed(2)} USDT</span></td>
-                            <td style="color: #9ca3af; font-size: 13px;">${dateStr}</td>
+                            <td style="color: #9ca3af; font-size: 12.5px;">${dateStr}</td>
                         </tr>
                     `;
                 });

@@ -441,38 +441,71 @@ app.post('/api/accounts/purchase', (req, res) => {
   });
 });
 
-app.post('/api/withdrawals/request', (req, res) => {
-  const { account_id, wallet_address, amount } = req.body;
-  if (!account_id || !wallet_address || !amount || amount <= 0) {
-    return res.status(400).json({ error: "Invalid withdrawal parameters." });
-  }
+// --- SECURE WITHDRAWAL REQUEST ENDPOINT ---
+app.post('/api/withdrawals/request', async (req, res) => {
+    const { account_id, wallet_address, amount } = req.body;
 
-  db.get("SELECT * FROM accounts WHERE id = ? AND LOWER(wallet_address) = LOWER(?)", [account_id, wallet_address], (err, account) => {
-    if (err || !account) return res.status(404).json({ error: "Account not found." });
-
-    if (amount > account.current_balance) {
-      return res.status(400).json({ error: `Requested amount ($${amount}) exceeds available balance ($${account.current_balance}).` });
+    if (!account_id || !wallet_address || !amount || amount <= 0) {
+        return res.status(400).json({ success: false, error: "Invalid request parameters." });
     }
 
-    const withdrawalId = 'wdr_' + Math.random().toString(36).substring(2, 11);
+    try {
+        // 1. Fetch the user's account and associated plan rules
+        const account = db.prepare(`
+            @sql
+            SELECT a.*, p.profit_target, p.simulated_capital 
+            FROM user_accounts a 
+            JOIN plans p ON a.plan_id = p.id 
+            WHERE a.id = ? AND LOWER(a.wallet_address) = LOWER(?)
+        `).get(account_id, wallet_address);
 
-    db.serialize(() => {
-      db.run("BEGIN TRANSACTION");
-      db.run("UPDATE accounts SET current_balance = current_balance - ? WHERE id = ?", [amount, account_id]);
-      db.run(
-        `INSERT INTO withdrawals (id, account_id, wallet_address, amount, status) VALUES (?, ?, ?, ?, 'PENDING')`,
-        [withdrawalId, account_id, wallet_address, amount],
-        (err2) => {
-          if (err2) {
-            db.run("ROLLBACK");
-            return res.status(500).json({ error: err2.message });
-          }
-          db.run("COMMIT");
-          res.json({ success: true, message: "Withdrawal request submitted successfully." });
+        if (!account) {
+            return res.status(404).json({ success: false, error: "Account not found or wallet mismatch." });
         }
-      );
-    });
-  });
+
+        if (account.status !== 'ACTIVE') {
+            return res.status(400).json({ success: false, error: "Account is not active." });
+        }
+
+        // 2. Define target thresholds
+        const initialCapital = account.initial_balance; // e.g. $25,000
+        const profitTargetDollar = account.profit_target; // e.g. $2,500
+        const targetThreshold = initialCapital + profitTargetDollar; // e.g. $27,500
+
+        // 3. Check if the trader has hit the profit target
+        if (account.current_balance < targetThreshold) {
+            return res.status(400).json({ 
+                success: false, 
+                error: `Profit target not met! Balance must be at least $${targetThreshold.toLocaleString()} (Current: $${account.current_balance.toLocaleString()}) to unlock withdrawals.` 
+            });
+        }
+
+        // 4. Calculate maximum allowable withdrawal (50% of net profits earned above initial capital)
+        const netProfit = account.current_balance - initialCapital;
+        const maxAllowableWithdrawal = netProfit * 0.50; // 50% split
+
+        if (amount > maxAllowableWithdrawal) {
+            return res.status(400).json({ 
+                success: false, 
+                error: `Withdrawal exceeds maximum allowed payout! Based on your $${netProfit.toLocaleString()} net profit, your 50% payout limit is $${maxAllowableWithdrawal.toLocaleString()} USDT.` 
+            });
+        }
+
+        // 5. Insert withdrawal request into queue
+        const withdrawalId = 'WDR-' + Math.random().toString(36).substring(2, 9).toUpperCase();
+        
+        db.prepare(`
+            @sql
+            INSERT INTO withdrawals (id, account_id, wallet_address, type, plan_name, amount, status, created_at)
+            VALUES (?, ?, ?, 'PROFIT_SPLIT', ?, ?, 'PENDING', datetime('now'))
+        `).run(withdrawalId, account_id, wallet_address, account.plan_name, amount);
+
+        res.json({ success: true, message: "Withdrawal request submitted successfully to the admin queue!" });
+
+    } catch (err) {
+        console.error("Withdrawal error:", err);
+        res.status(500).json({ success: false, error: "Internal server error during withdrawal processing." });
+    }
 });
 
 app.get('/api/admin/withdrawals', (req, res) => {

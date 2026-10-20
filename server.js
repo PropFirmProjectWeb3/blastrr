@@ -1,13 +1,47 @@
 const express = require('express');
 const path = require('path');
 const https = require('https');
+const { ethers } = require('ethers');
 const db = require('./database');
 
 const app = express();
 const PORT = process.env.PORT || 4480;
 
+const TREASURY_WALLET = '0x8632fa855d5dc6b59a3cf892d72cf4a94f182aae';
+
+// --- SUPPORTED EVM CHAINS CONFIGURATION ---
+const SUPPORTED_EVM_CHAINS = {
+    1: {
+        name: "Ethereum Mainnet",
+        chainIdHex: "0x1",
+        rpcUrl: "https://eth-mainnet.g.alchemy.com/v2/alch_2pR5KmvKvNRreMrrIahGw",
+        usdtAddress: "0xdac17f958d2ee523a2206206994597c13d831ec7",
+        decimals: 6
+    },
+    8453: {
+        name: "Base",
+        chainIdHex: "0x2105",
+        rpcUrl: "https://base-mainnet.g.alchemy.com/v2/alch_2pR5KmvKvNRreMrrIahGw",
+        usdtAddress: "0xfde4c96c8593536e31f229ea8f37b2ada2699bb2", // Bridged USDT on Base
+        decimals: 6
+    },
+    137: {
+        name: "Polygon PoS",
+        chainIdHex: "0x89",
+        rpcUrl: "https://polygon-mainnet.g.alchemy.com/v2/alch_2pR5KmvKvNRreMrrIahGw",
+        usdtAddress: "0xc2132d05d31c914a87c6611c10748aeb04b58e8f", // (PoS) Tether USD
+        decimals: 6
+    },
+    43114: {
+        name: "Avalanche C-Chain",
+        chainIdHex: "0xa86a",
+        rpcUrl: "https://avax-mainnet.g.alchemy.com/v2/alch_2pR5KmvKvNRreMrrIahGw",
+        usdtAddress: "0x9702230a8ea53601f5cd2dc00fdbc13d4df4a8c7", // Native/Standard USDT on Avalanche
+        decimals: 6
+    }
+};
+
 // --- 1. PROXY TRUST CONFIGURATION ---
-// Required behind Nginx reverse proxy to capture true client IP addresses via req.ip
 app.set('trust proxy', 'loopback');
 
 app.use(express.json());
@@ -43,7 +77,7 @@ function createRateLimiter(maxRequests = 40, windowMs = 60000) {
     };
 }
 
-const sensitiveLimiter = createRateLimiter(30, 60000); // 30 requests max per minute per IP
+const sensitiveLimiter = createRateLimiter(30, 60000);
 
 let cachedPrices = {};
 let lastFetchTime = 0;
@@ -164,6 +198,57 @@ function closeTradeInternal(trade, currentMarketPrice, reason) {
 }
 
 setInterval(monitorStopLossAndTakeProfit, 1500);
+
+// --- ON-CHAIN SECURE VERIFICATION FUNCTION ---
+async function verifyMultiChainPurchase(txHash, chainId, expectedBuyerWallet, expectedAmountUsdt, treasuryWallet) {
+    const chainConfig = SUPPORTED_EVM_CHAINS[chainId];
+    if (!chainConfig) {
+        return { success: false, error: "Unsupported blockchain network." };
+    }
+
+    try {
+        const provider = new ethers.JsonRpcProvider(chainConfig.rpcUrl);
+        const tx = await provider.getTransaction(txHash);
+        const receipt = await provider.getTransactionReceipt(txHash);
+
+        if (!tx || !receipt || receipt.status !== 1) {
+            return { success: false, error: "Transaction not found or failed on-chain." };
+        }
+
+        // SECURITY CHECK: Mempool Snipe Protection (tx.from must match buyer)
+        if (tx.from.toLowerCase() !== expectedBuyerWallet.toLowerCase()) {
+            return { success: false, error: "Security Alert: Transaction sender does not match connected wallet." };
+        }
+
+        // Verify ERC-20 Transfer Event logs
+        const transferTopic = ethers.id("Transfer(address,address,uint256)");
+        let validTransfer = false;
+
+        for (const log of receipt.logs) {
+            if (log.address.toLowerCase() === chainConfig.usdtAddress.toLowerCase() && log.topics[0] === transferTopic) {
+                const recipient = ethers.getAddress('0x' + log.topics[2].slice(26));
+                const rawValue = BigInt(log.data);
+                const tokenValue = Number(rawValue) / Math.pow(10, chainConfig.decimals);
+
+                if (recipient.toLowerCase() === treasuryWallet.toLowerCase() && tokenValue >= expectedAmountUsdt) {
+                    validTransfer = true;
+                    break;
+                }
+            }
+        }
+
+        if (!validTransfer) {
+            return { success: false, error: "Transaction logs do not show a valid USDT transfer to the treasury." };
+        }
+
+        return { success: true };
+    } catch (err) {
+        console.error("Multi-chain verification error:", err);
+        return { success: false, error: "On-chain verification lookup failed." };
+    }
+}
+
+// --- API ROUTES ---
 
 app.get('/api/plans', (req, res) => {
   db.all("SELECT * FROM plans", [], (err, rows) => {
@@ -441,55 +526,66 @@ app.get('/api/accounts/details', (req, res) => {
   );
 });
 
-app.post('/api/accounts/purchase', sensitiveLimiter, (req, res) => {
-  const { wallet_address, plan_id, tx_hash, promo_code } = req.body;
+// --- SECURE PURCHASE ENDPOINT (WITH MULTI-CHAIN ON-CHAIN VERIFICATION) ---
+app.post('/api/accounts/purchase', sensitiveLimiter, async (req, res) => {
+  const { wallet_address, plan_id, tx_hash, chain_id, promo_code } = req.body;
 
-  if (!wallet_address || !plan_id) {
-    return res.status(400).json({ error: "Wallet address and plan ID are required." });
+  if (!wallet_address || !plan_id || !tx_hash || !chain_id) {
+    return res.status(400).json({ error: "Missing required purchase parameters." });
   }
 
-  db.run(`INSERT OR IGNORE INTO users (wallet_address) VALUES (?)`, [wallet_address], () => {
-    db.get("SELECT * FROM plans WHERE id = ?", [plan_id], (err, plan) => {
+  db.run(`INSERT OR IGNORE INTO users (wallet_address) VALUES (?)`, [wallet_address], async () => {
+    db.get("SELECT * FROM plans WHERE id = ?", [plan_id], async (err, plan) => {
       if (err || !plan) return res.status(404).json({ error: "Plan not found." });
 
       let finalPrice = plan.base_price_usdt;
       let referrerWallet = null;
 
-      const finishPurchase = () => {
-        const accountId = 'acc_' + Math.random().toString(36).substring(2, 11);
-
-        db.run(
-          `INSERT INTO accounts (id, wallet_address, plan_id, initial_balance, current_balance, current_equity, high_water_mark, daily_starting_balance, status)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'ACTIVE')`,
-          [accountId, wallet_address, plan_id, plan.simulated_capital, plan.simulated_capital, plan.simulated_capital, plan.simulated_capital, plan.simulated_capital],
-          (err2) => {
-            if (err2) return res.status(500).json({ error: err2.message });
-
-            if (referrerWallet && referrerWallet.toLowerCase() !== wallet_address.toLowerCase()) {
-              const commissionEarned = finalPrice * 0.02;
-              db.run(
-                `INSERT INTO referrals (referrer_wallet, referee_wallet, plan_id, paid_amount, commission_earned)
-                 VALUES (?, ?, ?, ?, ?)`,
-                [referrerWallet, wallet_address, plan_id, finalPrice, commissionEarned]
-              );
-            }
-
-            res.json({ success: true, account_id: accountId, message: "Account provisioned successfully." });
-          }
-        );
-      };
-
       if (promo_code) {
-        db.get("SELECT * FROM users WHERE discount_code = ?", [promo_code.toUpperCase()], (err3, referrer) => {
-          if (referrer) {
-            referrerWallet = referrer.wallet_address;
-            finalPrice = plan.price_usdt;
-          }
-          finishPurchase();
+        const referrer = await new Promise((resolve) => {
+          db.get("SELECT * FROM users WHERE discount_code = ?", [promo_code.toUpperCase()], (e, r) => resolve(r));
         });
-      } else {
-        finishPurchase();
+        if (referrer) {
+          referrerWallet = referrer.wallet_address;
+          finalPrice = plan.price_usdt;
+        }
       }
+
+      // --- SECURE ON-CHAIN VERIFICATION ---
+      const verification = await verifyMultiChainPurchase(
+          tx_hash,
+          chain_id,
+          wallet_address,
+          finalPrice,
+          TREASURY_WALLET
+      );
+
+      if (!verification.success) {
+          return res.status(400).json({ error: verification.error });
+      }
+
+      // --- PROVISION ACCOUNT ---
+      const accountId = 'acc_' + Math.random().toString(36).substring(2, 11);
+
+      db.run(
+        `INSERT INTO accounts (id, wallet_address, plan_id, initial_balance, current_balance, current_equity, high_water_mark, daily_starting_balance, status)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'ACTIVE')`,
+        [accountId, wallet_address, plan_id, plan.simulated_capital, plan.simulated_capital, plan.simulated_capital, plan.simulated_capital, plan.simulated_capital],
+        (err2) => {
+          if (err2) return res.status(500).json({ error: err2.message });
+
+          if (referrerWallet && referrerWallet.toLowerCase() !== wallet_address.toLowerCase()) {
+            const commissionEarned = finalPrice * 0.02;
+            db.run(
+              `INSERT INTO referrals (referrer_wallet, referee_wallet, plan_id, paid_amount, commission_earned)
+               VALUES (?, ?, ?, ?, ?)`,
+              [referrerWallet, wallet_address, plan_id, finalPrice, commissionEarned]
+            );
+          }
+
+          res.json({ success: true, account_id: accountId, message: "Account provisioned successfully." });
+        }
+      );
     });
   });
 });
@@ -506,7 +602,7 @@ app.post('/api/withdrawals/request', sensitiveLimiter, async (req, res) => {
     try {
         const account = db.prepare(`
             SELECT a.*, p.profit_target, p.simulated_capital 
-            FROM user_accounts a 
+            FROM accounts a 
             JOIN plans p ON a.plan_id = p.id 
             WHERE a.id = ? AND LOWER(a.wallet_address) = LOWER(?)
         `).get(account_id, wallet_address);
@@ -620,7 +716,6 @@ app.post('/api/trades/execute', sensitiveLimiter, (req, res) => {
     const slip = 5.0;
     const executionPrice = side === 'BUY' ? price + slip : price - slip;
 
-    // Validate SL / TP logic to prevent instant triggering upon creation
     if (side === 'BUY') {
       if (sl && sl >= executionPrice) {
         return res.status(400).json({ error: "Stop Loss for a BUY order must be below the execution price." });
@@ -693,84 +788,3 @@ app.get('/api/trades/active', (req, res) => {
 app.listen(PORT, () => {
   console.log(`Blastrr server running on port ${PORT}`);
 });
-
-const SUPPORTED_EVM_CHAINS = {
-    1: {
-        name: "Ethereum Mainnet",
-        chainIdHex: "0x1",
-        rpcUrl: "https://eth-mainnet.g.alchemy.com/v2/alch_2pR5KmvKvNRreMrrIahGw",
-        usdtAddress: "0xdac17f958d2ee523a2206206994597c13d831ec7",
-        decimals: 6
-    },
-    8453: {
-        name: "Base",
-        chainIdHex: "0x2105",
-        rpcUrl: "https://base-mainnet.g.alchemy.com/v2/alch_2pR5KmvKvNRreMrrIahGw",
-        usdtAddress: "0xfde4c96c8593536e31f229ea8f37b2ada2699bb2", // Bridged USDT on Base
-        decimals: 6
-    },
-    137: {
-        name: "Polygon PoS",
-        chainIdHex: "0x89",
-        rpcUrl: "https://polygon-mainnet.g.alchemy.com/v2/alch_2pR5KmvKvNRreMrrIahGw",
-        usdtAddress: "0xc2132d05d31c914a87c6611c10748aeb04b58e8f", // (PoS) Tether USD
-        decimals: 6
-    },
-    43114: {
-        name: "Avalanche C-Chain",
-        chainIdHex: "0xa86a",
-        rpcUrl: "https://avax-mainnet.g.alchemy.com/v2/alch_2pR5KmvKvNRreMrrIahGw",
-        usdtAddress: "0x9702230a8ea53601f5cd2dc00fdbc13d4df4a8c7", // Native/Standard USDT on Avalanche
-        decimals: 6
-    }
-};
-const { ethers } = require('ethers');
-
-async function verifyMultiChainPurchase(txHash, chainId, expectedBuyerWallet, expectedAmountUsdt, treasuryWallet) {
-    const chainConfig = SUPPORTED_EVM_CHAINS[chainId];
-    if (!chainConfig) {
-        return { success: false, error: "Unsupported blockchain network." };
-    }
-
-    try {
-        // Connect to the specific Alchemy endpoint for this chain
-        const provider = new ethers.JsonRpcProvider(chainConfig.rpcUrl);
-        const tx = await provider.getTransaction(txHash);
-        const receipt = await provider.getTransactionReceipt(txHash);
-
-        if (!tx || !receipt || receipt.status !== 1) {
-            return { success: false, error: "Transaction not found or failed on-chain." };
-        }
-
-        // SECURITY CHECK: Mempool Snipe Protection
-        if (tx.from.toLowerCase() !== expectedBuyerWallet.toLowerCase()) {
-            return { success: false, error: "Security Alert: Transaction sender does not match connected wallet." };
-        }
-
-        // Verify ERC-20 Transfer Event logs
-        const transferTopic = ethers.id("Transfer(address,address,uint256)");
-        let validTransfer = false;
-
-        for (const log of receipt.logs) {
-            if (log.address.toLowerCase() === chainConfig.usdtAddress.toLowerCase() && log.topics[0] === transferTopic) {
-                const recipient = ethers.getAddress('0x' + log.topics[2].slice(26));
-                const rawValue = BigInt(log.data);
-                const tokenValue = Number(rawValue) / Math.pow(10, chainConfig.decimals);
-
-                if (recipient.toLowerCase() === treasuryWallet.toLowerCase() && tokenValue >= expectedAmountUsdt) {
-                    validTransfer = true;
-                    break;
-                }
-            }
-        }
-
-        if (!validTransfer) {
-            return { success: false, error: "Transaction logs do not show a valid USDT transfer to the treasury." };
-        }
-
-        return { success: true };
-    } catch (err) {
-        console.error("Multi-chain verification error:", err);
-        return { success: false, error: "On-chain verification lookup failed." };
-    }
-}

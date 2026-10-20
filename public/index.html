@@ -56,7 +56,7 @@
             object-fit: contain;
         }
         
-        nav { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+        nav { display: flex; gap: 6px; align-items: center; }
         
         .nav-tab {
             background: transparent;
@@ -70,6 +70,7 @@
             transition: all 0.2s ease;
             background: radial-gradient(circle at center, rgba(31, 41, 55, 0.4) 0%, rgba(15, 23, 42, 0.75) 100%);
             border-color: rgba(255, 255, 255, 0.04);
+            white-space: nowrap;
         }
         .nav-tab:hover { color: #f3f4f6; background: radial-gradient(circle at center, rgba(55, 65, 81, 0.6) 0%, rgba(31, 41, 55, 0.85) 100%); border-color: rgba(255, 255, 255, 0.1); }
         .nav-tab.active { color: #ffffff; background: linear-gradient(135deg, #7c3aed 0%, #4c1d95 100%); border-color: rgba(168, 85, 247, 0.4); box-shadow: 0 0 15px rgba(124, 58, 237, 0.35); }
@@ -109,6 +110,7 @@
             font-weight: 600; 
             font-size: 13px;
             box-shadow: inset 0 0 12px rgba(0, 0, 0, 0.4), 0 0 12px rgba(124, 58, 237, 0.2);
+            white-space: nowrap;
         }
         .btn-wallet:hover { box-shadow: inset 0 0 15px rgba(0, 0, 0, 0.5), 0 0 20px rgba(124, 58, 237, 0.45); }
 
@@ -180,6 +182,7 @@
             background: rgba(55, 65, 81, 0.3);
             color: #9ca3af;
             border: 1px solid rgba(255, 255, 255, 0.05);
+            white-space: nowrap;
         }
         .status-pill.connected { background: rgba(6, 95, 70, 0.3); color: #34d399; border-color: rgba(52, 211, 153, 0.3); box-shadow: 0 0 12px rgba(52, 211, 153, 0.15); }
 
@@ -270,7 +273,7 @@
         .progress-bar { height: 100%; background: linear-gradient(90deg, #10b981, #34d399); width: 0%; border-radius: 6px; box-shadow: 0 0 10px rgba(52, 211, 153, 0.4); transition: width 0.4s ease; }
 
         /* Mobile Responsiveness & Hamburger Menu */
-        @media (max-width: 968px) {
+        @media (max-width: 1100px) {
             .hamburger-btn { display: inline-flex; align-items: center; justify-content: center; }
             nav {
                 display: none;
@@ -301,12 +304,9 @@
 <body>
 
     <header>
-        <div style="display: flex; align-items: center; justify-content: space-between; width: 100%; max-width: 968px;" id="header-row">
-            <div class="logo">
-                <img src="logo.png" alt="Blastrr Logo" onerror="this.style.display='none'; this.nextElementSibling.style.display='inline';">
-                <span style="display:none;">⚡ BLASTRR</span>
-            </div>
-            <button class="hamburger-btn" onclick="toggleMobileMenu()" id="hamburger-icon">☰</button>
+        <div class="logo">
+            <img src="logo.png" alt="Blastrr Logo" onerror="this.style.display='none'; this.nextElementSibling.style.display='inline';">
+            <span style="display:none;">⚡ BLASTRR</span>
         </div>
 
         <nav id="nav-menu">
@@ -324,6 +324,7 @@
             <select id="wallet-select" class="wallet-select" onchange="onWalletSwitched(this.value)"></select>
             <button id="connect-new-btn" class="btn-new-wallet" onclick="connectNewWallet()">+ Add Wallet</button>
             <button id="disconnect-btn" class="btn-disconnect" onclick="disconnectWallet()">Disconnect</button>
+            <button class="hamburger-btn" onclick="toggleMobileMenu()" id="hamburger-icon">☰</button>
         </div>
     </header>
 

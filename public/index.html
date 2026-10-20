@@ -55,6 +55,20 @@
         }
         .btn-wallet:hover { background: #6d28d9; }
         
+        .btn-new-wallet {
+            background: #2563eb;
+            color: white;
+            border: none;
+            padding: 8px 12px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 13px;
+            display: none;
+            transition: background 0.2s;
+        }
+        .btn-new-wallet:hover { background: #1d4ed8; }
+
         .btn-disconnect {
             background: #374151;
             color: #f3f4f6;
@@ -142,6 +156,7 @@
             <span id="wallet-status" class="status-pill">Disconnected</span>
             <button id="connect-btn" class="btn-wallet" onclick="connectWallet()">Connect Wallet</button>
             <select id="wallet-select" class="wallet-select" onchange="onWalletSwitched(this.value)"></select>
+            <button id="connect-new-btn" class="btn-new-wallet" onclick="connectNewWallet()">+ Add Wallet</button>
             <button id="disconnect-btn" class="btn-disconnect" onclick="disconnectWallet()">Disconnect</button>
         </div>
     </header>
@@ -356,7 +371,6 @@
                 applyPromo();
             }
 
-            // Listen for wallet account changes if provider is active
             const provider = getProvider();
             if (provider?.on) {
                 provider.on('accountsChanged', (accounts) => {
@@ -422,6 +436,31 @@
             } catch (err) { console.error("Wallet Connection Error:", err); }
         }
 
+        // Force MetaMask to prompt permissions so the user can connect/select another wallet address
+        async function connectNewWallet() {
+            const provider = getProvider();
+            if (!provider) { alert("No Web3 wallet found!"); return; }
+            try {
+                const permissions = await provider.request({
+                    method: 'wallet_requestPermissions',
+                    params: [{ eth_accounts: {} }]
+                });
+                
+                const accountsPermission = permissions.find(p => p.parentCapability === 'eth_accounts');
+                if (accountsPermission) {
+                    const accounts = await provider.request({ method: 'eth_accounts' });
+                    if (accounts && accounts.length > 0) {
+                        availableWallets = accounts;
+                        connectedWallet = accounts[0];
+
+                        updateWalletUIState(true);
+                        updateWalletDropdown();
+                        onWalletSwitched(connectedWallet);
+                    }
+                }
+            } catch (err) { console.error("Request Permissions Error:", err); }
+        }
+
         function updateWalletDropdown() {
             const walletSelect = document.getElementById('wallet-select');
             walletSelect.innerHTML = '';
@@ -434,18 +473,21 @@
         function updateWalletUIState(isConnected) {
             const connectBtn = document.getElementById('connect-btn');
             const walletSelect = document.getElementById('wallet-select');
+            const connectNewBtn = document.getElementById('connect-new-btn');
             const disconnectBtn = document.getElementById('disconnect-btn');
             const statusPill = document.getElementById('wallet-status');
 
             if (isConnected) {
                 connectBtn.style.display = 'none';
                 walletSelect.style.display = 'inline-block';
+                connectNewBtn.style.display = 'inline-block';
                 disconnectBtn.style.display = 'inline-block';
                 statusPill.innerText = "Connected";
                 statusPill.classList.add("connected");
             } else {
                 connectBtn.style.display = 'inline-block';
                 walletSelect.style.display = 'none';
+                connectNewBtn.style.display = 'none';
                 disconnectBtn.style.display = 'none';
                 statusPill.innerText = "Disconnected";
                 statusPill.classList.remove("connected");
@@ -469,18 +511,15 @@
 
             updateWalletUIState(false);
 
-            // Hide Admin view & Tab
             document.getElementById('admin-nav-item').style.display = 'none';
             if (document.getElementById('adminView').classList.contains('active')) {
                 switchView('tradeView');
             }
 
-            // Reset UI lists
             document.getElementById('active-account-select').innerHTML = '<option value="">No Accounts Available</option>';
             document.getElementById('accounts-table-body').innerHTML = '<tr><td colspan="6" style="text-align:center; color: #6b7280;">Connect wallet to view your accounts.</td></tr>';
             document.getElementById('open-trades-list').innerHTML = '<tr><td colspan="7" style="text-align: center; color: #6b7280;">Select an account to view active orders.</td></tr>';
             
-            // Reset Profile Box
             document.getElementById('profile-setup-box').style.display = 'block';
             document.getElementById('profile-display-box').style.display = 'none';
         }

@@ -108,7 +108,6 @@
         /* Meters / Progress Bars */
         .progress-bar-container { background: #111827; height: 10px; border-radius: 5px; overflow: hidden; margin-top: 8px; }
         .progress-fill { background: #a855f7; height: 100%; width: 0%; transition: width 0.3s; }
-        .progress-fill.danger { background: #ef4444; }
 
         /* Plan Cards */
         .plan-card { background: #111827; border: 1px solid #374151; border-radius: 8px; padding: 24px; text-align: center; display: flex; flex-direction: column; justify-content: space-between; }
@@ -142,14 +141,13 @@
         <section id="tradeView" class="view-panel active">
             <div class="trade-grid">
                 <div>
-                    <div class="card" style="min-height: 480px;">
+                    <div class="card">
                         <div class="card-title">
-                            <span>BTC/USDT Live Feed</span>
-                            <span style="font-size: 14px; color: #10b981;">Live Tick: $68,420.50</span>
+                            <span id="chart-title">BTC/USDT Live Chart</span>
+                            <span id="live-tick-price" style="font-size: 14px; color: #10b981;">Loading Feed...</span>
                         </div>
-                        <div id="tv-chart-container" style="height: 400px; background: #111827; border-radius: 6px; display: flex; align-items: center; justify-content: center; color: #6b7280;">
-                            [ TradingView Chart Widget Render Container ]
-                        </div>
+                        <!-- TradingView Chart Container -->
+                        <div id="tv-chart" style="width: 100%; height: 420px;"></div>
                     </div>
 
                     <div class="card">
@@ -182,7 +180,7 @@
                         <div class="card-title">Order Entry</div>
                         <div class="form-group">
                             <label>Asset Symbol</label>
-                            <select id="order-symbol">
+                            <select id="order-symbol" onchange="changeAsset(this.value)">
                                 <option value="BTCUSDT">BTC/USDT</option>
                                 <option value="ETHUSDT">ETH/USDT</option>
                                 <option value="SOLUSDT">SOL/USDT</option>
@@ -277,7 +275,7 @@
         <!-- 4. BUY PLANS VIEW -->
         <section id="buyView" class="view-panel">
             <div class="card">
-                <div class="card-title">Evaluation Plans marketplace</div>
+                <div class="card-title">Evaluation Plans Marketplace</div>
                 <div id="plans-container" class="plans-grid">
                     <p>Loading plans from database...</p>
                 </div>
@@ -285,7 +283,7 @@
         </section>
 
 
-        <!-- 5. ADMIN CONTROL VIEW (Restricted) -->
+        <!-- 5. ADMIN CONTROL VIEW -->
         <section id="adminView" class="view-panel">
             <div class="card" style="border-color: #991b1b;">
                 <div class="card-title" style="color: #f87171;">🛡️ Admin Compliance & Payout Queue</div>
@@ -311,11 +309,110 @@
 
     </main>
 
-    <!-- Unified UI State Script -->
     <script>
         let connectedWallet = null;
+        let chart = null;
+        let candleSeries = null;
+        let currentSymbol = 'BTCUSDT';
+        
         const USDT_CONTRACT_ADDRESS = "0x7ec3659A8225ED474D7c662126616aE08545C29b";
         const TREASURY_WALLET = "0x8632fa855d5dc6b59a3cf892d72cf4a94f182aae";
+
+        // Initialize TradingView Chart on Load
+        window.addEventListener('DOMContentLoaded', () => {
+            const chartContainer = document.getElementById('tv-chart');
+            
+            chart = LightweightCharts.createChart(chartContainer, {
+                width: chartContainer.clientWidth,
+                height: 420,
+                layout: {
+                    background: { type: 'solid', color: '#111827' },
+                    textColor: '#9ca3af',
+                },
+                grid: {
+                    vertLines: { color: '#1f2937' },
+                    horzLines: { color: '#1f2937' },
+                },
+                timeScale: {
+                    timeVisible: true,
+                    secondsVisible: true,
+                    borderColor: '#374151',
+                },
+                rightPriceScale: {
+                    borderColor: '#374151',
+                }
+            });
+
+            candleSeries = chart.addCandlestickSeries({
+                upColor: '#10b981',
+                downColor: '#ef4444',
+                borderVisible: false,
+                wickUpColor: '#10b981',
+                wickDownColor: '#ef4444',
+            });
+
+            // Load initial mock candle data
+            loadInitialChartData(currentSymbol);
+
+            // Resize observer for responsive chart
+            window.addEventListener('resize', () => {
+                chart.applyOptions({ width: chartContainer.clientWidth });
+            });
+        });
+
+        async function loadInitialChartData(symbol) {
+            try {
+                // Fetch public historical klines from Binance free API as baseline
+                const res = await fetch(`https://api.binance.com/api/v3/klines?symbol=${symbol}&interval=1m&limit=100`);
+                const data = await res.json();
+                
+                const formattedData = data.map(candle => ({
+                    time: Math.floor(candle[0] / 1000),
+                    open: parseFloat(candle[1]),
+                    high: parseFloat(candle[2]),
+                    low: parseFloat(candle[3]),
+                    close: parseFloat(candle[4]),
+                }));
+
+                candleSeries.setData(formattedData);
+                if (formattedData.length > 0) {
+                    const latest = formattedData[formattedData.length - 1];
+                    document.getElementById('live-tick-price').innerText = `$${latest.close.toLocaleString()}`;
+                }
+
+                // Start live WebSocket price simulation/feed
+                startLivePriceFeed(symbol);
+            } catch (err) {
+                console.error("Error loading chart data:", err);
+            }
+        }
+
+        function startLivePriceFeed(symbol) {
+            const wsSymbol = symbol.toLowerCase();
+            const ws = new WebSocket(`wss://stream.binance.com:9443/ws/${wsSymbol}@kline_1m`);
+
+            ws.onmessage = (event) => {
+                const message = JSON.parse(event.data);
+                const kline = message.k;
+                
+                const candle = {
+                    time: Math.floor(kline.t / 1000),
+                    open: parseFloat(kline.o),
+                    high: parseFloat(kline.h),
+                    low: parseFloat(kline.l),
+                    close: parseFloat(kline.c),
+                };
+
+                candleSeries.update(candle);
+                document.getElementById('live-tick-price').innerText = `$${candle.close.toLocaleString()}`;
+            };
+        }
+
+        function changeAsset(symbol) {
+            currentSymbol = symbol;
+            document.getElementById('chart-title').innerText = `${symbol.replace('USDT', '/USDT')} Live Chart`;
+            loadInitialChartData(symbol);
+        }
 
         // View Switcher Function
         function switchView(viewId) {
@@ -329,7 +426,6 @@
             if (activeTab) activeTab.classList.add('active');
         }
 
-        // Web3 Provider Selector
         function getProvider() {
             if (window.ethereum?.providers) {
                 return window.ethereum.providers.find(p => p.isMetaMask) || window.ethereum.providers[0];
@@ -337,11 +433,10 @@
             return window.ethereum;
         }
 
-        // Web3 Wallet Connection
         async function connectWallet() {
             const provider = getProvider();
             if (!provider) {
-                alert("No EVM crypto wallet found! Please install MetaMask or a compatible extension.");
+                alert("No EVM crypto wallet found!");
                 return;
             }
 
@@ -350,8 +445,6 @@
                 if (!accounts || accounts.length === 0) return;
 
                 connectedWallet = accounts[0];
-                
-                // Update UI Header
                 document.getElementById('connect-btn').innerText = 
                     connectedWallet.substring(0, 6) + '...' + connectedWallet.slice(-4);
                 
@@ -368,21 +461,18 @@
             }
         }
 
-        // Check Admin Privileges
         async function checkRole(wallet) {
             try {
                 const res = await fetch(`/api/auth/role?wallet=${wallet}`);
                 const data = await res.json();
                 if (data.isAdmin) {
                     document.getElementById('admin-nav-item').style.display = 'inline-block';
-                    console.log('Admin privileges granted.');
                 }
             } catch (err) {
                 console.error("Error checking role:", err);
             }
         }
 
-        // Load Plans
         async function loadPlans() {
             try {
                 const res = await fetch('/api/plans');
@@ -413,7 +503,6 @@
             }
         }
 
-        // Purchase Plan Trigger
         async function buyPlan(planId, priceUsdt) {
             if (!connectedWallet) {
                 alert("Please connect your wallet first!");
@@ -460,7 +549,6 @@
             }
         }
 
-        // Load Accounts Table
         async function loadAccounts(wallet) {
             try {
                 const res = await fetch(`/api/accounts?wallet=${wallet}`);

@@ -559,6 +559,18 @@
         <section id="buyView" class="view-panel">
             <div class="card">
                 <div class="card-title">Evaluation Plans Marketplace</div>
+                
+                <!-- Payment Network Selector Dropdown -->
+                <div class="form-group" style="max-width: 420px; margin-bottom: 24px;">
+                    <label>Select Payment Network (USDT Chain)</label>
+                    <select id="payment-chain-select" style="background: rgba(5,7,11,0.9); border: 1px solid rgba(255,255,255,0.1); color: white; padding: 10px; border-radius: 8px; width: 100%;">
+                        <option value="1">Ethereum Mainnet</option>
+                        <option value="8453">Base</option>
+                        <option value="137">Polygon PoS</option>
+                        <option value="43114">Avalanche C-Chain</option>
+                    </select>
+                </div>
+
                 <div class="form-group" style="max-width: 420px; margin-bottom: 24px;">
                     <label>Have a Creator Promo Code? (Applied at Checkout)</label>
                     <div style="display: flex; gap: 10px; flex-wrap: wrap;">
@@ -571,16 +583,6 @@
                     <p style="color: #6b7280;">Loading plans...</p>
                 </div>
             </div>
-            <!-- Add Network Selector under Buy Plans section in public/index.html -->
-<div class="form-group" style="max-width: 420px; margin-bottom: 24px;">
-    <label>Select Payment Network (EVM Chain)</label>
-    <select id="payment-chain-select" style="background: rgba(5,7,11,0.9); border: 1px solid rgba(255,255,255,0.1); color: white; padding: 10px; border-radius: 8px; width: 100%;">
-        <option value="1">Ethereum Mainnet (USDT)</option>
-        <option value="8453">Base (USDT)</option>
-        <option value="137">Polygon PoS (USDT)</option>
-        <option value="43114">Avalanche C-Chain (USDT)</option>
-    </select>
-</div>
         </section>
 
         <!-- 6. ADMIN CONTROL VIEW -->
@@ -627,8 +629,15 @@
         let rawLeaderboardData = [];
         let currentUserProfile = null;
         
-        const USDT_CONTRACT_ADDRESS = "0x7ec3659A8225ED474D7c662126616aE08545C29b";
         const TREASURY_WALLET = "0x8632fa855d5dc6b59a3cf892d72cf4a94f182aae";
+
+        // Supported EVM Chains Configuration on Frontend
+        const SUPPORTED_EVM_CHAINS = {
+            1: { name: "Ethereum Mainnet", chainIdHex: "0x1", usdtAddress: "0xdac17f958d2ee523a2206206994597c13d831ec7" },
+            8453: { name: "Base", chainIdHex: "0x2105", usdtAddress: "0xfde4c96c8593536e31f229ea8f37b2ada2699bb2" },
+            137: { name: "Polygon PoS", chainIdHex: "0x89", usdtAddress: "0xc2132d05d31c914a87c6611c10748aeb04b58e8f" },
+            43114: { name: "Avalanche C-Chain", chainIdHex: "0xa86a", usdtAddress: "0x9702230a8ea53601f5cd2dc00fdbc13d4df4a8c7" }
+        };
 
         window.addEventListener('DOMContentLoaded', () => {
             initTradingViewWidget("BINANCE:BTCUSDT");
@@ -1601,62 +1610,80 @@
             }
         }
 
+        // --- MULTI-CHAIN BUY PLAN FUNCTION ---
         async function buyPlan(planId, priceUsdt) {
             if (!connectedWallet) { alert("Connect wallet first!"); return; }
-            if (!confirm(`Confirm purchase for ${priceUsdt} USDT?`)) return;
+            
+            const selectedChainId = parseInt(document.getElementById('payment-chain-select').value);
+            const chainConfig = SUPPORTED_EVM_CHAINS[selectedChainId];
+            
+            if (!chainConfig) { alert("Invalid network selection."); return; }
+
+            const provider = getProvider();
+            if (!provider) return;
+
+            // 1. Prompt wallet to switch to selected chain
+            try {
+                await provider.request({
+                    method: 'wallet_switchEthereumChain',
+                    params: [{ chainId: chainConfig.chainIdHex }],
+                });
+            } catch (switchErr) {
+                if (switchErr.code === 4902) {
+                    alert(`Please add ${chainConfig.name} to your wallet first.`);
+                } else {
+                    console.error("Network switch error:", switchErr);
+                }
+                return;
+            }
+
+            if (!confirm(`Confirm purchase for $${priceUsdt} USDT on ${chainConfig.name}?`)) return;
 
             try {
-                const provider = getProvider();
+                // 2. Format ERC-20 transfer calldata
                 const paddedRecipient = TREASURY_WALLET.toLowerCase().replace('0x', '').padStart(64, '0');
-                
-                const rawAmount = BigInt(Math.round(priceUsdt * 100)) * BigInt("10000000000000000");
+                const rawAmount = BigInt(Math.round(priceUsdt * 1e6)); // USDT has 6 decimals on these chains
                 const amountHex = rawAmount.toString(16).padStart(64, '0');
-                
                 const calldata = '0xa9059cbb' + paddedRecipient + amountHex;
 
+                // 3. Broadcast transaction through connected user wallet (MetaMask)
                 const txHash = await provider.request({
                     method: 'eth_sendTransaction',
-                    params: [{ from: connectedWallet, to: USDT_CONTRACT_ADDRESS, data: calldata }]
+                    params: [{
+                        from: connectedWallet,
+                        to: chainConfig.usdtAddress,
+                        data: calldata
+                    }]
                 });
 
+                alert("Transaction submitted! Verifying on-chain...");
+
+                // 4. Send TX hash and chain ID to backend for cryptographic verification
                 const res = await fetch('/api/accounts/purchase', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ wallet_address: connectedWallet, plan_id: planId, tx_hash: txHash, promo_code: activePromoCode })
+                    body: JSON.stringify({ 
+                        wallet_address: connectedWallet, 
+                        plan_id: planId, 
+                        tx_hash: txHash, 
+                        chain_id: selectedChainId,
+                        promo_code: activePromoCode 
+                    })
                 });
                 const data = await res.json();
 
                 if (data.success) {
-                    alert("Account provisioned successfully!");
+                    alert("Payment verified on-chain! Account provisioned successfully.");
                     loadUserAccounts(connectedWallet);
                     switchView('tradeView');
                 } else {
-                    alert("Error: " + data.error);
+                    alert("Verification Error: " + data.error);
                 }
-            } catch (err) { console.error(err); }
+            } catch (err) {
+                console.error("Purchase Error:", err);
+                alert("Transaction failed or was rejected by the user.");
+            }
         }
-        async function switchToChain(chainIdDecimal) {
-    const provider = getProvider();
-    if (!provider) return false;
-
-    // Convert decimal chain ID to hex
-    const chainIdHex = '0x' + chainIdDecimal.toString(16);
-
-    try {
-        await provider.request({
-            method: 'wallet_switchEthereumChain',
-            params: [{ chainId: chainIdHex }],
-        });
-        return true;
-    } catch (switchError) {
-        // This error code indicates that the chain has not been added to MetaMask yet.
-        if (switchError.code === 4902) {
-            alert("Please add this network to your wallet first.");
-        }
-        console.error("Failed to switch network:", switchError);
-        return false;
-    }
-}
     </script>
 </body>
 </html>

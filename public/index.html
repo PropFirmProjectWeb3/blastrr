@@ -106,7 +106,7 @@
         <div class="logo">⚡ BLASTRR</div>
         <nav>
             <button class="nav-tab active" onclick="switchView('tradeView')">Trade</button>
-            <button class="nav-tab" onclick="switchView('accountsView')">Account Status</button>
+            <button class="nav-tab" onclick="switchView('accountsView')">My Accounts</button>
             <button class="nav-tab" onclick="switchView('profileView')">👤 My Profile & Promos</button>
             <button class="nav-tab" onclick="switchView('buyView')">Buy Plans</button>
             <button id="admin-nav-item" class="nav-tab admin-tab" onclick="switchView('adminView')">🛡️ Admin Control</button>
@@ -123,9 +123,14 @@
             <div class="trade-grid">
                 <div>
                     <div class="card">
-                        <div class="card-title">
-                            <span id="chart-title">TradingView Chart Terminal</span>
-                            <span id="active-account-banner" style="font-size: 13px; color: #a855f7;">No Active Account</span>
+                        <div class="card-title" style="display: flex; justify-content: space-between; align-items: center;">
+                            <span>TradingView Chart Terminal</span>
+                            <div style="display: flex; align-items: center; gap: 8px;">
+                                <label style="font-size: 12px; color: #9ca3af; text-transform: uppercase;">Active Account:</label>
+                                <select id="active-account-select" onchange="switchActiveAccount(this.value)" style="background: #111827; border: 1px solid #374151; color: white; padding: 6px; border-radius: 4px; font-size: 13px;">
+                                    <option value="">No Accounts Found</option>
+                                </select>
+                            </div>
                         </div>
                         <div id="tradingview-widget-container" style="width: 100%; height: 500px;"></div>
                     </div>
@@ -145,7 +150,7 @@
                                 </tr>
                             </thead>
                             <tbody id="open-trades-list">
-                                <tr><td colspan="7" style="text-align: center; color: #6b7280;">Connect wallet and load an active account.</td></tr>
+                                <tr><td colspan="7" style="text-align: center; color: #6b7280;">Select an account to view active orders.</td></tr>
                             </tbody>
                         </table>
                     </div>
@@ -202,10 +207,22 @@
         <!-- 2. ACCOUNTS VIEW -->
         <section id="accountsView" class="view-panel">
             <div class="card">
-                <div class="card-title">Active Prop Account (1 Max)</div>
-                <div id="active-account-details">
-                    <p style="color: #6b7280;">No active account found. Purchase a plan to begin trading.</p>
-                </div>
+                <div class="card-title">Your Prop Accounts Portfolio</div>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Account ID</th>
+                            <th>Plan Tier</th>
+                            <th>Initial Balance</th>
+                            <th>Current Equity</th>
+                            <th>Status</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody id="accounts-table-body">
+                        <tr><td colspan="6" style="text-align: center; color: #6b7280;">Connect wallet to view your accounts.</td></tr>
+                    </tbody>
+                </table>
             </div>
         </section>
 
@@ -215,7 +232,7 @@
                 <div class="card-title">Your Creator & Affiliate Profile</div>
                 <div id="profile-setup-box">
                     <p style="color: #9ca3af; font-size: 14px; margin-bottom: 16px;">
-                        Create your unique username and custom promo code. Your promo code attributes referred traders to your profile so you earn a <strong>fixed 2% cash commission</strong> on every plan purchase!
+                        Create your unique username and custom promo code. Earn a <strong>fixed 2% cash commission</strong> on every plan purchase made using your code!
                     </p>
                     <div class="form-group">
                         <label>Unique Username</label>
@@ -289,7 +306,8 @@
     <script type="text/javascript" src="https://s3.tradingview.com/tv.js"></script>
     <script>
         let connectedWallet = null;
-        let activeAccount = null;
+        let userAccounts = [];
+        let selectedAccountId = null;
         let tvWidget = null;
         let activePromoCode = null;
         let plansData = [];
@@ -355,7 +373,7 @@
                 document.getElementById('wallet-status').classList.add("connected");
 
                 checkRole(connectedWallet);
-                loadActiveAccount(connectedWallet);
+                loadUserAccounts(connectedWallet);
                 loadUserProfile(connectedWallet);
             } catch (err) { console.error(err); }
         }
@@ -366,31 +384,56 @@
             if (data.isAdmin) document.getElementById('admin-nav-item').style.display = 'inline-block';
         }
 
-        async function loadActiveAccount(wallet) {
+        async function loadUserAccounts(wallet) {
             try {
-                const res = await fetch(`/api/accounts/active?wallet=${wallet}`);
+                const res = await fetch(`/api/accounts?wallet=${wallet}`);
                 const data = await res.json();
-                activeAccount = data.account;
+                userAccounts = data.accounts || [];
 
-                const banner = document.getElementById('active-account-banner');
-                const details = document.getElementById('active-account-details');
+                const selectElem = document.getElementById('active-account-select');
+                const tableBody = document.getElementById('accounts-table-body');
+                selectElem.innerHTML = '';
+                tableBody.innerHTML = '';
 
-                if (!activeAccount) {
-                    banner.innerText = "No Active Account";
-                    details.innerHTML = '<p style="color: #ef4444;">No active prop account found. Please buy a plan first.</p>';
+                if (userAccounts.length === 0) {
+                    selectElem.innerHTML = '<option value="">No Accounts Available</option>';
+                    tableBody.innerHTML = '<tr><td colspan="6" style="text-align:center; color: #6b7280;">No accounts found. Purchase a plan in the marketplace!</td></tr>';
+                    selectedAccountId = null;
                     return;
                 }
 
-                banner.innerText = `Active: ${activeAccount.plan_name} (${activeAccount.id})`;
-                details.innerHTML = `
-                    <p><strong>Account ID:</strong> ${activeAccount.id}</p>
-                    <p><strong>Plan Tier:</strong> ${activeAccount.plan_name}</p>
-                    <p><strong>Current Equity:</strong> $${activeAccount.current_equity.toLocaleString()}</p>
-                    <p><strong>Status:</strong> <span style="color: #34d399;">${activeAccount.status}</span></p>
-                `;
+                userAccounts.forEach((acc, idx) => {
+                    if (idx === 0 && !selectedAccountId) selectedAccountId = acc.id;
+                    selectElem.innerHTML += `<option value="${acc.id}" ${acc.id === selectedAccountId ? 'selected' : ''}>${acc.plan_name} (${acc.id}) - $${acc.current_equity.toLocaleString()}</option>`;
+                    
+                    tableBody.innerHTML += `
+                        <tr>
+                            <td><code>${acc.id}</code></td>
+                            <td>${acc.plan_name}</td>
+                            <td>$${acc.initial_balance.toLocaleString()}</td>
+                            <td>$${acc.current_equity.toLocaleString()}</td>
+                            <td><span class="status-pill connected">${acc.status}</span></td>
+                            <td><button class="btn-wallet" style="padding:4px 8px; font-size:12px;" onclick="selectAccountAndTrade('${acc.id}')">Trade</button></td>
+                        </tr>
+                    `;
+                });
 
-                loadActiveOrders(activeAccount.id);
+                if (selectedAccountId) {
+                    loadActiveOrders(selectedAccountId);
+                }
             } catch (err) { console.error(err); }
+        }
+
+        function switchActiveAccount(accId) {
+            selectedAccountId = accId;
+            loadActiveOrders(accId);
+        }
+
+        function selectAccountAndTrade(accId) {
+            selectedAccountId = accId;
+            document.getElementById('active-account-select').value = accId;
+            switchView('tradeView');
+            loadActiveOrders(accId);
         }
 
         async function loadActiveOrders(accountId) {
@@ -400,7 +443,7 @@
             tbody.innerHTML = '';
 
             if (data.orders.length === 0 && data.trades.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; color: #6b7280;">No active orders or positions.</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; color: #6b7280;">No active orders or positions for this account.</td></tr>';
                 return;
             }
 
@@ -446,8 +489,8 @@
                             <div class="plan-price">${priceHtml}</div>
                             <div class="plan-feature">Simulated Capital: <strong>$${plan.simulated_capital.toLocaleString()}</strong></div>
                             <div class="plan-feature">Profit Target: <strong>$${plan.profit_target.toLocaleString()}</strong></div>
-                            <div class="plan-feature">Daily Loss Limit: <strong>${plan.daily_loss_pct}%</strong></div>
-                            <div class="plan-feature">Max Drawdown: <strong>${plan.max_drawdown_pct}%</strong></div>
+                            <div class="plan-feature">Daily Loss Limit: <strong>$${(plan.simulated_capital * (plan.daily_loss_pct / 100)).toLocaleString()}</strong> (${plan.daily_loss_pct}%)</div>
+                            <div class="plan-feature">Max Drawdown: <strong>$${(plan.simulated_capital * (plan.max_drawdown_pct / 100)).toLocaleString()}</strong> (${plan.max_drawdown_pct}%)</div>
                         </div>
                         <button class="btn-wallet" style="margin-top:20px; width:100%;" onclick="buyPlan(${plan.id}, ${displayPrice})">Buy Plan ($${displayPrice})</button>
                     </div>
@@ -525,8 +568,8 @@
         }
 
         async function placeOrder(side) {
-            if (!activeAccount) {
-                alert("You must have an active prop account to place orders!");
+            if (!selectedAccountId) {
+                alert("Please select or purchase an active trading account first!");
                 return;
             }
 
@@ -545,13 +588,13 @@
                 const res = await fetch('/api/orders/place', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ account_id: activeAccount.id, symbol, side, price, size, sl, tp })
+                    body: JSON.stringify({ account_id: selectedAccountId, symbol, side, price, size, sl, tp })
                 });
                 const data = await res.json();
 
                 if (data.success) {
                     alert("Limit order placed successfully!");
-                    loadActiveOrders(activeAccount.id);
+                    loadActiveOrders(selectedAccountId);
                 } else {
                     alert("Error: " + data.error);
                 }
@@ -566,7 +609,6 @@
                 const provider = getProvider();
                 const paddedRecipient = TREASURY_WALLET.toLowerCase().replace('0x', '').padStart(64, '0');
                 
-                // Multiply by 10^18 for 18-decimal token standard using BigInt
                 const rawAmount = BigInt(Math.round(priceUsdt * 100)) * BigInt("10000000000000000");
                 const amountHex = rawAmount.toString(16).padStart(64, '0');
                 
@@ -586,7 +628,7 @@
 
                 if (data.success) {
                     alert("Account provisioned successfully!");
-                    loadActiveAccount(connectedWallet);
+                    loadUserAccounts(connectedWallet);
                     switchView('tradeView');
                 } else {
                     alert("Error: " + data.error);

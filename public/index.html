@@ -350,7 +350,7 @@
             </div>
         </section>
 
-        <!-- 3. LEADERBOARD VIEW (DAILY PROFIT, MONTHLY PROFIT & LIFETIME PAYOUTS) -->
+        <!-- 3. LEADERBOARD VIEW -->
         <section id="leaderboardView" class="view-panel">
             <div class="card">
                 <div class="card-title" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; margin-bottom: 8px;">
@@ -388,13 +388,17 @@
             </div>
         </section>
 
-        <!-- 4. PROFILE & PROMOS VIEW -->
+        <!-- 4. PROFILE & PROMOS VIEW (EDITABLE AT ANY TIME) -->
         <section id="profileView" class="view-panel">
             <div class="card">
-                <div class="card-title">Your Creator & Affiliate Profile</div>
+                <div class="card-title">
+                    <span>Your Creator & Affiliate Profile</span>
+                    <button id="btn-toggle-edit" class="btn-wallet" style="padding: 6px 12px; font-size: 12px; display: none;" onclick="toggleEditProfile()">✏️ Edit Details</button>
+                </div>
+                
                 <div id="profile-setup-box">
                     <p style="color: #9ca3af; font-size: 14px; margin-bottom: 20px; line-height: 1.5;">
-                        Create your unique username and custom promo code. Earn a <strong style="color: #c084fc;">fixed 2% cash commission</strong> on every plan purchase made using your code!
+                        Configure your unique username and custom promo code. Your username will identify you on the leaderboards, and you'll earn a <strong style="color: #c084fc;">fixed 2% cash commission</strong> on every plan purchase made with your code!
                     </p>
                     <div class="form-group">
                         <label>Unique Username</label>
@@ -831,6 +835,7 @@
             
             document.getElementById('profile-setup-box').style.display = 'block';
             document.getElementById('profile-display-box').style.display = 'none';
+            document.getElementById('btn-toggle-edit').style.display = 'none';
 
             loadLeaderboard(currentLeaderboardMode);
         }
@@ -1290,10 +1295,14 @@
                     currentUserProfile = data.user;
                     document.getElementById('profile-setup-box').style.display = 'none';
                     document.getElementById('profile-display-box').style.display = 'block';
+                    document.getElementById('btn-toggle-edit').style.display = 'inline-block';
 
                     document.getElementById('disp-username').innerText = data.user.username;
                     document.getElementById('disp-code').innerText = data.user.discount_code;
                     document.getElementById('disp-link').value = `https://blastrr.com/?ref=${data.user.discount_code}`;
+
+                    document.getElementById('prof-username').value = data.user.username;
+                    document.getElementById('prof-code').value = data.user.discount_code;
 
                     document.getElementById('stat-ref-count').innerText = data.stats.total_referrals || 0;
                     availableCommissionBalance = data.stats.available_commission || 0;
@@ -1304,9 +1313,19 @@
                     currentUserProfile = null;
                     document.getElementById('profile-setup-box').style.display = 'block';
                     document.getElementById('profile-display-box').style.display = 'none';
+                    document.getElementById('btn-toggle-edit').style.display = 'none';
                 }
                 loadLeaderboard(currentLeaderboardMode);
             } catch (err) { console.error(err); }
+        }
+
+        function toggleEditProfile() {
+            const setupBox = document.getElementById('profile-setup-box');
+            if (setupBox.style.display === 'none') {
+                setupBox.style.display = 'block';
+            } else {
+                setupBox.style.display = 'none';
+            }
         }
 
         async function loadReferralTransactions(wallet) {

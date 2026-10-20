@@ -724,3 +724,53 @@ const SUPPORTED_EVM_CHAINS = {
         decimals: 6
     }
 };
+const { ethers } = require('ethers');
+
+async function verifyMultiChainPurchase(txHash, chainId, expectedBuyerWallet, expectedAmountUsdt, treasuryWallet) {
+    const chainConfig = SUPPORTED_EVM_CHAINS[chainId];
+    if (!chainConfig) {
+        return { success: false, error: "Unsupported blockchain network." };
+    }
+
+    try {
+        // Connect to the specific Alchemy endpoint for this chain
+        const provider = new ethers.JsonRpcProvider(chainConfig.rpcUrl);
+        const tx = await provider.getTransaction(txHash);
+        const receipt = await provider.getTransactionReceipt(txHash);
+
+        if (!tx || !receipt || receipt.status !== 1) {
+            return { success: false, error: "Transaction not found or failed on-chain." };
+        }
+
+        // SECURITY CHECK: Mempool Snipe Protection
+        if (tx.from.toLowerCase() !== expectedBuyerWallet.toLowerCase()) {
+            return { success: false, error: "Security Alert: Transaction sender does not match connected wallet." };
+        }
+
+        // Verify ERC-20 Transfer Event logs
+        const transferTopic = ethers.id("Transfer(address,address,uint256)");
+        let validTransfer = false;
+
+        for (const log of receipt.logs) {
+            if (log.address.toLowerCase() === chainConfig.usdtAddress.toLowerCase() && log.topics[0] === transferTopic) {
+                const recipient = ethers.getAddress('0x' + log.topics[2].slice(26));
+                const rawValue = BigInt(log.data);
+                const tokenValue = Number(rawValue) / Math.pow(10, chainConfig.decimals);
+
+                if (recipient.toLowerCase() === treasuryWallet.toLowerCase() && tokenValue >= expectedAmountUsdt) {
+                    validTransfer = true;
+                    break;
+                }
+            }
+        }
+
+        if (!validTransfer) {
+            return { success: false, error: "Transaction logs do not show a valid USDT transfer to the treasury." };
+        }
+
+        return { success: true };
+    } catch (err) {
+        console.error("Multi-chain verification error:", err);
+        return { success: false, error: "On-chain verification lookup failed." };
+    }
+}

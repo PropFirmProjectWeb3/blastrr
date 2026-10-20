@@ -1,1 +1,17 @@
-
+{
+  "name": "blastrr",
+  "version": "1.0.0",
+  "description": "Direct-to-live crypto prop trading platform",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "ethers": "^6.11.0",
+    "express": "^4.19.2",
+    "luxon": "^3.4.4",
+    "sqlite3": "^5.1.7"
+  }
+}

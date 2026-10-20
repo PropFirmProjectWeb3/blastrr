@@ -16,7 +16,7 @@
 
         header { 
             display: flex; 
-            justify-space-between; 
+            justify-content: space-between; 
             align-items: center; 
             background: #111827;
             border-bottom: 1px solid #1f2937; 
@@ -168,7 +168,7 @@
                 <div>
                     <div class="card">
                         <div class="card-title" style="display: flex; justify-content: space-between; align-items: center;">
-                            <span>TradingView Chart Terminal</span>
+                            <span id="chart-title">TradingView Chart Terminal</span>
                             <div style="display: flex; align-items: center; gap: 8px;">
                                 <label style="font-size: 12px; color: #9ca3af; text-transform: uppercase;">Active Account:</label>
                                 <select id="active-account-select" onchange="switchActiveAccount(this.value)" style="background: #111827; border: 1px solid #374151; color: white; padding: 6px; border-radius: 4px; font-size: 13px;">
@@ -180,21 +180,22 @@
                     </div>
 
                     <div class="card">
-                        <div class="card-title">Active Orders & Positions</div>
+                        <div class="card-title">Open Positions & PnL</div>
                         <table>
                             <thead>
                                 <tr>
                                     <th>ID</th>
                                     <th>Symbol</th>
-                                    <th>Type</th>
-                                    <th>Price</th>
-                                    <th>Size</th>
+                                    <th>Side</th>
+                                    <th>Entry Price</th>
+                                    <th>Size ($)</th>
                                     <th>SL / TP</th>
-                                    <th>Status</th>
+                                    <th>Live PnL</th>
+                                    <th>Action</th>
                                 </tr>
                             </thead>
                             <tbody id="open-trades-list">
-                                <tr><td colspan="7" style="text-align: center; color: #6b7280;">Select an account to view active orders.</td></tr>
+                                <tr><td colspan="8" style="text-align: center; color: #6b7280;">Select an account to view open positions.</td></tr>
                             </tbody>
                         </table>
                     </div>
@@ -202,47 +203,42 @@
 
                 <div>
                     <div class="card">
-                        <div class="card-title">Order Entry</div>
+                        <div class="card-title">Order Execution</div>
                         <div class="form-group">
                             <label>Market Selection (Binance Pairs)</label>
-                            <select id="order-symbol" onchange="updateTradingViewSymbol(this.value)">
-                                <option value="BINANCE:BTCUSDT">BTC/USDT</option>
-                                <option value="BINANCE:ETHUSDT">ETH/USDT</option>
-                                <option value="BINANCE:XRPUSDT">XRP/USDT</option>
-                                <option value="BINANCE:SOLUSDT">SOL/USDT</option>
-                                <option value="BINANCE:BNBUSDT">BNB/USDT</option>
-                                <option value="BINANCE:DOGEUSDT">DOGE/USDT</option>
-                                <option value="BINANCE:ADAUSDT">ADA/USDT</option>
-                                <option value="BINANCE:AVAXUSDT">AVAX/USDT</option>
-                                <option value="BINANCE:SUIUSDT">SUI/USDT</option>
-                                <option value="BINANCE:LINKUSDT">LINK/USDT</option>
+                            <select id="order-symbol" onchange="onSymbolChanged(this.value)">
+                                <option value="BINANCE:BTCUSDT" data-price="68000">BTC/USDT</option>
+                                <option value="BINANCE:ETHUSDT" data-price="3500">ETH/USDT</option>
+                                <option value="BINANCE:XRPUSDT" data-price="0.65">XRP/USDT</option>
+                                <option value="BINANCE:SOLUSDT" data-price="180">SOL/USDT</option>
+                                <option value="BINANCE:BNBUSDT" data-price="600">BNB/USDT</option>
+                                <option value="BINANCE:DOGEUSDT" data-price="0.12">DOGE/USDT</option>
+                                <option value="BINANCE:ADAUSDT" data-price="0.45">ADA/USDT</option>
+                                <option value="BINANCE:AVAXUSDT" data-price="25">AVAX/USDT</option>
+                                <option value="BINANCE:SUIUSDT" data-price="1.80">SUI/USDT</option>
+                                <option value="BINANCE:LINKUSDT" data-price="14">LINK/USDT</option>
                             </select>
                         </div>
                         <div class="form-group">
-                            <label>Order Type</label>
-                            <select id="order-type">
-                                <option value="LIMIT">Limit Order</option>
-                            </select>
+                            <label>Market Price (Live)</label>
+                            <input type="number" id="order-price" readonly style="background: #0b0d12; color: #34d399; font-weight: bold;">
                         </div>
                         <div class="form-group">
-                            <label>Limit Price ($)</label>
-                            <input type="number" id="order-price" placeholder="68000">
-                        </div>
-                        <div class="form-group">
-                            <label>Position Size (Units)</label>
-                            <input type="number" id="order-size" placeholder="1.0">
+                            <label>Position Size ($ USD)</label>
+                            <input type="number" id="order-size-usd" placeholder="1000" min="10">
+                            <small id="available-bal-label" style="color: #9ca3af; display: block; margin-top: 4px;">Available Balance: $0.00</small>
                         </div>
                         <div class="form-group">
                             <label>Stop Loss (SL)</label>
-                            <input type="number" id="order-sl" placeholder="67000">
+                            <input type="number" id="order-sl" placeholder="Optional">
                         </div>
                         <div class="form-group">
                             <label>Take Profit (TP)</label>
-                            <input type="number" id="order-tp" placeholder="70000">
+                            <input type="number" id="order-tp" placeholder="Optional">
                         </div>
 
-                        <button class="btn-buy" onclick="placeOrder('BUY')">Buy Limit</button>
-                        <button class="btn-sell" onclick="placeOrder('SELL')">Sell Limit</button>
+                        <button class="btn-buy" onclick="executeTrade('BUY')">Market Buy</button>
+                        <button class="btn-sell" onclick="executeTrade('SELL')">Market Sell</button>
                     </div>
                 </div>
             </div>
@@ -258,13 +254,14 @@
                             <th>Account ID</th>
                             <th>Plan Tier</th>
                             <th>Initial Balance</th>
+                            <th>Available Balance</th>
                             <th>Current Equity</th>
                             <th>Status</th>
                             <th>Action</th>
                         </tr>
                     </thead>
                     <tbody id="accounts-table-body">
-                        <tr><td colspan="6" style="text-align: center; color: #6b7280;">Connect wallet to view your accounts.</td></tr>
+                        <tr><td colspan="7" style="text-align: center; color: #6b7280;">Connect wallet to view your accounts.</td></tr>
                     </tbody>
                 </table>
             </div>
@@ -368,6 +365,7 @@
         let availableWallets = [];
         let userAccounts = [];
         let selectedAccountId = null;
+        let activeAccount = null;
         let tvWidget = null;
         let activePromoCode = null;
         let plansData = [];
@@ -378,6 +376,7 @@
         window.addEventListener('DOMContentLoaded', () => {
             initTradingViewWidget("BINANCE:BTCUSDT");
             loadPlans();
+            updateCurrentPrice("BINANCE:BTCUSDT");
 
             const urlParams = new URLSearchParams(window.location.search);
             const refCode = urlParams.get('ref');
@@ -420,6 +419,20 @@
                 tvWidget.chart().setSymbol(symbol);
             } else {
                 initTradingViewWidget(symbol);
+            }
+        }
+
+        function onSymbolChanged(symbol) {
+            updateTradingViewSymbol(symbol);
+            updateCurrentPrice(symbol);
+        }
+
+        function updateCurrentPrice(symbol) {
+            const select = document.getElementById('order-symbol');
+            const opt = select.querySelector(`option[value="${symbol}"]`);
+            if (opt) {
+                const price = opt.getAttribute('data-price');
+                document.getElementById('order-price').value = price;
             }
         }
 
@@ -522,6 +535,7 @@
             availableWallets = [];
             userAccounts = [];
             selectedAccountId = null;
+            activeAccount = null;
 
             updateWalletUIState(false);
 
@@ -531,8 +545,8 @@
             }
 
             document.getElementById('active-account-select').innerHTML = '<option value="">No Accounts Available</option>';
-            document.getElementById('accounts-table-body').innerHTML = '<tr><td colspan="6" style="text-align:center; color: #6b7280;">Connect wallet to view your accounts.</td></tr>';
-            document.getElementById('open-trades-list').innerHTML = '<tr><td colspan="7" style="text-align: center; color: #6b7280;">Select an account to view active orders.</td></tr>';
+            document.getElementById('accounts-table-body').innerHTML = '<tr><td colspan="7" style="text-align:center; color: #6b7280;">Connect wallet to view your accounts.</td></tr>';
+            document.getElementById('open-trades-list').innerHTML = '<tr><td colspan="8" style="text-align: center; color: #6b7280;">Select an account to view open positions.</td></tr>';
             
             document.getElementById('profile-setup-box').style.display = 'block';
             document.getElementById('profile-display-box').style.display = 'none';
@@ -561,20 +575,27 @@
 
                 if (userAccounts.length === 0) {
                     selectElem.innerHTML = '<option value="">No Accounts Available</option>';
-                    tableBody.innerHTML = '<tr><td colspan="6" style="text-align:center; color: #6b7280;">No accounts found. Purchase a plan in the marketplace!</td></tr>';
+                    tableBody.innerHTML = '<tr><td colspan="7" style="text-align:center; color: #6b7280;">No accounts found. Purchase a plan in the marketplace!</td></tr>';
                     selectedAccountId = null;
+                    activeAccount = null;
                     return;
                 }
 
                 userAccounts.forEach((acc, idx) => {
-                    if (idx === 0 && !selectedAccountId) selectedAccountId = acc.id;
-                    selectElem.innerHTML += `<option value="${acc.id}" ${acc.id === selectedAccountId ? 'selected' : ''}>${acc.plan_name} (${acc.id}) - $${acc.current_equity.toLocaleString()}</option>`;
+                    if (idx === 0 && !selectedAccountId) {
+                        selectedAccountId = acc.id;
+                        activeAccount = acc;
+                    }
+                    if (acc.id === selectedAccountId) activeAccount = acc;
+
+                    selectElem.innerHTML += `<option value="${acc.id}" ${acc.id === selectedAccountId ? 'selected' : ''}>${acc.plan_name} (${acc.id}) - Bal: $${acc.current_balance.toLocaleString()}</option>`;
                     
                     tableBody.innerHTML += `
                         <tr>
                             <td><code>${acc.id}</code></td>
                             <td>${acc.plan_name}</td>
                             <td>$${acc.initial_balance.toLocaleString()}</td>
+                            <td>$${acc.current_balance.toLocaleString()}</td>
                             <td>$${acc.current_equity.toLocaleString()}</td>
                             <td><span class="status-pill connected">${acc.status}</span></td>
                             <td><button class="btn-wallet" style="padding:4px 8px; font-size:12px;" onclick="selectAccountAndTrade('${acc.id}')">Trade</button></td>
@@ -583,47 +604,126 @@
                 });
 
                 if (selectedAccountId) {
-                    loadActiveOrders(selectedAccountId);
+                    updateAvailableBalanceLabel();
+                    loadOpenTrades(selectedAccountId);
                 }
             } catch (err) { console.error(err); }
         }
 
         function switchActiveAccount(accId) {
             selectedAccountId = accId;
-            loadActiveOrders(accId);
+            activeAccount = userAccounts.find(a => a.id === accId);
+            updateAvailableBalanceLabel();
+            loadOpenTrades(accId);
         }
 
         function selectAccountAndTrade(accId) {
             selectedAccountId = accId;
+            activeAccount = userAccounts.find(a => a.id === accId);
             document.getElementById('active-account-select').value = accId;
+            updateAvailableBalanceLabel();
             switchView('tradeView');
-            loadActiveOrders(accId);
+            loadOpenTrades(accId);
         }
 
-        async function loadActiveOrders(accountId) {
+        function updateAvailableBalanceLabel() {
+            const lbl = document.getElementById('available-bal-label');
+            if (activeAccount) {
+                lbl.innerText = `Available Balance: $${activeAccount.current_balance.toLocaleString()}`;
+            } else {
+                lbl.innerText = `Available Balance: $0.00`;
+            }
+        }
+
+        async function loadOpenTrades(accountId) {
             const res = await fetch(`/api/trades/active?account_id=${accountId}`);
             const data = await res.json();
             const tbody = document.getElementById('open-trades-list');
             tbody.innerHTML = '';
 
-            if (data.orders.length === 0 && data.trades.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; color: #6b7280;">No active orders or positions for this account.</td></tr>';
+            if (!data.trades || data.trades.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="8" style="text-align: center; color: #6b7280;">No open positions for this account.</td></tr>';
                 return;
             }
 
-            data.orders.forEach(ord => {
+            data.trades.forEach(trd => {
+                const currentPrice = parseFloat(document.getElementById('order-price').value) || trd.entry_price;
+                const priceDiff = trd.side === 'BUY' ? (currentPrice - trd.entry_price) : (trd.entry_price - currentPrice);
+                const pnl = priceDiff * trd.units;
+                const pnlColor = pnl >= 0 ? '#34d399' : '#ef4444';
+
                 tbody.innerHTML += `
                     <tr>
-                        <td><code>${ord.id}</code></td>
-                        <td>${ord.symbol}</td>
-                        <td>${ord.type}</td>
-                        <td>$${ord.price}</td>
-                        <td>${ord.size}</td>
-                        <td>SL: ${ord.sl || 'None'} / TP: ${ord.tp || 'None'}</td>
-                        <td><span style="color: #fbbf24;">${ord.status}</span></td>
+                        <td><code>${trd.id}</code></td>
+                        <td>${trd.symbol}</td>
+                        <td><span style="color: ${trd.side === 'BUY' ? '#34d399' : '#ef4444'}; font-weight: bold;">${trd.side}</span></td>
+                        <td>$${trd.entry_price.toFixed(2)}</td>
+                        <td>$${trd.size_usd.toLocaleString()}</td>
+                        <td>SL: ${trd.sl || 'None'} / TP: ${trd.tp || 'None'}</td>
+                        <td><span style="color: ${pnlColor}; font-weight: bold;">$${pnl.toFixed(2)}</span></td>
+                        <td><button class="btn-sell" style="padding:4px 8px; font-size:12px;" onclick="closeTrade('${trd.id}', ${currentPrice})">Close Early</button></td>
                     </tr>
                 `;
             });
+        }
+
+        async function executeTrade(side) {
+            if (!selectedAccountId || !activeAccount) {
+                alert("Please select or purchase an active trading account first!");
+                return;
+            }
+
+            const symbol = document.getElementById('order-symbol').value;
+            const price = parseFloat(document.getElementById('order-price').value);
+            const sizeUsd = parseFloat(document.getElementById('order-size-usd').value);
+            const sl = parseFloat(document.getElementById('order-sl').value) || null;
+            const tp = parseFloat(document.getElementById('order-tp').value) || null;
+
+            if (!sizeUsd || sizeUsd <= 0) {
+                alert("Please enter a valid position size in USD.");
+                return;
+            }
+
+            if (sizeUsd > activeAccount.current_balance) {
+                alert(`Insufficient balance! You only have $${activeAccount.current_balance.toFixed(2)} available.`);
+                return;
+            }
+
+            try {
+                const res = await fetch('/api/trades/execute', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ account_id: selectedAccountId, symbol, side, price, size_usd: sizeUsd, sl, tp })
+                });
+                const data = await res.json();
+
+                if (data.success) {
+                    alert(`Market order executed at $${data.execution_price.toFixed(2)} (incl. 5pt slippage)!`);
+                    loadUserAccounts(connectedWallet);
+                } else {
+                    alert("Error: " + data.error);
+                }
+            } catch (err) { console.error(err); }
+        }
+
+        async function closeTrade(tradeId, currentPrice) {
+            if (!confirm("Are you sure you want to close this position early?")) return;
+
+            try {
+                const res = await fetch('/api/trades/close', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ trade_id: tradeId, current_market_price: currentPrice })
+                });
+                const data = await res.json();
+
+                if (data.success) {
+                    alert(`Position closed. Realized PnL: $${data.pnl.toFixed(2)}`);
+                    loadUserAccounts(connectedWallet);
+                } else {
+                    alert("Error: " + data.error);
+                }
+            } catch (err) { console.error(err); }
         }
 
         async function loadPlans() {
@@ -758,40 +858,6 @@
             } else {
                 alert("Error: " + data.error);
             }
-        }
-
-        async function placeOrder(side) {
-            if (!selectedAccountId) {
-                alert("Please select or purchase an active trading account first!");
-                return;
-            }
-
-            const symbol = document.getElementById('order-symbol').value;
-            const price = parseFloat(document.getElementById('order-price').value);
-            const size = parseFloat(document.getElementById('order-size').value);
-            const sl = parseFloat(document.getElementById('order-sl').value) || null;
-            const tp = parseFloat(document.getElementById('order-tp').value) || null;
-
-            if (!price || !size) {
-                alert("Please enter a valid limit price and position size.");
-                return;
-            }
-
-            try {
-                const res = await fetch('/api/orders/place', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ account_id: selectedAccountId, symbol, side, price, size, sl, tp })
-                });
-                const data = await res.json();
-
-                if (data.success) {
-                    alert("Limit order placed successfully!");
-                    loadActiveOrders(selectedAccountId);
-                } else {
-                    alert("Error: " + data.error);
-                }
-            } catch (err) { console.error(err); }
         }
 
         async function buyPlan(planId, priceUsdt) {

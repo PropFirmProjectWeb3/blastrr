@@ -565,10 +565,16 @@
             try {
                 const provider = getProvider();
                 const paddedRecipient = TREASURY_WALLET.toLowerCase().replace('0x', '').padStart(64, '0');
-                const amountHex = (Math.floor(priceUsdt * 1_000_000)).toString(16).padStart(64, '0');
+                
+                // Multiply by 10^18 for 18-decimal token standard using BigInt
+                const rawAmount = BigInt(Math.round(priceUsdt * 100)) * BigInt("10000000000000000");
+                const amountHex = rawAmount.toString(16).padStart(64, '0');
+                
+                const calldata = '0xa9059cbb' + paddedRecipient + amountHex;
+
                 const txHash = await provider.request({
                     method: 'eth_sendTransaction',
-                    params: [{ from: connectedWallet, to: USDT_CONTRACT_ADDRESS, data: '0xa9059cbb' + paddedRecipient + amountHex }]
+                    params: [{ from: connectedWallet, to: USDT_CONTRACT_ADDRESS, data: calldata }]
                 });
 
                 const res = await fetch('/api/accounts/purchase', {

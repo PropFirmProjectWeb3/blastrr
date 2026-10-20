@@ -4,8 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Blastrr - Crypto Prop Terminal</title>
-    <!-- TradingView Lightweight Charts Library -->
-    <script src="https://unpkg.com/lightweight-charts/dist/lightweight-charts.standalone.production.js"></script>
     <style>
         * { box-sizing: border-box; }
         body { 
@@ -143,11 +141,11 @@
                 <div>
                     <div class="card">
                         <div class="card-title">
-                            <span id="chart-title">BTC/USDT Live Chart</span>
-                            <span id="live-tick-price" style="font-size: 14px; color: #10b981;">Loading Feed...</span>
+                            <span id="chart-title">TradingView Chart Terminal</span>
+                            <span style="font-size: 12px; color: #9ca3af;">Exchange Feed via TradingView</span>
                         </div>
-                        <!-- TradingView Chart Container -->
-                        <div id="tv-chart" style="width: 100%; height: 420px;"></div>
+                        <!-- Official TradingView Advanced Widget Embed -->
+                        <div id="tradingview-widget-container" style="width: 100%; height: 500px;"></div>
                     </div>
 
                     <div class="card">
@@ -179,11 +177,14 @@
                     <div class="card">
                         <div class="card-title">Order Entry</div>
                         <div class="form-group">
-                            <label>Asset Symbol</label>
-                            <select id="order-symbol" onchange="changeAsset(this.value)">
-                                <option value="BTCUSDT">BTC/USDT</option>
-                                <option value="ETHUSDT">ETH/USDT</option>
-                                <option value="SOLUSDT">SOL/USDT</option>
+                            <label>Market Asset Selection</label>
+                            <select id="order-symbol" onchange="updateTradingViewSymbol(this.value)">
+                                <option value="BINANCE:BTCUSDT">BTC/USDT (Binance)</option>
+                                <option value="BINANCE:ETHUSDT">ETH/USDT (Binance)</option>
+                                <option value="BINANCE:SOLUSDT">SOL/USDT (Binance)</option>
+                                <option value="COINBASE:BTCUSD">BTC/USD (Coinbase)</option>
+                                <option value="BYBIT:BTCUSDT">BTC/USDT (Bybit)</option>
+                                <option value="OKX:BTCUSDT">BTC/USDT (OKX)</option>
                             </select>
                         </div>
                         <div class="form-group">
@@ -309,155 +310,45 @@
 
     </main>
 
+    <!-- TradingView Widget Script -->
+    <script type="text/javascript" src="https://s3.tradingview.com/tv.js"></script>
     <script>
         let connectedWallet = null;
-        let chart = null;
-        let candleSeries = null;
-        let currentSymbol = 'BTCUSDT';
-        let currentWs = null;
+        let tvWidget = null;
         
         const USDT_CONTRACT_ADDRESS = "0x7ec3659A8225ED474D7c662126616aE08545C29b";
         const TREASURY_WALLET = "0x8632fa855d5dc6b59a3cf892d72cf4a94f182aae";
 
-        // Initialize TradingView Chart on Load
+        // Initialize TradingView Advanced Widget on Load
         window.addEventListener('DOMContentLoaded', () => {
-            const chartContainer = document.getElementById('tv-chart');
-            
-            chart = LightweightCharts.createChart(chartContainer, {
-                width: chartContainer.clientWidth,
-                height: 420,
-                layout: {
-                    background: { type: 'solid', color: '#111827' },
-                    textColor: '#9ca3af',
-                },
-                grid: {
-                    vertLines: { color: '#1f2937' },
-                    horzLines: { color: '#1f2937' },
-                },
-                timeScale: {
-                    timeVisible: true,
-                    secondsVisible: true,
-                    borderColor: '#374151',
-                },
-                rightPriceScale: {
-                    borderColor: '#374151',
-                }
-            });
-
-            candleSeries = chart.addCandlestickSeries({
-                upColor: '#10b981',
-                downColor: '#ef4444',
-                borderVisible: false,
-                wickUpColor: '#10b981',
-                wickDownColor: '#ef4444',
-            });
-
-            // Load baseline historical data and start live feed
-            initChartFeed(currentSymbol);
-
-            window.addEventListener('resize', () => {
-                chart.applyOptions({ width: chartContainer.clientWidth });
-            });
+            initTradingViewWidget("BINANCE:BTCUSDT");
         });
 
-        async function initChartFeed(symbol) {
-            document.getElementById('live-tick-price').innerText = "Connecting...";
+        function initTradingViewWidget(symbol) {
+            document.getElementById('tradingview-widget-container').innerHTML = '';
+            
+            tvWidget = new TradingView.widget({
+                "autosize": true,
+                "symbol": symbol,
+                "interval": "D",
+                "timezone": "Etc/UTC",
+                "theme": "dark",
+                "style": "1",
+                "locale": "en",
+                "toolbar_bg": "#1f2937",
+                "enable_publishing": false,
+                "hide_side_toolbar": false,
+                "allow_symbol_change": true,
+                "container_id": "tradingview-widget-container"
+            });
+        }
 
-            try {
-                // Fetch baseline klines
-                const res = await fetch(`https://api.binance.com/api/v3/klines?symbol=${symbol}&interval=1m&limit=60`);
-                if (!res.ok) throw new Error("Kline API blocked or rate limited");
-                const data = await res.json();
-                
-                const formattedData = data.map(candle => ({
-                    time: Math.floor(candle[0] / 1000),
-                    open: parseFloat(candle[1]),
-                    high: parseFloat(candle[2]),
-                    low: parseFloat(candle[3]),
-                    close: parseFloat(candle[4]),
-                }));
-
-                candleSeries.setData(formattedData);
-                if (formattedData.length > 0) {
-                    const latest = formattedData[formattedData.length - 1];
-                    document.getElementById('live-tick-price').innerText = `$${latest.close.toLocaleString()}`;
-                }
-            } catch (err) {
-                console.warn("Public API fetch failed, generating fallback baseline chart:", err);
-                generateFallbackChartData();
+        function updateTradingViewSymbol(symbol) {
+            if (tvWidget && tvWidget.chart) {
+                tvWidget.chart().setSymbol(symbol);
+            } else {
+                initTradingViewWidget(symbol);
             }
-
-            startWebSocketFeed(symbol);
-        }
-
-        function generateFallbackChartData() {
-            const data = [];
-            let now = Math.floor(Date.now() / 1000) - 3600;
-            let price = symbolBasePrice(currentSymbol);
-
-            for (let i = 0; i < 60; i++) {
-                let open = price;
-                let high = open + (Math.random() * 20);
-                let low = open - (Math.random() * 20);
-                let close = low + (Math.random() * (high - low));
-                data.push({ time: now + (i * 60), open, high, low, close });
-                price = close;
-            }
-            candleSeries.setData(data);
-            document.getElementById('live-tick-price').innerText = `$${price.toFixed(2)}`;
-        }
-
-        function symbolBasePrice(sym) {
-            if (sym.startsWith('BTC')) return 68400;
-            if (sym.startsWith('ETH')) return 2650;
-            if (sym.startsWith('SOL')) return 175;
-            return 100;
-        }
-
-        function startWebSocketFeed(symbol) {
-            if (currentWs) {
-                currentWs.close();
-            }
-
-            const wsSymbol = symbol.toLowerCase();
-            currentWs = new WebSocket(`wss://stream.binance.com:9443/ws/${wsSymbol}@aggTrade`);
-
-            let currentCandle = null;
-
-            currentWs.onmessage = (event) => {
-                const trade = JSON.parse(event.data);
-                const price = parseFloat(trade.p);
-                const time = Math.floor(trade.T / 1000);
-                const candleTime = Math.floor(time / 60) * 60;
-
-                document.getElementById('live-tick-price').innerText = `$${price.toLocaleString(undefined, {minimumFractionDigits: 2})}`;
-
-                if (!currentCandle || currentCandle.time !== candleTime) {
-                    currentCandle = {
-                        time: candleTime,
-                        open: price,
-                        high: price,
-                        low: price,
-                        close: price
-                    };
-                } else {
-                    currentCandle.high = Math.max(currentCandle.high, price);
-                    currentCandle.low = Math.min(currentCandle.low, price);
-                    currentCandle.close = price;
-                }
-
-                candleSeries.update(currentCandle);
-            };
-
-            currentWs.onerror = (err) => {
-                console.error("WebSocket stream error:", err);
-            };
-        }
-
-        function changeAsset(symbol) {
-            currentSymbol = symbol;
-            document.getElementById('chart-title').innerText = `${symbol.replace('USDT', '/USDT')} Live Chart`;
-            initChartFeed(symbol);
         }
 
         // View Switcher Function

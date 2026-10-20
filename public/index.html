@@ -1,66 +1,45 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Blastrr - Prop Trading Terminal</title>
-    <style>
-        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #0f1117; color: #f3f4f6; margin: 0; padding: 20px; }
-        header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #1f2937; padding-bottom: 15px; margin-bottom: 20px; }
-        h1 { margin: 0; font-size: 24px; color: #a855f7; }
-        button { background: #7c3aed; color: white; border: none; padding: 10px 20px; border-radius: 6px; cursor: pointer; font-weight: bold; }
-        button:hover { background: #6d28d9; }
-        .dashboard { display: grid; grid-template-columns: 3fr 1fr; gap: 20px; }
-        .card { background: #1f2937; padding: 20px; border-radius: 8px; border: 1px solid #374151; }
-        #admin-nav-item { display: none; background: #b91c1c; }
-    </style>
-</head>
-<body>
-    <header>
-        <h1>⚡ Blastrr Prop Terminal</h1>
-        <div>
-            <button id="admin-nav-item" onclick="toggleAdminView()">Admin Panel</button>
-            <button id="connect-btn" onclick="connectWallet()">Connect Wallet</button>
-        </div>
-    </header>
-
-    <div class="dashboard">
-        <div class="card">
-            <h3>TradingView Chart & Execution Feed</h3>
-            <p>Connect your wallet to load your active simulated account or purchase a plan.</p>
-        </div>
-        <div class="card">
-            <h3>Account Metrics</h3>
-            <p><strong>Status:</strong> Not Connected</p>
-            <p><strong>Equity:</strong> $0.00</p>
-            <p><strong>Daily Drawdown Left:</strong> $0.00</p>
-        </div>
-    </div>
-
-    <script>
+<script>
         let connectedWallet = null;
 
         async function connectWallet() {
-            if (window.ethereum) {
+            console.log("Connect wallet clicked...");
+            
+            if (typeof window.ethereum !== 'undefined') {
                 try {
+                    console.log("Requesting Ethereum accounts...");
                     const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
+                    
+                    if (!accounts || accounts.length === 0) {
+                        alert("No accounts found. Please unlock your Web3 wallet.");
+                        return;
+                    }
+
                     connectedWallet = accounts[0];
-                    document.getElementById('connect-btn').innerText = connectedWallet.substring(0, 6) + '...' + connectedWallet.slice(-4);
+                    console.log("Connected wallet:", connectedWallet);
+                    
+                    document.getElementById('connect-btn').innerText = 
+                        connectedWallet.substring(0, 6) + '...' + connectedWallet.slice(-4);
+                    
                     checkRole(connectedWallet);
                 } catch (err) {
-                    console.error(err);
+                    console.error("Wallet connection error:", err);
+                    alert("Connection failed: " + (err.message || "User rejected connection"));
                 }
             } else {
-                alert('Please install MetaMask or a Web3 wallet.');
+                alert('No Web3 wallet detected. Please install MetaMask, Rabby, or Coinbase Wallet.');
             }
         }
 
         async function checkRole(wallet) {
-            const res = await fetch(`/api/auth/role?wallet=${wallet}`);
-            const data = await res.json();
-            if (data.isAdmin) {
-                document.getElementById('admin-nav-item').style.display = 'inline-block';
-                console.log('Admin privileges loaded.');
+            try {
+                const res = await fetch(`/api/auth/role?wallet=${wallet}`);
+                const data = await res.json();
+                if (data.isAdmin) {
+                    document.getElementById('admin-nav-item').style.display = 'inline-block';
+                    console.log('Admin privileges loaded successfully.');
+                }
+            } catch (err) {
+                console.error("Error checking role:", err);
             }
         }
 
@@ -68,5 +47,3 @@
             alert('Opening Admin Payout & Risk Oversight Dashboard...');
         }
     </script>
-</body>
-</html>

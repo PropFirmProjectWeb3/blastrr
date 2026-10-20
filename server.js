@@ -10,6 +10,7 @@ const PORT = process.env.PORT || 4480;
 const TREASURY_WALLET = '0x8632fa855d5dc6b59a3cf892d72cf4a94f182aae';
 
 // --- SUPPORTED EVM CHAINS CONFIGURATION ---
+// --- SUPPORTED EVM CHAINS CONFIGURATION ---
 const SUPPORTED_EVM_CHAINS = {
     1: {
         name: "Ethereum Mainnet",
@@ -22,21 +23,28 @@ const SUPPORTED_EVM_CHAINS = {
         name: "Base",
         chainIdHex: "0x2105",
         rpcUrl: "https://base-mainnet.g.alchemy.com/v2/alch_2pR5KmvKvNRreMrrIahGw",
-        usdtAddress: "0xfde4c96c8593536e31f229ea8f37b2ada2699bb2", // Bridged USDT on Base
+        usdtAddress: "0xfde4c96c8593536e31f229ea8f37b2ada2699bb2",
         decimals: 6
     },
     137: {
         name: "Polygon PoS",
         chainIdHex: "0x89",
         rpcUrl: "https://polygon-mainnet.g.alchemy.com/v2/alch_2pR5KmvKvNRreMrrIahGw",
-        usdtAddress: "0xc2132d05d31c914a87c6611c10748aeb04b58e8f", // (PoS) Tether USD
+        usdtAddress: "0xc2132d05d31c914a87c6611c10748aeb04b58e8f",
         decimals: 6
     },
     43114: {
         name: "Avalanche C-Chain",
         chainIdHex: "0xa86a",
         rpcUrl: "https://avax-mainnet.g.alchemy.com/v2/alch_2pR5KmvKvNRreMrrIahGw",
-        usdtAddress: "0x9702230a8ea53601f5cd2dc00fdbc13d4df4a8c7", // Native/Standard USDT on Avalanche
+        usdtAddress: "0x9702230a8ea53601f5cd2dc00fdbc13d4df4a8c7",
+        decimals: 6
+    },
+    448000: {
+        name: "NullNet Private EVM",
+        chainIdHex: "0x6d5e0", // Hex for 448000
+        rpcUrl: "https://terminull.lunul.org", // Update with your actual Geth RPC endpoint/proxy
+        usdtAddress: "0x7ec3659A8225ED474D7c662126616aE08545C29b", // Your deployed contract address
         decimals: 6
     }
 };

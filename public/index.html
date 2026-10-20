@@ -250,9 +250,9 @@
         <!-- 4. BUY PLANS VIEW -->
         <section id="buyView" class="view-panel">
             <div class="card">
-                <div class="card-title">Evaluation Plans Marketplace (90% Launch Discount Active)</div>
+                <div class="card-title">Evaluation Plans Marketplace</div>
                 <div class="form-group" style="max-width: 400px; margin-bottom: 20px;">
-                    <label>Have a Creator Promo Code?</label>
+                    <label>Have a Creator Promo Code? (Applied at Checkout)</label>
                     <div style="display: flex; gap: 8px;">
                         <input type="text" id="applied-promo" placeholder="Enter Code (e.g. VIP90)">
                         <button class="btn-wallet" onclick="applyPromo()">Apply</button>
@@ -292,6 +292,7 @@
         let activeAccount = null;
         let tvWidget = null;
         let activePromoCode = null;
+        let plansData = [];
         
         const USDT_CONTRACT_ADDRESS = "0x7ec3659A8225ED474D7c662126616aE08545C29b";
         const TREASURY_WALLET = "0x8632fa855d5dc6b59a3cf892d72cf4a94f182aae";
@@ -421,25 +422,34 @@
         async function loadPlans() {
             const res = await fetch('/api/plans');
             const data = await res.json();
+            plansData = data.plans;
+            renderPlans();
+        }
+
+        function renderPlans() {
             const container = document.getElementById('plans-container');
             container.innerHTML = '';
 
-            data.plans.forEach(plan => {
+            plansData.forEach(plan => {
+                let displayPrice = plan.base_price_usdt;
+                let priceHtml = `$${plan.base_price_usdt.toLocaleString()} USDT`;
+
+                if (activePromoCode) {
+                    displayPrice = plan.price_usdt;
+                    priceHtml = `<span style="text-decoration: line-through; color: #6b7280; font-size: 16px;">$${plan.base_price_usdt.toLocaleString()}</span> <span style="color: #34d399;">$${plan.price_usdt.toLocaleString()} USDT</span>`;
+                }
+
                 container.innerHTML += `
                     <div class="plan-card">
                         <div>
-                            <div style="background: #991b1b; color: #fef2f2; font-size: 11px; font-weight: bold; padding: 2px 8px; border-radius: 12px; display: inline-block; margin-bottom: 8px;">🔥 90% LAUNCH DISCOUNT</div>
                             <h3 style="margin:0; color:#a855f7;">${plan.name}</h3>
-                            <div class="plan-price">
-                                <span style="text-decoration: line-through; color: #6b7280; font-size: 16px;">$${plan.base_price_usdt.toLocaleString()} USDT</span><br>
-                                <span>$${plan.price_usdt.toLocaleString()} USDT</span>
-                            </div>
+                            <div class="plan-price">${priceHtml}</div>
                             <div class="plan-feature">Simulated Capital: <strong>$${plan.simulated_capital.toLocaleString()}</strong></div>
                             <div class="plan-feature">Profit Target: <strong>$${plan.profit_target.toLocaleString()}</strong></div>
                             <div class="plan-feature">Daily Loss Limit: <strong>${plan.daily_loss_pct}%</strong></div>
                             <div class="plan-feature">Max Drawdown: <strong>${plan.max_drawdown_pct}%</strong></div>
                         </div>
-                        <button class="btn-wallet" style="margin-top:20px; width:100%;" onclick="buyPlan(${plan.id}, ${plan.price_usdt})">Buy Plan ($${plan.price_usdt} USDT)</button>
+                        <button class="btn-wallet" style="margin-top:20px; width:100%;" onclick="buyPlan(${plan.id}, ${displayPrice})">Buy Plan ($${displayPrice})</button>
                     </div>
                 `;
             });
@@ -458,10 +468,12 @@
 
             if (data.valid) {
                 activePromoCode = code.toUpperCase();
-                document.getElementById('promo-feedback').innerText = `✓ Code '${activePromoCode}' applied successfully! (Referral registered)`;
+                document.getElementById('promo-feedback').innerText = `✓ Code '${activePromoCode}' applied! 90% checkout discount active.`;
+                renderPlans();
             } else {
                 activePromoCode = null;
                 document.getElementById('promo-feedback').innerText = `✕ Invalid promo code.`;
+                renderPlans();
             }
         }
 

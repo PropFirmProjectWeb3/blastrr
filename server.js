@@ -1,5 +1,6 @@
 const express = require('express');
 const path = require('path');
+const https = require('https');
 const db = require('./database');
 
 const app = express();
@@ -25,6 +26,95 @@ function seedPlans() {
 
 setTimeout(seedPlans, 1000);
 
+// Helper function to fetch live price from Binance API synchronously for backend
+function getLiveBinancePrice(symbol) {
+  return new Promise((resolve, reject) => {
+    const pair = symbol.replace('BINANCE:', '');
+    https.get(`https://api.binance.com/api/v3/ticker/price?symbol=${pair}`, (res) => {
+      let body = '';
+      res.on('data', chunk => body += chunk);
+      res.on('end', () => {
+        try {
+          const parsed = JSON.parse(body);
+          if (parsed && parsed.price) {
+            resolve(parseFloat(parsed.price));
+          } else {
+            resolve(null);
+          }
+        } catch (e) { resolve(null); }
+      });
+    }).on('error', () => resolve(null));
+  });
+}
+
+// Background Monitor: Automatically Checks & Closes SL/TP Hits Every 1.5 Seconds
+async function monitorStopLossAndTakeProfit() {
+  db.all("SELECT * FROM trades WHERE status = 'OPEN'", async (err, openTrades) => {
+    if (err || !openTrades || openTrades.length === 0) return;
+
+    // Distinct symbols currently holding open positions
+    const uniqueSymbols = [...new Set(openTrades.map(t => t.symbol))];
+    const livePrices = {};
+
+    for (const sym of uniqueSymbols) {
+      const price = await getLiveBinancePrice(sym);
+      if (price) livePrices[sym] = price;
+    }
+
+    for (const trade of openTrades) {
+      const currentPrice = livePrices[trade.symbol];
+      if (!currentPrice) continue;
+
+      let shouldClose = false;
+      let triggerReason = '';
+
+      if (trade.side === 'BUY') {
+        if (trade.sl && currentPrice <= trade.sl) {
+          shouldClose = true;
+          triggerReason = 'STOP_LOSS';
+        } else if (trade.tp && currentPrice >= trade.tp) {
+          shouldClose = true;
+          triggerReason = 'TAKE_PROFIT';
+        }
+      } else if (trade.side === 'SELL') {
+        if (trade.sl && currentPrice >= trade.sl) {
+          shouldClose = true;
+          triggerReason = 'STOP_LOSS';
+        } else if (trade.tp && currentPrice <= trade.tp) {
+          shouldClose = true;
+          triggerReason = 'TAKE_PROFIT';
+        }
+      }
+
+      if (shouldClose) {
+        closeTradeInternal(trade, currentPrice, triggerReason);
+      }
+    }
+  });
+}
+
+function closeTradeInternal(trade, currentMarketPrice, reason) {
+  const priceDiff = trade.side === 'BUY' ? (currentMarketPrice - trade.entry_price) : (trade.entry_price - currentMarketPrice);
+  const pnl = priceDiff * trade.units;
+  const returnAmount = trade.size_usd + pnl;
+
+  db.serialize(() => {
+    db.run("BEGIN TRANSACTION");
+    db.run(`UPDATE trades SET status = 'CLOSED', pnl = ?, closed_at = CURRENT_TIMESTAMP WHERE id = ? AND status = 'OPEN'`, [pnl, trade.id], function(err) {
+      if (!err && this.changes > 0) {
+        db.run(`UPDATE accounts SET current_balance = current_balance + ?, current_equity = current_equity + ? WHERE id = ?`, [returnAmount, pnl, trade.account_id]);
+        db.run("COMMIT");
+        console.log(`[SL/TP ENGINE] Trade ${trade.id} Auto-Closed via ${reason} at $${currentMarketPrice}. Realized PnL: $${pnl.toFixed(2)}`);
+      } else {
+        db.run("ROLLBACK");
+      }
+    });
+  });
+}
+
+// Start SL/TP Monitoring Loop (Runs every 1500ms)
+setInterval(monitorStopLossAndTakeProfit, 1500);
+
 app.get('/api/plans', (req, res) => {
   db.all("SELECT * FROM plans", [], (err, rows) => {
     if (err) return res.status(500).json({ error: err.message });
@@ -41,7 +131,6 @@ app.get('/api/auth/role', (req, res) => {
   });
 });
 
-// Leaderboard API supporting: 'DAILY', 'MONTHLY', 'PAYOUTS'
 app.get('/api/leaderboard', (req, res) => {
   const mode = req.query.mode || 'DAILY';
   let query = '';
@@ -125,7 +214,6 @@ app.get('/api/user/profile', (req, res) => {
   });
 });
 
-// Update or set Profile (Username & Promo Code)
 app.post('/api/user/profile', (req, res) => {
   const { wallet_address, username, discount_code } = req.body;
   if (!wallet_address || !username || !discount_code) {
@@ -135,7 +223,6 @@ app.post('/api/user/profile', (req, res) => {
   const cleanUsername = username.trim().toLowerCase();
   const cleanCode = discount_code.trim().toUpperCase();
 
-  // Check if username or code is taken by ANOTHER wallet
   db.get(
     `SELECT * FROM users WHERE (LOWER(username) = ? OR UPPER(discount_code) = ?) AND LOWER(wallet_address) != LOWER(?)`,
     [cleanUsername, cleanCode, wallet_address],

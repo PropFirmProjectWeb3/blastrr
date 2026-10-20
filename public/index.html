@@ -24,7 +24,7 @@
         }
         .logo { font-size: 22px; font-weight: 800; color: #a855f7; display: flex; align-items: center; gap: 8px; }
         
-        nav { display: flex; gap: 8px; }
+        nav { display: flex; gap: 8px; flex-wrap: wrap; }
         .nav-tab {
             background: transparent;
             color: #9ca3af;
@@ -72,7 +72,7 @@
         .card-title { margin-top: 0; margin-bottom: 16px; font-size: 18px; color: #f3f4f6; display: flex; justify-content: space-between; align-items: center; }
 
         .trade-grid { display: grid; grid-template-columns: 3fr 1fr; gap: 20px; }
-        .grid-3 { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; }
+        .grid-3 { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px; }
         .plans-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 20px; }
 
         .form-group { margin-bottom: 14px; }
@@ -95,11 +95,8 @@
         th { background: #111827; color: #9ca3af; padding: 10px 12px; font-weight: 600; border-bottom: 1px solid #374151; }
         td { padding: 12px; border-bottom: 1px solid #374151; color: #e5e7eb; }
 
-        .progress-bar-container { background: #111827; height: 10px; border-radius: 5px; overflow: hidden; margin-top: 8px; }
-        .progress-fill { background: #a855f7; height: 100%; width: 0%; transition: width 0.3s; }
-
         .plan-card { background: #111827; border: 1px solid #374151; border-radius: 8px; padding: 24px; text-align: center; display: flex; flex-direction: column; justify-content: space-between; }
-        .plan-price { font-size: 28px; font-weight: bold; color: #a855f7; margin: 12px 0; }
+        .plan-price { font-size: 24px; font-weight: bold; color: #a855f7; margin: 12px 0; }
         .plan-feature { padding: 8px 0; border-bottom: 1px solid #1f2937; font-size: 14px; color: #d1d5db; }
     </style>
 </head>
@@ -110,7 +107,7 @@
         <nav>
             <button class="nav-tab active" onclick="switchView('tradeView')">Trade</button>
             <button class="nav-tab" onclick="switchView('accountsView')">Account Status</button>
-            <button class="nav-tab" onclick="switchView('statsView')">Stats & Risk</button>
+            <button class="nav-tab" onclick="switchView('profileView')">👤 My Profile & Promos</button>
             <button class="nav-tab" onclick="switchView('buyView')">Buy Plans</button>
             <button id="admin-nav-item" class="nav-tab admin-tab" onclick="switchView('adminView')">🛡️ Admin Control</button>
         </nav>
@@ -148,9 +145,7 @@
                                 </tr>
                             </thead>
                             <tbody id="open-trades-list">
-                                <tr>
-                                    <td colspan="7" style="text-align: center; color: #6b7280;">Connect wallet and load an active account.</td>
-                                </tr>
+                                <tr><td colspan="7" style="text-align: center; color: #6b7280;">Connect wallet and load an active account.</td></tr>
                             </tbody>
                         </table>
                     </div>
@@ -208,20 +203,40 @@
             </div>
         </section>
 
-        <!-- 3. STATS & RISK VIEW -->
-        <section id="statsView" class="view-panel">
-            <div class="grid-3">
-                <div class="card">
-                    <div class="card-title">Profit Target Progress</div>
-                    <p id="stat-target" style="font-size: 24px; font-weight: bold; color: #34d399; margin: 4px 0;">$0.00 / $0.00</p>
+        <!-- 3. PROFILE & PROMOS VIEW -->
+        <section id="profileView" class="view-panel">
+            <div class="card">
+                <div class="card-title">Your Creator & Affiliate Profile</div>
+                <div id="profile-setup-box">
+                    <p style="color: #9ca3af; font-size: 14px; margin-bottom: 16px;">
+                        Create your unique username and custom discount code. When traders use your code at checkout, they get 90% off and you earn a <strong>2% cash commission</strong> on their plan purchase!
+                    </p>
+                    <div class="form-group">
+                        <label>Unique Username</label>
+                        <input type="text" id="prof-username" placeholder="e.g. SatoshiTrader">
+                    </div>
+                    <div class="form-group">
+                        <label>Your Custom Discount Code</label>
+                        <input type="text" id="prof-code" placeholder="e.g. SATOSHI90">
+                    </div>
+                    <button class="btn-wallet" style="width: 100%; margin-top: 10px;" onclick="saveProfile()">Save Profile & Generate Code</button>
                 </div>
-                <div class="card">
-                    <div class="card-title">Daily Loss Limit (DLL)</div>
-                    <p id="stat-dll" style="font-size: 24px; font-weight: bold; color: #f3f4f6; margin: 4px 0;">Active: $0.00</p>
-                </div>
-                <div class="card">
-                    <div class="card-title">NY Consistency Limit</div>
-                    <p id="stat-consistency" style="font-size: 24px; font-weight: bold; color: #a855f7; margin: 4px 0;">Best Day: 0.0%</p>
+
+                <div id="profile-display-box" style="display: none; margin-top: 20px; border-top: 1px solid #374151; padding-top: 20px;">
+                    <p><strong>Username:</strong> <span id="disp-username" style="color: #a855f7;">-</span></p>
+                    <p><strong>Your Promo Code:</strong> <code id="disp-code" style="background: #111827; padding: 4px 8px; border-radius: 4px; color: #34d399;">-</code></p>
+                    <p><strong>Shareable Referral Link:</strong> <input type="text" id="disp-link" readonly style="background: #111827; border: 1px solid #374151; color: #9ca3af; padding: 6px; width: 100%; margin-top: 6px;"></p>
+                    
+                    <div class="grid-3" style="margin-top: 20px;">
+                        <div class="card" style="background: #111827; margin:0;">
+                            <div class="card-title" style="font-size: 14px;">Total Referred Traders</div>
+                            <p id="stat-ref-count" style="font-size: 22px; font-weight: bold; color: #34d399; margin: 0;">0</p>
+                        </div>
+                        <div class="card" style="background: #111827; margin:0;">
+                            <div class="card-title" style="font-size: 14px;">Total 2% Commission Earned</div>
+                            <p id="stat-ref-earnings" style="font-size: 22px; font-weight: bold; color: #a855f7; margin: 0;">$0.00 USDT</p>
+                        </div>
+                    </div>
                 </div>
             </div>
         </section>
@@ -229,7 +244,15 @@
         <!-- 4. BUY PLANS VIEW -->
         <section id="buyView" class="view-panel">
             <div class="card">
-                <div class="card-title">Evaluation Plans Marketplace</div>
+                <div class="card-title">Evaluation Plans Marketplace (90% Launch Discount Active)</div>
+                <div class="form-group" style="max-width: 400px; margin-bottom: 20px;">
+                    <label>Have a Creator Discount Code?</label>
+                    <div style="display: flex; gap: 8px;">
+                        <input type="text" id="applied-promo" placeholder="Enter Code (e.g. VIP90)">
+                        <button class="btn-wallet" onclick="applyPromo()">Apply</button>
+                    </div>
+                    <small id="promo-feedback" style="color: #34d399; display: block; margin-top: 4px;"></small>
+                </div>
                 <div id="plans-container" class="plans-grid">
                     <p>Loading plans...</p>
                 </div>
@@ -239,7 +262,7 @@
         <!-- 5. ADMIN CONTROL VIEW -->
         <section id="adminView" class="view-panel">
             <div class="card" style="border-color: #991b1b;">
-                <div class="card-title" style="color: #f87171;">🛡️ Admin Payout & Compliance Queue</div>
+                <div class="card-title" style="color: #f87171;">🛡️ Admin Compliance & Payout Queue</div>
                 <table>
                     <thead>
                         <tr>
@@ -262,12 +285,22 @@
         let connectedWallet = null;
         let activeAccount = null;
         let tvWidget = null;
+        let activePromoCode = null;
         
         const USDT_CONTRACT_ADDRESS = "0x7ec3659A8225ED474D7c662126616aE08545C29b";
         const TREASURY_WALLET = "0x8632fa855d5dc6b59a3cf892d72cf4a94f182aae";
 
         window.addEventListener('DOMContentLoaded', () => {
             initTradingViewWidget("BINANCE:BTCUSDT");
+            loadPlans();
+
+            // Check URL query string for automatic ref code capture
+            const urlParams = new URLSearchParams(window.location.search);
+            const refCode = urlParams.get('ref');
+            if (refCode) {
+                document.getElementById('applied-promo').value = refCode;
+                applyPromo();
+            }
         });
 
         function initTradingViewWidget(symbol) {
@@ -316,8 +349,8 @@
                 document.getElementById('wallet-status').classList.add("connected");
 
                 checkRole(connectedWallet);
-                loadPlans();
                 loadActiveAccount(connectedWallet);
+                loadUserProfile(connectedWallet);
             } catch (err) { console.error(err); }
         }
 
@@ -380,40 +413,6 @@
             });
         }
 
-        async function placeOrder(side) {
-            if (!activeAccount) {
-                alert("You must have an active prop account to place orders!");
-                return;
-            }
-
-            const symbol = document.getElementById('order-symbol').value;
-            const price = parseFloat(document.getElementById('order-price').value);
-            const size = parseFloat(document.getElementById('order-size').value);
-            const sl = parseFloat(document.getElementById('order-sl').value) || null;
-            const tp = parseFloat(document.getElementById('order-tp').value) || null;
-
-            if (!price || !size) {
-                alert("Please enter a valid limit price and position size.");
-                return;
-            }
-
-            try {
-                const res = await fetch('/api/orders/place', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ account_id: activeAccount.id, symbol, side, price, size, sl, tp })
-                });
-                const data = await res.json();
-
-                if (data.success) {
-                    alert("Limit order placed successfully!");
-                    loadActiveOrders(activeAccount.id);
-                } else {
-                    alert("Error: " + data.error);
-                }
-            } catch (err) { console.error(err); }
-        }
-
         async function loadPlans() {
             const res = await fetch('/api/plans');
             const data = await res.json();
@@ -424,15 +423,88 @@
                 container.innerHTML += `
                     <div class="plan-card">
                         <div>
+                            <div style="background: #991b1b; color: #fef2f2; font-size: 11px; font-weight: bold; padding: 2px 8px; border-radius: 12px; display: inline-block; margin-bottom: 8px;">🔥 90% LAUNCH DISCOUNT</div>
                             <h3 style="margin:0; color:#a855f7;">${plan.name}</h3>
-                            <div class="plan-price">${plan.price_usdt} USDT</div>
+                            <div class="plan-price">
+                                <span style="text-decoration: line-through; color: #6b7280; font-size: 16px;">$${plan.base_price_usdt.toLocaleString()} USDT</span><br>
+                                <span>$${plan.price_usdt.toLocaleString()} USDT</span>
+                            </div>
                             <div class="plan-feature">Simulated Capital: <strong>$${plan.simulated_capital.toLocaleString()}</strong></div>
                             <div class="plan-feature">Profit Target: <strong>$${plan.profit_target.toLocaleString()}</strong></div>
+                            <div class="plan-feature">Daily Loss Limit: <strong>${plan.daily_loss_pct}%</strong></div>
+                            <div class="plan-feature">Max Drawdown: <strong>${plan.max_drawdown_pct}%</strong></div>
                         </div>
-                        <button class="btn-wallet" style="margin-top:20px; width:100%;" onclick="buyPlan(${plan.id}, ${plan.price_usdt})">Buy Plan</button>
+                        <button class="btn-wallet" style="margin-top:20px; width:100%;" onclick="buyPlan(${plan.id}, ${plan.price_usdt})">Buy Plan ($${plan.price_usdt} USDT)</button>
                     </div>
                 `;
             });
+        }
+
+        async function applyPromo() {
+            const code = document.getElementById('applied-promo').value.trim();
+            if (!code) return;
+
+            const res = await fetch('/api/promo/validate', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ code })
+            });
+            const data = await res.json();
+
+            if (data.valid) {
+                activePromoCode = code.toUpperCase();
+                document.getElementById('promo-feedback').innerText = `✓ Code '${activePromoCode}' applied successfully! (Referral registered)`;
+            } else {
+                activePromoCode = null;
+                document.getElementById('promo-feedback').innerText = `✕ Invalid promo code.`;
+            }
+        }
+
+        async function loadUserProfile(wallet) {
+            try {
+                const res = await fetch(`/api/user/profile?wallet=${wallet}`);
+                const data = await res.json();
+                
+                if (data.user) {
+                    document.getElementById('profile-setup-box').style.display = 'none';
+                    document.getElementById('profile-display-box').style.display = 'block';
+
+                    document.getElementById('disp-username').innerText = data.user.username;
+                    document.getElementById('disp-code').innerText = data.user.discount_code;
+                    document.getElementById('disp-link').value = `https://blastrr.com/?ref=${data.user.discount_code}`;
+
+                    document.getElementById('stat-ref-count').innerText = data.stats.total_referrals || 0;
+                    document.getElementById('stat-ref-earnings').innerText = `$${(data.stats.total_earned || 0).toFixed(2)} USDT`;
+                } else {
+                    document.getElementById('profile-setup-box').style.display = 'block';
+                    document.getElementById('profile-display-box').style.display = 'none';
+                }
+            } catch (err) { console.error(err); }
+        }
+
+        async function saveProfile() {
+            if (!connectedWallet) { alert("Connect wallet first!"); return; }
+            const username = document.getElementById('prof-username').value.trim();
+            const discount_code = document.getElementById('prof-code').value.trim();
+
+            if (!username || !discount_code) {
+                alert("Please provide both a username and a discount code.");
+                return;
+            }
+
+            const res = await fetch('/api/user/profile', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ wallet_address: connectedWallet, username, discount_code })
+            });
+            const data = await res.json();
+
+            if (data.success) {
+                alert("Profile saved successfully!");
+                loadUserProfile(connectedWallet);
+            } else {
+                alert("Error: " + data.error);
+            }
         }
 
         async function buyPlan(planId, priceUsdt) {
@@ -451,7 +523,7 @@
                 const res = await fetch('/api/accounts/purchase', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ wallet_address: connectedWallet, plan_id: planId, tx_hash: txHash })
+                    body: JSON.stringify({ wallet_address: connectedWallet, plan_id: planId, tx_hash: txHash, promo_code: activePromoCode })
                 });
                 const data = await res.json();
 
@@ -459,6 +531,8 @@
                     alert("Account provisioned successfully!");
                     loadActiveAccount(connectedWallet);
                     switchView('tradeView');
+                } else {
+                    alert("Error: " + data.error);
                 }
             } catch (err) { console.error(err); }
         }

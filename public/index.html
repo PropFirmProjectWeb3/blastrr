@@ -50,6 +50,7 @@
             letter-spacing: -0.5px;
             text-shadow: 0 0 20px rgba(168, 85, 247, 0.4);
             flex-shrink: 0;
+            z-index: 10;
         }
         
         .logo img {
@@ -58,7 +59,15 @@
             object-fit: contain;
         }
         
-        nav { display: flex; gap: 6px; align-items: center; }
+        /* Centralized Navigation */
+        nav { 
+            display: flex; 
+            gap: 6px; 
+            align-items: center; 
+            position: absolute;
+            left: 50%;
+            transform: translateX(-50%);
+        }
         
         .nav-tab {
             background: transparent;
@@ -100,6 +109,7 @@
             align-items: center; 
             gap: 10px; 
             margin-left: auto;
+            z-index: 10;
         }
         
         button {
@@ -294,6 +304,7 @@
                 position: absolute;
                 top: 100%;
                 left: 0;
+                transform: none;
                 padding: 16px;
                 border-bottom: 1px solid rgba(255, 255, 255, 0.08);
                 box-shadow: 0 15px 35px rgba(0,0,0,0.7);

@@ -125,22 +125,41 @@ app.get('/api/user/profile', (req, res) => {
   });
 });
 
+// Update or set Profile (Username & Promo Code)
 app.post('/api/user/profile', (req, res) => {
   const { wallet_address, username, discount_code } = req.body;
   if (!wallet_address || !username || !discount_code) {
     return res.status(400).json({ error: "Username and promo code are required." });
   }
 
-  db.run(
-    `INSERT INTO users (wallet_address, username, discount_code) 
-     VALUES (?, ?, ?)
-     ON CONFLICT(wallet_address) DO UPDATE SET 
-     username = excluded.username, 
-     discount_code = excluded.discount_code`,
-    [wallet_address, username.toLowerCase(), discount_code.toUpperCase()],
-    (err) => {
-      if (err) return res.status(400).json({ error: "Username or Promo Code already taken." });
-      res.json({ success: true, message: "Profile updated successfully." });
+  const cleanUsername = username.trim().toLowerCase();
+  const cleanCode = discount_code.trim().toUpperCase();
+
+  // Check if username or code is taken by ANOTHER wallet
+  db.get(
+    `SELECT * FROM users WHERE (LOWER(username) = ? OR UPPER(discount_code) = ?) AND LOWER(wallet_address) != LOWER(?)`,
+    [cleanUsername, cleanCode, wallet_address],
+    (err, existing) => {
+      if (err) return res.status(500).json({ error: err.message });
+      if (existing) {
+        if (existing.username.toLowerCase() === cleanUsername) {
+          return res.status(400).json({ error: "Username is already taken by another user." });
+        }
+        return res.status(400).json({ error: "Promo Code is already taken by another user." });
+      }
+
+      db.run(
+        `INSERT INTO users (wallet_address, username, discount_code) 
+         VALUES (?, ?, ?)
+         ON CONFLICT(wallet_address) DO UPDATE SET 
+         username = excluded.username, 
+         discount_code = excluded.discount_code`,
+        [wallet_address, cleanUsername, cleanCode],
+        (err2) => {
+          if (err2) return res.status(400).json({ error: "Failed to update profile." });
+          res.json({ success: true, message: "Profile updated successfully." });
+        }
+      );
     }
   );
 });

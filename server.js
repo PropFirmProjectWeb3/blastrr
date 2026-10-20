@@ -693,3 +693,34 @@ app.get('/api/trades/active', (req, res) => {
 app.listen(PORT, () => {
   console.log(`Blastrr server running on port ${PORT}`);
 });
+
+const SUPPORTED_EVM_CHAINS = {
+    1: {
+        name: "Ethereum Mainnet",
+        chainIdHex: "0x1",
+        rpcUrl: "https://eth-mainnet.g.alchemy.com/v2/alch_2pR5KmvKvNRreMrrIahGw",
+        usdtAddress: "0xdac17f958d2ee523a2206206994597c13d831ec7",
+        decimals: 6
+    },
+    8453: {
+        name: "Base",
+        chainIdHex: "0x2105",
+        rpcUrl: "https://base-mainnet.g.alchemy.com/v2/alch_2pR5KmvKvNRreMrrIahGw",
+        usdtAddress: "0xfde4c96c8593536e31f229ea8f37b2ada2699bb2", // Bridged USDT on Base
+        decimals: 6
+    },
+    137: {
+        name: "Polygon PoS",
+        chainIdHex: "0x89",
+        rpcUrl: "https://polygon-mainnet.g.alchemy.com/v2/alch_2pR5KmvKvNRreMrrIahGw",
+        usdtAddress: "0xc2132d05d31c914a87c6611c10748aeb04b58e8f", // (PoS) Tether USD
+        decimals: 6
+    },
+    43114: {
+        name: "Avalanche C-Chain",
+        chainIdHex: "0xa86a",
+        rpcUrl: "https://avax-mainnet.g.alchemy.com/v2/alch_2pR5KmvKvNRreMrrIahGw",
+        usdtAddress: "0x9702230a8ea53601f5cd2dc00fdbc13d4df4a8c7", // Native/Standard USDT on Avalanche
+        decimals: 6
+    }
+};

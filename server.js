@@ -8,7 +8,7 @@ const PORT = process.env.PORT || 4480;
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
-// Seed 6 Standardized Evaluation Plans on Startup (10x Base Price / 90% Discounted Promo Model)
+// Seed 6 Standardized Evaluation Plans on Startup (Base Price vs Promo Price)
 function seedPlans() {
   db.get("SELECT COUNT(*) as count FROM plans", (err, row) => {
     if (row && row.count === 0) {
@@ -89,7 +89,7 @@ app.post('/api/user/profile', (req, res) => {
   );
 });
 
-// Validate Promo / Referral Code (Backend controls discount % rate)
+// Validate Promo Code at Checkout
 app.post('/api/promo/validate', (req, res) => {
   const { code } = req.body;
   if (!code) return res.json({ valid: false });
@@ -100,7 +100,7 @@ app.post('/api/promo/validate', (req, res) => {
   });
 });
 
-// Get Active Prop Account (Enforces 1 Active Account Rule)
+// Get Active Prop Account
 app.get('/api/accounts/active', (req, res) => {
   const wallet = req.query.wallet;
   if (!wallet) return res.status(400).json({ error: "Wallet required" });
@@ -118,7 +118,7 @@ app.get('/api/accounts/active', (req, res) => {
   );
 });
 
-// Purchase Plan & Attribute 2% Cash Commission to Promoter
+// Purchase Plan with Checkout Discount Applied & Commission Calculated
 app.post('/api/accounts/purchase', (req, res) => {
   const { wallet_address, plan_id, tx_hash, promo_code } = req.body;
 
@@ -131,7 +131,7 @@ app.post('/api/accounts/purchase', (req, res) => {
     db.get("SELECT * FROM plans WHERE id = ?", [plan_id], (err, plan) => {
       if (err || !plan) return res.status(404).json({ error: "Plan not found." });
 
-      const finalPrice = plan.price_usdt;
+      let finalPrice = plan.base_price_usdt;
       let referrerWallet = null;
 
       const finishPurchase = () => {
@@ -144,7 +144,6 @@ app.post('/api/accounts/purchase', (req, res) => {
           (err2) => {
             if (err2) return res.status(400).json({ error: "You already have an active prop account. Only 1 active account is permitted." });
 
-            // Record 2% commission for promoter
             if (referrerWallet && referrerWallet.toLowerCase() !== wallet_address.toLowerCase()) {
               const commissionEarned = finalPrice * 0.02;
               db.run(
@@ -163,6 +162,7 @@ app.post('/api/accounts/purchase', (req, res) => {
         db.get("SELECT * FROM users WHERE discount_code = ?", [promo_code.toUpperCase()], (err3, referrer) => {
           if (referrer) {
             referrerWallet = referrer.wallet_address;
+            finalPrice = plan.price_usdt; // Apply 90% discount at checkout
           }
           finishPurchase();
         });
@@ -173,7 +173,7 @@ app.post('/api/accounts/purchase', (req, res) => {
   });
 });
 
-// Limit Order Placement & Active Trades Listing
+// Limit Order Placement & Active Trades
 app.post('/api/orders/place', (req, res) => {
   const { account_id, symbol, side, price, size, sl, tp } = req.body;
   

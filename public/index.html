@@ -41,7 +41,7 @@
         .nav-tab.admin-tab { display: none; background: #991b1b; color: #fef2f2; }
         .nav-tab.admin-tab.active { background: #dc2626; }
 
-        .header-actions { display: flex; align-items: center; gap: 12px; }
+        .header-actions { display: flex; align-items: center; gap: 10px; }
         .btn-wallet { 
             background: #7c3aed; 
             color: white; 
@@ -54,6 +54,33 @@
             transition: background 0.2s;
         }
         .btn-wallet:hover { background: #6d28d9; }
+        
+        .btn-disconnect {
+            background: #374151;
+            color: #f3f4f6;
+            border: 1px solid #4b5563;
+            padding: 8px 12px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 13px;
+            display: none;
+            transition: all 0.2s;
+        }
+        .btn-disconnect:hover { background: #991b1b; color: #ffffff; border-color: #ef4444; }
+
+        .wallet-select {
+            background: #1f2937;
+            border: 1px solid #34d399;
+            color: #34d399;
+            padding: 7px 12px;
+            border-radius: 6px;
+            font-weight: bold;
+            font-size: 13px;
+            display: none;
+            cursor: pointer;
+        }
+
         .status-pill {
             padding: 4px 10px;
             border-radius: 20px;
@@ -114,6 +141,8 @@
         <div class="header-actions">
             <span id="wallet-status" class="status-pill">Disconnected</span>
             <button id="connect-btn" class="btn-wallet" onclick="connectWallet()">Connect Wallet</button>
+            <select id="wallet-select" class="wallet-select" onchange="onWalletSwitched(this.value)"></select>
+            <button id="disconnect-btn" class="btn-disconnect" onclick="disconnectWallet()">Disconnect</button>
         </div>
     </header>
 
@@ -306,6 +335,7 @@
     <script type="text/javascript" src="https://s3.tradingview.com/tv.js"></script>
     <script>
         let connectedWallet = null;
+        let availableWallets = [];
         let userAccounts = [];
         let selectedAccountId = null;
         let tvWidget = null;
@@ -324,6 +354,20 @@
             if (refCode) {
                 document.getElementById('applied-promo').value = refCode;
                 applyPromo();
+            }
+
+            // Listen for wallet account changes if provider is active
+            const provider = getProvider();
+            if (provider?.on) {
+                provider.on('accountsChanged', (accounts) => {
+                    if (accounts && accounts.length > 0) {
+                        availableWallets = accounts;
+                        updateWalletDropdown();
+                        onWalletSwitched(accounts[0]);
+                    } else {
+                        disconnectWallet();
+                    }
+                });
             }
         });
 
@@ -367,21 +411,88 @@
             try {
                 const accounts = await provider.request({ method: 'eth_requestAccounts' });
                 if (!accounts || accounts.length === 0) return;
+                
+                availableWallets = accounts;
                 connectedWallet = accounts[0];
-                document.getElementById('connect-btn').innerText = connectedWallet.substring(0, 6) + '...' + connectedWallet.slice(-4);
-                document.getElementById('wallet-status').innerText = "Connected";
-                document.getElementById('wallet-status').classList.add("connected");
 
-                checkRole(connectedWallet);
-                loadUserAccounts(connectedWallet);
-                loadUserProfile(connectedWallet);
-            } catch (err) { console.error(err); }
+                updateWalletUIState(true);
+                updateWalletDropdown();
+                onWalletSwitched(connectedWallet);
+
+            } catch (err) { console.error("Wallet Connection Error:", err); }
+        }
+
+        function updateWalletDropdown() {
+            const walletSelect = document.getElementById('wallet-select');
+            walletSelect.innerHTML = '';
+            availableWallets.forEach(acc => {
+                const shortAddr = acc.substring(0, 6) + '...' + acc.slice(-4);
+                walletSelect.innerHTML += `<option value="${acc}" ${acc.toLowerCase() === connectedWallet?.toLowerCase() ? 'selected' : ''}>${shortAddr}</option>`;
+            });
+        }
+
+        function updateWalletUIState(isConnected) {
+            const connectBtn = document.getElementById('connect-btn');
+            const walletSelect = document.getElementById('wallet-select');
+            const disconnectBtn = document.getElementById('disconnect-btn');
+            const statusPill = document.getElementById('wallet-status');
+
+            if (isConnected) {
+                connectBtn.style.display = 'none';
+                walletSelect.style.display = 'inline-block';
+                disconnectBtn.style.display = 'inline-block';
+                statusPill.innerText = "Connected";
+                statusPill.classList.add("connected");
+            } else {
+                connectBtn.style.display = 'inline-block';
+                walletSelect.style.display = 'none';
+                disconnectBtn.style.display = 'none';
+                statusPill.innerText = "Disconnected";
+                statusPill.classList.remove("connected");
+            }
+        }
+
+        function onWalletSwitched(walletAddress) {
+            if (!walletAddress) return;
+            connectedWallet = walletAddress;
+
+            checkRole(connectedWallet);
+            loadUserAccounts(connectedWallet);
+            loadUserProfile(connectedWallet);
+        }
+
+        function disconnectWallet() {
+            connectedWallet = null;
+            availableWallets = [];
+            userAccounts = [];
+            selectedAccountId = null;
+
+            updateWalletUIState(false);
+
+            // Hide Admin view & Tab
+            document.getElementById('admin-nav-item').style.display = 'none';
+            if (document.getElementById('adminView').classList.contains('active')) {
+                switchView('tradeView');
+            }
+
+            // Reset UI lists
+            document.getElementById('active-account-select').innerHTML = '<option value="">No Accounts Available</option>';
+            document.getElementById('accounts-table-body').innerHTML = '<tr><td colspan="6" style="text-align:center; color: #6b7280;">Connect wallet to view your accounts.</td></tr>';
+            document.getElementById('open-trades-list').innerHTML = '<tr><td colspan="7" style="text-align: center; color: #6b7280;">Select an account to view active orders.</td></tr>';
+            
+            // Reset Profile Box
+            document.getElementById('profile-setup-box').style.display = 'block';
+            document.getElementById('profile-display-box').style.display = 'none';
         }
 
         async function checkRole(wallet) {
             const res = await fetch(`/api/auth/role?wallet=${wallet}`);
             const data = await res.json();
-            if (data.isAdmin) document.getElementById('admin-nav-item').style.display = 'inline-block';
+            if (data.isAdmin) {
+                document.getElementById('admin-nav-item').style.display = 'inline-block';
+            } else {
+                document.getElementById('admin-nav-item').style.display = 'none';
+            }
         }
 
         async function loadUserAccounts(wallet) {

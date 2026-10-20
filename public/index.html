@@ -14,7 +14,6 @@
             padding: 0; 
         }
 
-        /* Top Navigation Header */
         header { 
             display: flex; 
             justify-content: space-between; 
@@ -25,7 +24,6 @@
         }
         .logo { font-size: 22px; font-weight: 800; color: #a855f7; display: flex; align-items: center; gap: 8px; }
         
-        /* View Switcher Tabs */
         nav { display: flex; gap: 8px; }
         .nav-tab {
             background: transparent;
@@ -43,7 +41,6 @@
         .nav-tab.admin-tab { display: none; background: #991b1b; color: #fef2f2; }
         .nav-tab.admin-tab.active { background: #dc2626; }
 
-        /* Wallet Header Actions */
         .header-actions { display: flex; align-items: center; gap: 12px; }
         .btn-wallet { 
             background: #7c3aed; 
@@ -67,21 +64,17 @@
         }
         .status-pill.connected { background: #065f46; color: #34d399; }
 
-        /* Main View Containers */
         main { padding: 24px; max-width: 1400px; margin: 0 auto; }
         .view-panel { display: none; }
         .view-panel.active { display: block; }
 
-        /* UI Card Layouts */
         .card { background: #1f2937; border: 1px solid #374151; border-radius: 8px; padding: 20px; margin-bottom: 20px; }
         .card-title { margin-top: 0; margin-bottom: 16px; font-size: 18px; color: #f3f4f6; display: flex; justify-content: space-between; align-items: center; }
 
-        /* Grid Layouts */
         .trade-grid { display: grid; grid-template-columns: 3fr 1fr; gap: 20px; }
         .grid-3 { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; }
         .plans-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 20px; }
 
-        /* Trade Form Elements */
         .form-group { margin-bottom: 14px; }
         .form-group label { display: block; font-size: 12px; color: #9ca3af; margin-bottom: 6px; text-transform: uppercase; font-weight: 600; }
         .form-group input, .form-group select {
@@ -98,16 +91,13 @@
         .btn-sell { width: 100%; background: #ef4444; color: white; border: none; padding: 12px; border-radius: 6px; font-weight: bold; cursor: pointer; font-size: 15px; }
         .btn-sell:hover { background: #dc2626; }
 
-        /* Tables */
         table { width: 100%; border-collapse: collapse; text-align: left; font-size: 14px; }
         th { background: #111827; color: #9ca3af; padding: 10px 12px; font-weight: 600; border-bottom: 1px solid #374151; }
         td { padding: 12px; border-bottom: 1px solid #374151; color: #e5e7eb; }
 
-        /* Meters / Progress Bars */
         .progress-bar-container { background: #111827; height: 10px; border-radius: 5px; overflow: hidden; margin-top: 8px; }
         .progress-fill { background: #a855f7; height: 100%; width: 0%; transition: width 0.3s; }
 
-        /* Plan Cards */
         .plan-card { background: #111827; border: 1px solid #374151; border-radius: 8px; padding: 24px; text-align: center; display: flex; flex-direction: column; justify-content: space-between; }
         .plan-price { font-size: 28px; font-weight: bold; color: #a855f7; margin: 12px 0; }
         .plan-feature { padding: 8px 0; border-bottom: 1px solid #1f2937; font-size: 14px; color: #d1d5db; }
@@ -115,18 +105,15 @@
 </head>
 <body>
 
-    <!-- Header Navigation -->
     <header>
         <div class="logo">⚡ BLASTRR</div>
-        
         <nav>
             <button class="nav-tab active" onclick="switchView('tradeView')">Trade</button>
-            <button class="nav-tab" onclick="switchView('accountsView')">Accounts</button>
+            <button class="nav-tab" onclick="switchView('accountsView')">Account Status</button>
             <button class="nav-tab" onclick="switchView('statsView')">Stats & Risk</button>
             <button class="nav-tab" onclick="switchView('buyView')">Buy Plans</button>
             <button id="admin-nav-item" class="nav-tab admin-tab" onclick="switchView('adminView')">🛡️ Admin Control</button>
         </nav>
-
         <div class="header-actions">
             <span id="wallet-status" class="status-pill">Disconnected</span>
             <button id="connect-btn" class="btn-wallet" onclick="connectWallet()">Connect Wallet</button>
@@ -134,7 +121,6 @@
     </header>
 
     <main>
-
         <!-- 1. TRADE VIEW -->
         <section id="tradeView" class="view-panel active">
             <div class="trade-grid">
@@ -142,31 +128,28 @@
                     <div class="card">
                         <div class="card-title">
                             <span id="chart-title">TradingView Chart Terminal</span>
-                            <span style="font-size: 12px; color: #10b981;">Live Exchange Feed via Binance</span>
+                            <span id="active-account-banner" style="font-size: 13px; color: #a855f7;">No Active Account</span>
                         </div>
-                        <!-- Official TradingView Advanced Widget Embed -->
                         <div id="tradingview-widget-container" style="width: 100%; height: 500px;"></div>
                     </div>
 
                     <div class="card">
-                        <div class="card-title">Active Orders & Executed Trades</div>
+                        <div class="card-title">Active Orders & Positions</div>
                         <table>
                             <thead>
                                 <tr>
-                                    <th>Order ID</th>
+                                    <th>ID</th>
                                     <th>Symbol</th>
-                                    <th>Side</th>
                                     <th>Type</th>
                                     <th>Price</th>
                                     <th>Size</th>
                                     <th>SL / TP</th>
-                                    <th>Floating PnL</th>
-                                    <th>Action</th>
+                                    <th>Status</th>
                                 </tr>
                             </thead>
                             <tbody id="open-trades-list">
                                 <tr>
-                                    <td colspan="9" style="text-align: center; color: #6b7280;">No active open trades on current account.</td>
+                                    <td colspan="7" style="text-align: center; color: #6b7280;">Connect wallet and load an active account.</td>
                                 </tr>
                             </tbody>
                         </table>
@@ -177,18 +160,12 @@
                     <div class="card">
                         <div class="card-title">Order Entry</div>
                         <div class="form-group">
-                            <label>Market Selection (Binance Pairs)</label>
+                            <label>Market Selection</label>
                             <select id="order-symbol" onchange="updateTradingViewSymbol(this.value)">
-                                <option value="BINANCE:BTCUSDT">BTC/USDT (Bitcoin)</option>
-                                <option value="BINANCE:ETHUSDT">ETH/USDT (Ethereum)</option>
-                                <option value="BINANCE:XRPUSDT">XRP/USDT (Ripple)</option>
-                                <option value="BINANCE:SOLUSDT">SOL/USDT (Solana)</option>
-                                <option value="BINANCE:BNBUSDT">BNB/USDT (Binance Coin)</option>
-                                <option value="BINANCE:DOGEUSDT">DOGE/USDT (Dogecoin)</option>
-                                <option value="BINANCE:ADAUSDT">ADA/USDT (Cardano)</option>
-                                <option value="BINANCE:AVAXUSDT">AVAX/USDT (Avalanche)</option>
-                                <option value="BINANCE:SUIUSDT">SUI/USDT (Sui)</option>
-                                <option value="BINANCE:LINKUSDT">LINK/USDT (Chainlink)</option>
+                                <option value="BINANCE:BTCUSDT">BTC/USDT</option>
+                                <option value="BINANCE:ETHUSDT">ETH/USDT</option>
+                                <option value="BINANCE:XRPUSDT">XRP/USDT</option>
+                                <option value="BINANCE:SOLUSDT">SOL/USDT</option>
                             </select>
                         </div>
                         <div class="form-group">
@@ -202,7 +179,7 @@
                             <input type="number" id="order-price" placeholder="68000">
                         </div>
                         <div class="form-group">
-                            <label>Position Size (Simulated Units)</label>
+                            <label>Position Size (Units)</label>
                             <input type="number" id="order-size" placeholder="1.0">
                         </div>
                         <div class="form-group">
@@ -221,116 +198,80 @@
             </div>
         </section>
 
-
         <!-- 2. ACCOUNTS VIEW -->
         <section id="accountsView" class="view-panel">
             <div class="card">
-                <div class="card-title">Your Simulated Evaluation Accounts</div>
-                <table>
-                    <thead>
-                        <tr>
-                            <th>Account ID</th>
-                            <th>Plan Tier</th>
-                            <th>Initial Balance</th>
-                            <th>Current Equity</th>
-                            <th>Status</th>
-                            <th>Action</th>
-                        </tr>
-                    </thead>
-                    <tbody id="accounts-table-body">
-                        <tr>
-                            <td colspan="6" style="text-align: center; color: #6b7280;">Connect wallet to view your active accounts.</td>
-                        </tr>
-                    </tbody>
-                </table>
+                <div class="card-title">Active Prop Account (1 Max)</div>
+                <div id="active-account-details">
+                    <p style="color: #6b7280;">No active account found. Purchase a plan to begin trading.</p>
+                </div>
             </div>
         </section>
-
 
         <!-- 3. STATS & RISK VIEW -->
         <section id="statsView" class="view-panel">
             <div class="grid-3">
                 <div class="card">
                     <div class="card-title">Profit Target Progress</div>
-                    <p style="font-size: 24px; font-weight: bold; color: #34d399; margin: 4px 0;">$0.00 / $10,000.00</p>
-                    <div class="progress-bar-container">
-                        <div class="progress-fill" style="width: 0%;"></div>
-                    </div>
+                    <p id="stat-target" style="font-size: 24px; font-weight: bold; color: #34d399; margin: 4px 0;">$0.00 / $0.00</p>
                 </div>
-
                 <div class="card">
                     <div class="card-title">Daily Loss Limit (DLL)</div>
-                    <p style="font-size: 24px; font-weight: bold; color: #f3f4f6; margin: 4px 0;">Remaining: $5,000.00</p>
-                    <div class="progress-bar-container">
-                        <div class="progress-fill" style="width: 100%;"></div>
-                    </div>
+                    <p id="stat-dll" style="font-size: 24px; font-weight: bold; color: #f3f4f6; margin: 4px 0;">Active: $0.00</p>
                 </div>
-
                 <div class="card">
-                    <div class="card-title">NY Time Consistency Share</div>
-                    <p style="font-size: 24px; font-weight: bold; color: #a855f7; margin: 4px 0;">Best Day: 0.0% / Max 40%</p>
-                    <div class="progress-bar-container">
-                        <div class="progress-fill" style="width: 0%;"></div>
-                    </div>
+                    <div class="card-title">NY Consistency Limit</div>
+                    <p id="stat-consistency" style="font-size: 24px; font-weight: bold; color: #a855f7; margin: 4px 0;">Best Day: 0.0%</p>
                 </div>
             </div>
         </section>
-
 
         <!-- 4. BUY PLANS VIEW -->
         <section id="buyView" class="view-panel">
             <div class="card">
                 <div class="card-title">Evaluation Plans Marketplace</div>
                 <div id="plans-container" class="plans-grid">
-                    <p>Loading plans from database...</p>
+                    <p>Loading plans...</p>
                 </div>
             </div>
         </section>
 
-
         <!-- 5. ADMIN CONTROL VIEW -->
         <section id="adminView" class="view-panel">
             <div class="card" style="border-color: #991b1b;">
-                <div class="card-title" style="color: #f87171;">🛡️ Admin Compliance & Payout Queue</div>
+                <div class="card-title" style="color: #f87171;">🛡️ Admin Payout & Compliance Queue</div>
                 <table>
                     <thead>
                         <tr>
                             <th>Trader Wallet</th>
                             <th>Account ID</th>
                             <th>Requested Payout</th>
-                            <th>Consistency Check</th>
-                            <th>Audit Flags</th>
                             <th>Action</th>
                         </tr>
                     </thead>
                     <tbody id="admin-payout-queue">
-                        <tr>
-                            <td colspan="6" style="text-align: center; color: #6b7280;">No pending payout requests requiring manual approval.</td>
-                        </tr>
+                        <tr><td colspan="4" style="text-align: center; color: #6b7280;">No pending requests.</td></tr>
                     </tbody>
                 </table>
             </div>
         </section>
-
     </main>
 
-    <!-- TradingView Widget Script -->
     <script type="text/javascript" src="https://s3.tradingview.com/tv.js"></script>
     <script>
         let connectedWallet = null;
+        let activeAccount = null;
         let tvWidget = null;
         
         const USDT_CONTRACT_ADDRESS = "0x7ec3659A8225ED474D7c662126616aE08545C29b";
         const TREASURY_WALLET = "0x8632fa855d5dc6b59a3cf892d72cf4a94f182aae";
 
-        // Initialize TradingView Advanced Widget on Load
         window.addEventListener('DOMContentLoaded', () => {
             initTradingViewWidget("BINANCE:BTCUSDT");
         });
 
         function initTradingViewWidget(symbol) {
             document.getElementById('tradingview-widget-container').innerHTML = '';
-            
             tvWidget = new TradingView.widget({
                 "autosize": true,
                 "symbol": symbol,
@@ -340,9 +281,6 @@
                 "style": "1",
                 "locale": "en",
                 "toolbar_bg": "#1f2937",
-                "enable_publishing": false,
-                "hide_side_toolbar": false,
-                "allow_symbol_change": true,
                 "container_id": "tradingview-widget-container"
             });
         }
@@ -355,119 +293,160 @@
             }
         }
 
-        // View Switcher Function
         function switchView(viewId) {
             document.querySelectorAll('.view-panel').forEach(panel => panel.classList.remove('active'));
             document.querySelectorAll('.nav-tab').forEach(tab => tab.classList.remove('active'));
-
-            const selectedPanel = document.getElementById(viewId);
-            if (selectedPanel) selectedPanel.classList.add('active');
-
-            const activeTab = Array.from(document.querySelectorAll('.nav-tab')).find(tab => tab.getAttribute('onclick')?.includes(viewId));
-            if (activeTab) activeTab.classList.add('active');
+            document.getElementById(viewId).classList.add('active');
+            Array.from(document.querySelectorAll('.nav-tab')).find(t => t.getAttribute('onclick')?.includes(viewId))?.classList.add('active');
         }
 
         function getProvider() {
-            if (window.ethereum?.providers) {
-                return window.ethereum.providers.find(p => p.isMetaMask) || window.ethereum.providers[0];
-            }
-            return window.ethereum;
+            return window.ethereum?.providers ? window.ethereum.providers.find(p => p.isMetaMask) || window.ethereum.providers[0] : window.ethereum;
         }
 
         async function connectWallet() {
             const provider = getProvider();
-            if (!provider) {
-                alert("No EVM crypto wallet found!");
-                return;
-            }
-
+            if (!provider) { alert("No Web3 wallet found!"); return; }
             try {
                 const accounts = await provider.request({ method: 'eth_requestAccounts' });
                 if (!accounts || accounts.length === 0) return;
-
                 connectedWallet = accounts[0];
-                document.getElementById('connect-btn').innerText = 
-                    connectedWallet.substring(0, 6) + '...' + connectedWallet.slice(-4);
-                
-                const statusElem = document.getElementById('wallet-status');
-                statusElem.innerText = "Connected";
-                statusElem.classList.add("connected");
+                document.getElementById('connect-btn').innerText = connectedWallet.substring(0, 6) + '...' + connectedWallet.slice(-4);
+                document.getElementById('wallet-status').innerText = "Connected";
+                document.getElementById('wallet-status').classList.add("connected");
 
                 checkRole(connectedWallet);
                 loadPlans();
-                loadAccounts(connectedWallet);
-
-            } catch (err) {
-                console.error("Wallet connection error:", err);
-            }
+                loadActiveAccount(connectedWallet);
+            } catch (err) { console.error(err); }
         }
 
         async function checkRole(wallet) {
+            const res = await fetch(`/api/auth/role?wallet=${wallet}`);
+            const data = await res.json();
+            if (data.isAdmin) document.getElementById('admin-nav-item').style.display = 'inline-block';
+        }
+
+        async function loadActiveAccount(wallet) {
             try {
-                const res = await fetch(`/api/auth/role?wallet=${wallet}`);
+                const res = await fetch(`/api/accounts/active?wallet=${wallet}`);
                 const data = await res.json();
-                if (data.isAdmin) {
-                    document.getElementById('admin-nav-item').style.display = 'inline-block';
+                activeAccount = data.account;
+
+                const banner = document.getElementById('active-account-banner');
+                const details = document.getElementById('active-account-details');
+
+                if (!activeAccount) {
+                    banner.innerText = "No Active Account";
+                    details.innerHTML = '<p style="color: #ef4444;">No active prop account found. Please buy a plan first.</p>';
+                    return;
                 }
-            } catch (err) {
-                console.error("Error checking role:", err);
-            }
+
+                banner.innerText = `Active: ${activeAccount.plan_name} (${activeAccount.id})`;
+                details.innerHTML = `
+                    <p><strong>Account ID:</strong> ${activeAccount.id}</p>
+                    <p><strong>Plan Tier:</strong> ${activeAccount.plan_name}</p>
+                    <p><strong>Current Equity:</strong> $${activeAccount.current_equity.toLocaleString()}</p>
+                    <p><strong>Status:</strong> <span style="color: #34d399;">${activeAccount.status}</span></p>
+                `;
+
+                loadActiveOrders(activeAccount.id);
+            } catch (err) { console.error(err); }
         }
 
-        async function loadPlans() {
-            try {
-                const res = await fetch('/api/plans');
-                const data = await res.json();
-                const container = document.getElementById('plans-container');
-                container.innerHTML = '';
+        async function loadActiveOrders(accountId) {
+            const res = await fetch(`/api/trades/active?account_id=${accountId}`);
+            const data = await res.json();
+            const tbody = document.getElementById('open-trades-list');
+            tbody.innerHTML = '';
 
-                data.plans.forEach(plan => {
-                    container.innerHTML += `
-                        <div class="plan-card">
-                            <div>
-                                <h3 style="margin:0; color:#a855f7;">${plan.name}</h3>
-                                <div class="plan-price">${plan.price_usdt} USDT</div>
-                                <div class="plan-feature">Simulated Capital: <strong>$${plan.simulated_capital.toLocaleString()}</strong></div>
-                                <div class="plan-feature">Profit Target: <strong>$${plan.profit_target.toLocaleString()}</strong></div>
-                                <div class="plan-feature">Daily Loss Limit: <strong>${plan.daily_loss_pct}%</strong></div>
-                                <div class="plan-feature">Max Drawdown: <strong>${plan.max_drawdown_pct}%</strong></div>
-                                <div class="plan-feature">Max Single Day Profit: <strong>${plan.max_single_day_profit_pct}%</strong></div>
-                            </div>
-                            <button class="btn-wallet" style="margin-top:20px; width:100%;" onclick="buyPlan(${plan.id}, ${plan.price_usdt})">
-                                Buy Plan (${plan.price_usdt} USDT)
-                            </button>
-                        </div>
-                    `;
-                });
-            } catch (err) {
-                console.error("Error loading plans:", err);
-            }
-        }
-
-        async function buyPlan(planId, priceUsdt) {
-            if (!connectedWallet) {
-                alert("Please connect your wallet first!");
+            if (data.orders.length === 0 && data.trades.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; color: #6b7280;">No active orders or positions.</td></tr>';
                 return;
             }
 
-            if (!confirm(`Confirm purchase of this evaluation plan for ${priceUsdt} USDT?`)) return;
+            data.orders.forEach(ord => {
+                tbody.innerHTML += `
+                    <tr>
+                        <td><code>${ord.id}</code></td>
+                        <td>${ord.symbol}</td>
+                        <td>${ord.type}</td>
+                        <td>$${ord.price}</td>
+                        <td>${ord.size}</td>
+                        <td>SL: ${ord.sl || 'None'} / TP: ${ord.tp || 'None'}</td>
+                        <td><span style="color: #fbbf24;">${ord.status}</span></td>
+                    </tr>
+                `;
+            });
+        }
+
+        async function placeOrder(side) {
+            if (!activeAccount) {
+                alert("You must have an active prop account to place orders!");
+                return;
+            }
+
+            const symbol = document.getElementById('order-symbol').value;
+            const price = parseFloat(document.getElementById('order-price').value);
+            const size = parseFloat(document.getElementById('order-size').value);
+            const sl = parseFloat(document.getElementById('order-sl').value) || null;
+            const tp = parseFloat(document.getElementById('order-tp').value) || null;
+
+            if (!price || !size) {
+                alert("Please enter a valid limit price and position size.");
+                return;
+            }
+
+            try {
+                const res = await fetch('/api/orders/place', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ account_id: activeAccount.id, symbol, side, price, size, sl, tp })
+                });
+                const data = await res.json();
+
+                if (data.success) {
+                    alert("Limit order placed successfully!");
+                    loadActiveOrders(activeAccount.id);
+                } else {
+                    alert("Error: " + data.error);
+                }
+            } catch (err) { console.error(err); }
+        }
+
+        async function loadPlans() {
+            const res = await fetch('/api/plans');
+            const data = await res.json();
+            const container = document.getElementById('plans-container');
+            container.innerHTML = '';
+
+            data.plans.forEach(plan => {
+                container.innerHTML += `
+                    <div class="plan-card">
+                        <div>
+                            <h3 style="margin:0; color:#a855f7;">${plan.name}</h3>
+                            <div class="plan-price">${plan.price_usdt} USDT</div>
+                            <div class="plan-feature">Simulated Capital: <strong>$${plan.simulated_capital.toLocaleString()}</strong></div>
+                            <div class="plan-feature">Profit Target: <strong>$${plan.profit_target.toLocaleString()}</strong></div>
+                        </div>
+                        <button class="btn-wallet" style="margin-top:20px; width:100%;" onclick="buyPlan(${plan.id}, ${plan.price_usdt})">Buy Plan</button>
+                    </div>
+                `;
+            });
+        }
+
+        async function buyPlan(planId, priceUsdt) {
+            if (!connectedWallet) { alert("Connect wallet first!"); return; }
+            if (!confirm(`Confirm purchase for ${priceUsdt} USDT?`)) return;
 
             try {
                 const provider = getProvider();
                 const paddedRecipient = TREASURY_WALLET.toLowerCase().replace('0x', '').padStart(64, '0');
                 const amountHex = (Math.floor(priceUsdt * 1_000_000)).toString(16).padStart(64, '0');
-                const calldata = '0xa9059cbb' + paddedRecipient + amountHex;
-
                 const txHash = await provider.request({
                     method: 'eth_sendTransaction',
-                    params: [{
-                        from: connectedWallet,
-                        to: USDT_CONTRACT_ADDRESS,
-                        data: calldata
-                    }],
+                    params: [{ from: connectedWallet, to: USDT_CONTRACT_ADDRESS, data: '0xa9059cbb' + paddedRecipient + amountHex }]
                 });
-
-                alert("Payment transaction submitted! Provisioning account...");
 
                 const res = await fetch('/api/accounts/purchase', {
                     method: 'POST',
@@ -477,50 +456,11 @@
                 const data = await res.json();
 
                 if (data.success) {
-                    alert("Account provisioned!");
-                    loadAccounts(connectedWallet);
-                    switchView('accountsView');
-                } else {
-                    alert("Error: " + data.error);
+                    alert("Account provisioned successfully!");
+                    loadActiveAccount(connectedWallet);
+                    switchView('tradeView');
                 }
-
-            } catch (err) {
-                console.error("Payment error:", err);
-                alert("Payment cancelled or failed.");
-            }
-        }
-
-        async function loadAccounts(wallet) {
-            try {
-                const res = await fetch(`/api/accounts?wallet=${wallet}`);
-                const data = await res.json();
-                const tableBody = document.getElementById('accounts-table-body');
-                tableBody.innerHTML = '';
-
-                if (data.accounts.length === 0) {
-                    tableBody.innerHTML = '<tr><td colspan="6" style="text-align:center;">No accounts found. Purchase a plan in the marketplace!</td></tr>';
-                    return;
-                }
-
-                data.accounts.forEach(acc => {
-                    tableBody.innerHTML += `
-                        <tr>
-                            <td><code>${acc.id}</code></td>
-                            <td>${acc.plan_name}</td>
-                            <td>$${acc.initial_balance.toLocaleString()}</td>
-                            <td>$${acc.current_equity.toLocaleString()}</td>
-                            <td><span class="status-pill connected">${acc.status}</span></td>
-                            <td><button class="btn-wallet" style="padding:4px 8px; font-size:12px;" onclick="switchView('tradeView')">Launch Terminal</button></td>
-                        </tr>
-                    `;
-                });
-            } catch (err) {
-                console.error("Error loading accounts:", err);
-            }
-        }
-
-        function placeOrder(side) {
-            alert(`Placing ${side} Limit order... Order engine integration active.`);
+            } catch (err) { console.error(err); }
         }
     </script>
 </body>

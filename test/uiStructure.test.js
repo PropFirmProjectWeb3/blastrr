@@ -20,6 +20,14 @@ test('trading terminal HTML loads its external stylesheet and application script
   assert.match(appHtml, /class="hamburger-glyph"/);
 });
 
+test('trading terminal displays a responsive 24/7 crypto market status card', () => {
+  assert.match(appHtml, /class="market-hours-status" aria-label="Crypto market hours"/);
+  assert.match(appHtml, /24\/7 TRADING LIVE/);
+  assert.match(appHtml, /Crypto markets are open around the clock, every day of the year/);
+  assert.match(appCss, /\.market-hours-status\s*\{[^}]*display:\s*flex/);
+  assert.match(appCss, /market-hours-status-note\s*\{\s*display:\s*none/);
+});
+
 test('trading terminal uses the homepage Blastrr wordmark and lightning mark styling', () => {
   assert.match(appHtml, /<a class="logo" href="index\.html" aria-label="Blastrr home">[\s\S]*?<span class="brand-mark" aria-hidden="true">ϟ<\/span>[\s\S]*?<span>BLASTRR<\/span>/);
   assert.match(landingHtml, /<a class="brand" href="index\.html" aria-label="Blastrr home"><span class="brand-mark">ϟ<\/span><span>BLASTRR<\/span><\/a>/);

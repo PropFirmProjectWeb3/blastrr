@@ -49,14 +49,13 @@
         }
 
         .logo { 
-            font-size: 24px; 
-            font-weight: 800; 
-            color: #d2c4ff;
+            font-size: 20px;
+            font-weight: 950;
+            color: var(--text-primary);
             display: flex; 
             align-items: center; 
-            gap: 12px;
-            letter-spacing: -0.5px;
-            text-shadow: 0 0 24px rgba(167, 139, 250, 0.2);
+            gap: 10px;
+            letter-spacing: 0.08em;
             flex-shrink: 0;
             text-decoration: none;
         }
@@ -413,7 +412,7 @@
         @media (max-width: 700px) {
             main { padding: 16px 12px; }
             header { gap: 10px; padding: 12px; }
-            .logo { font-size: 20px; gap: 8px; }
+            .logo { font-size: 17px; gap: 10px; }
             .logo .brand-mark { flex-basis: 30px; width: 30px; height: 30px; }
             .header-actions { gap: 7px; flex-wrap: wrap; justify-content: flex-end; }
             .header-actions .status-pill { padding: 5px 9px; font-size: 10px; }

@@ -228,6 +228,7 @@
         .account-id { margin-left: 10px; color: #9ca3af; font-size: 12px; }
         .account-card-actions { justify-content: flex-end; }
         .account-card-actions .btn-wallet { padding: 7px 14px; font-size: 12px; }
+        .account-card-actions .btn-wallet:disabled { cursor: not-allowed; opacity: 0.5; }
         .account-card-actions .btn-wallet:first-child { background: #059669; }
         .account-preview-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; }
         .account-preview-stat { display: grid; gap: 6px; background: rgba(5, 7, 11, 0.7); padding: 12px 14px; border-radius: 8px; }
@@ -262,6 +263,15 @@
         .profit-negative { color: #f87171; }
         .account-chart-empty { color: #9ca3af; }
         .account-trades-heading { margin-top: 24px; }
+        .admin-account-review { margin-top: 22px; }
+        .admin-account-note { color: #9ca3af; font-size: 13px; line-height: 1.5; }
+        .admin-account-list { display: grid; gap: 14px; }
+        .admin-account-card { padding: 16px; border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 10px; background: rgba(5, 7, 11, 0.55); }
+        .admin-account-heading, .admin-account-stats { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; }
+        .admin-account-stats { justify-content: flex-start; margin: 14px 0; color: #cbd5e1; font-size: 13px; }
+        .admin-account-flag { color: #fbbf24; font-size: 12px; }
+        .admin-account-card details summary { color: #c084fc; cursor: pointer; font-weight: 700; padding: 10px 0; }
+        .admin-trade-table { font-size: 12px; }
 
         .trade-grid { display: grid; grid-template-columns: 3fr 1fr; gap: 24px; }
         .grid-3 { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px; }

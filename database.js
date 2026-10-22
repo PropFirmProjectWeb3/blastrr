@@ -65,6 +65,8 @@ function initTables() {
       lock_reason TEXT,
       locked_until TEXT,
       permanent_lock INTEGER DEFAULT 0,
+      admin_frozen INTEGER DEFAULT 0,
+      admin_freeze_reason TEXT,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY(wallet_address) REFERENCES users(wallet_address),
       FOREIGN KEY(plan_id) REFERENCES plans(id)
@@ -97,6 +99,9 @@ function initTables() {
       type TEXT DEFAULT 'PROFIT_SPLIT',
       plan_name TEXT,
       user_ip TEXT,
+      user_amount REAL,
+      admin_share REAL,
+      funds_deducted INTEGER DEFAULT 0,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY(account_id) REFERENCES accounts(id)
     )`);
@@ -139,6 +144,8 @@ function initTables() {
         ['lock_reason', 'TEXT'],
         ['locked_until', 'TEXT'],
         ['permanent_lock', 'INTEGER DEFAULT 0'],
+        ['admin_frozen', 'INTEGER DEFAULT 0'],
+        ['admin_freeze_reason', 'TEXT'],
         ['risk_day', 'TEXT']
       ].filter(([name]) => !existing.has(name));
       for (const [name, type] of additions) {
@@ -181,13 +188,31 @@ function initTables() {
       const additions = [
         ['type', "TEXT DEFAULT 'PROFIT_SPLIT'"],
         ['plan_name', 'TEXT'],
-        ['user_ip', 'TEXT']
+        ['user_ip', 'TEXT'],
+        ['user_amount', 'REAL'],
+        ['admin_share', 'REAL'],
+        ['funds_deducted', 'INTEGER']
       ].filter(([name]) => !existing.has(name));
-      for (const [name, type] of additions) {
+      const addNext = (index) => {
+        if (index >= additions.length) {
+          return db.run(
+            `UPDATE withdrawals SET funds_deducted = 1
+             WHERE status = 'PENDING' AND funds_deducted IS NULL`,
+            (updateErr) => {
+              if (updateErr) console.error('Unable to migrate legacy pending withdrawal balances', updateErr.message);
+            }
+          );
+        }
+        const [name, type] = additions[index];
         db.run(`ALTER TABLE withdrawals ADD COLUMN ${name} ${type}`, (alterErr) => {
-          if (alterErr) console.error(`Unable to add withdrawals.${name}`, alterErr.message);
+          if (alterErr) {
+            console.error(`Unable to add withdrawals.${name}`, alterErr.message);
+            return addNext(index + 1);
+          }
+          addNext(index + 1);
         });
       }
+      addNext(0);
     });
   });
 }

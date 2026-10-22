@@ -39,6 +39,15 @@ test('account cards expose expandable trade history and daily profit charts', ()
   assert.match(appJs, /walletFetch\(`\/api\/accounts\/details/);
 });
 
+test('payout UI shows the 90/10 split, admin trade review, and account freeze controls', () => {
+  assert.match(appJs, /You receive: \$\$\{data\.user_amount\.toFixed\(2\)\}/);
+  assert.match(appJs, /renderAdminTradeTable/);
+  assert.match(appJs, /\/api\/admin\/accounts\/action/);
+  assert.match(appJs, /withdrawalPending/);
+  assert.match(appHtml, /admin-account-list/);
+  assert.match(appHtml, /Gross \/ user net \/ admin share/);
+});
+
 test('browser application files contain no copied provider credentials', () => {
   assert.doesNotMatch(`${appHtml}\n${appJs}`, /alch_[A-Za-z0-9_-]+/);
 });

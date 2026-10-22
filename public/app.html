@@ -292,15 +292,22 @@
                                 <th>Type</th>
                                 <th>Trader Wallet</th>
                                 <th>Account / Details</th>
-                                <th>Amount</th>
+                                <th>Gross / user net / admin share</th>
                                 <th>Status</th>
                                 <th>Action</th>
                             </tr>
                         </thead>
                         <tbody id="admin-payout-queue">
-                            <tr><td colspan="7" style="text-align: center; color: #6b7280; padding: 24px;">No pending requests.</td></tr>
+                            <tr><td colspan="7" style="text-align: center; color: #6b7280; padding: 24px;">No withdrawal requests.</td></tr>
                         </tbody>
                     </table>
+                </div>
+            </div>
+            <div class="card admin-account-review">
+                <div class="card-title">Account review and manual freeze controls</div>
+                <p class="admin-account-note">A pending withdrawal automatically pauses new trades. Resolving the final pending request releases that automatic pause; manual administrator freezes remain separate from DLL/MLL risk locks.</p>
+                <div id="admin-account-list" class="admin-account-list">
+                    <p class="account-chart-empty">Loading accounts...</p>
                 </div>
             </div>
         </section>

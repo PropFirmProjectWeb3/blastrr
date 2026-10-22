@@ -25,6 +25,16 @@ let connectedWallet = null;
         
         const TREASURY_WALLET = "0x8632fa855d5dc6b59a3cf892d72cf4a94f182aae";
 
+        function escapeHTML(value) {
+            return String(value ?? '').replace(/[&<>"']/g, character => ({
+                '&': '&amp;',
+                '<': '&lt;',
+                '>': '&gt;',
+                '"': '&quot;',
+                "'": '&#39;'
+            })[character]);
+        }
+
         const SUPPORTED_EVM_CHAINS = {
             1: { name: "Ethereum Mainnet", chainIdHex: "0x1", usdtAddress: "0xdac17f958d2ee523a2206206994597c13d831ec7" },
             8453: { name: "Base", chainIdHex: "0x2105", usdtAddress: "0xfde4c96c8593536e31f229ea8f37b2ada2699bb2" },
@@ -233,7 +243,10 @@ let connectedWallet = null;
 
             toggleMobileMenu(true);
 
-            if (viewId === 'adminView') loadAdminWithdrawals();
+            if (viewId === 'adminView') {
+                loadAdminWithdrawals();
+                loadAdminAccounts();
+            }
             else if (viewId === 'leaderboardView') loadLeaderboard(currentLeaderboardMode);
             else if (viewId === 'accountsView' && connectedWallet) loadUserAccounts(connectedWallet);
         }
@@ -567,7 +580,7 @@ let connectedWallet = null;
                                     <code class="account-id">${acc.id}</code>
                                 </div>
                                 <div class="account-card-actions">
-                                    <button class="btn-wallet" onclick="requestWithdrawal('${acc.id}', ${acc.current_balance})">Request Withdrawal</button>
+                                    <button id="withdraw-btn-${acc.id}" class="btn-wallet" onclick="requestWithdrawal('${acc.id}')">Request Withdrawal</button>
                                     <button class="btn-wallet" onclick="selectAccountAndTrade('${acc.id}')">Select in Terminal</button>
                                 </div>
                             </div>
@@ -631,10 +644,22 @@ let connectedWallet = null;
                     ? 'PERMANENTLY LOCKED — MLL'
                     : acc.lock_reason === 'DLL'
                         ? `LOCKED — DLL until ${new Date(acc.locked_until).toLocaleString()}`
-                        : acc.status;
+                        : acc.admin_frozen
+                            ? 'FROZEN — ADMIN'
+                            : m.withdrawalPending
+                                ? 'PAUSED — WITHDRAWAL REVIEW'
+                                : acc.status;
                 const statusElement = cardElem.querySelector(`#status-val-${CSS.escape(acc.id)}`);
                 statusElement.innerText = statusLabel;
-                statusElement.style.color = acc.lock_reason ? '#ef4444' : '#34d399';
+                statusElement.style.color = acc.lock_reason || acc.admin_frozen || m.withdrawalPending ? '#ef4444' : '#34d399';
+                const withdrawButton = cardElem.querySelector(`#withdraw-btn-${CSS.escape(acc.id)}`);
+                if (withdrawButton) {
+                    withdrawButton.disabled = m.withdrawalPending || Boolean(acc.admin_frozen) || m.withdrawableAmount <= 0;
+                    withdrawButton.textContent = m.withdrawalPending ? 'Withdrawal under review' : 'Request Withdrawal';
+                    withdrawButton.title = m.withdrawalPending
+                        ? 'Trading is paused until the administrator resolves this request.'
+                        : `Up to $${m.withdrawableAmount.toFixed(2)} gross available`;
+                }
 
                 let tradesRows = '';
                 if (trades.length === 0) {
@@ -720,31 +745,31 @@ let connectedWallet = null;
             `;
         }
 
-        async function requestWithdrawal(accountId, maxBalance) {
+        async function requestWithdrawal(accountId) {
             try {
                 const detailsRes = await walletFetch(`/api/accounts/details?account_id=${encodeURIComponent(accountId)}&wallet=${encodeURIComponent(connectedWallet)}`);
                 const details = await detailsRes.json();
-                if (!details || !details.account) { alert("Could not fetch account details."); return; }
+                if (!detailsRes.ok || !details || !details.account) { alert(details.error || "Could not fetch account details."); return; }
 
                 const acc = details.account;
-                const initialCapital = acc.initial_balance || 25000;
-                const profitTarget = acc.profit_target || 2500;
-                const targetThreshold = initialCapital + profitTarget;
-                const currentBalance = acc.current_balance;
-
-                if (currentBalance < targetThreshold) {
-                    const shortFall = targetThreshold - currentBalance;
-                    alert(`Account not ready for withdrawal.\n\n• Required Target Balance: $${targetThreshold.toLocaleString()}\n• Current Balance: $${currentBalance.toLocaleString()}\n• Still Needed: $${shortFall.toLocaleString()} USDT`);
+                const availableGross = Number(details.metrics?.withdrawableAmount) || 0;
+                if (details.metrics?.withdrawalPending) {
+                    alert('A withdrawal is already awaiting admin review. Trading remains paused until it is resolved.');
                     return;
                 }
-
-                const netProfit = currentBalance - initialCapital;
-                const maxPayout = netProfit * 0.50;
-                const amountInput = prompt(`Target reached! 50% Payout Limit: $${maxPayout.toLocaleString()} USDT.\nEnter USDT amount:`);
+                if (availableGross <= 0) {
+                    alert(`Withdrawals are available only from funds above the protected balance of $${Number(details.metrics?.withdrawalFloor || 0).toFixed(2)} USDT.`);
+                    return;
+                }
+                const amountInput = prompt(
+                    `Maximum gross withdrawal: $${availableGross.toFixed(2)} USDT.\n` +
+                    `You receive 90% ($${(availableGross * 0.9).toFixed(2)}); admin retains 10% ($${(availableGross * 0.1).toFixed(2)}).\n` +
+                    'Your account will pause new trades while the request is reviewed. The gross amount is deducted only if approved.\nEnter gross USDT amount:'
+                );
                 if (!amountInput) return;
                 const amount = parseFloat(amountInput);
 
-                if (isNaN(amount) || amount <= 0 || amount > maxPayout) {
+                if (isNaN(amount) || amount <= 0 || amount > availableGross) {
                     alert("Invalid amount or exceeds your limit.");
                     return;
                 }
@@ -756,7 +781,7 @@ let connectedWallet = null;
                     body: JSON.stringify({ ...authorization, account_id: accountId, amount })
                 });
                 const data = await res.json();
-                if (data.success) { alert("Withdrawal requested!"); loadUserAccounts(connectedWallet); }
+                if (data.success) { alert(`Withdrawal requested for review.\nGross: $${data.gross_amount.toFixed(2)}\nYou receive: $${data.user_amount.toFixed(2)}\nAdmin share: $${data.admin_share.toFixed(2)}`); loadUserAccounts(connectedWallet); }
                 else alert("Error: " + data.error);
             } catch (err) { console.error(err); }
         }
@@ -791,6 +816,7 @@ let connectedWallet = null;
                 const data = await res.json();
                 const tbody = document.getElementById('admin-payout-queue');
                 if (!tbody) return;
+                if (!res.ok) throw new Error(data.error || 'Unable to load withdrawal queue.');
                 tbody.innerHTML = '';
 
                 if (!data.withdrawals || data.withdrawals.length === 0) {
@@ -801,27 +827,141 @@ let connectedWallet = null;
                 data.withdrawals.forEach(w => {
                     let statusColor = w.status === 'PAID' ? '#34d399' : (w.status === 'REJECTED' ? '#ef4444' : '#fbbf24');
                     let actionsHtml = w.status === 'PENDING' ? `
-                        <button class="btn-wallet" style="padding: 4px 10px; font-size: 11px; background: #059669;" onclick="processWithdrawal('${w.id}', 'PAID', '${w.type}')">Mark Paid</button>
-                        <button class="btn-sell" style="padding: 4px 10px; font-size: 11px;" onclick="processWithdrawal('${w.id}', 'REJECT', '${w.type}')">Reject</button>
+                        <button class="btn-wallet" style="padding: 4px 10px; font-size: 11px; background: #059669;" data-withdrawal-id="${escapeHTML(w.id)}" data-withdrawal-action="APPROVE" data-withdrawal-type="${escapeHTML(w.type)}">${w.type === 'ACCOUNT' ? 'Approve payout' : 'Mark paid'}</button>
+                        <button class="btn-sell" style="padding: 4px 10px; font-size: 11px;" data-withdrawal-id="${escapeHTML(w.id)}" data-withdrawal-action="REJECT" data-withdrawal-type="${escapeHTML(w.type)}">Reject</button>
+                        ${w.type === 'ACCOUNT' ? `<button class="btn-sell" style="padding: 4px 10px; font-size: 11px;" data-admin-account-id="${escapeHTML(w.account_id)}" data-admin-account-action="FREEZE">Freeze account</button>` : ''}
                     ` : `<span style="color: #9ca3af;">Processed</span>`;
+                    const accountDetails = w.type === 'ACCOUNT'
+                        ? `<strong>${escapeHTML(w.plan_name)}</strong><br>Balance: $${Number(w.account_balance).toFixed(2)}<br>${Number(w.admin_frozen) ? 'Manual freeze: ' + escapeHTML(w.admin_freeze_reason || 'active') : (w.trades?.some(trade => trade.status === 'OPEN') ? 'Open trades: ' + w.trades.filter(trade => trade.status === 'OPEN').length : 'No open trades')}<details><summary>Review ${w.trades?.length || 0} trades</summary>${renderAdminTradeTable(w.trades || [])}</details>`
+                        : escapeHTML(w.plan_name);
+                    const amountDetails = w.type === 'ACCOUNT'
+                        ? `<strong>$${Number(w.amount).toFixed(2)} gross</strong><br>User: $${Number(w.user_amount).toFixed(2)}<br>Admin: $${Number(w.admin_share).toFixed(2)}`
+                        : `<strong>$${Number(w.amount).toFixed(2)}</strong>`;
 
                     tbody.innerHTML += `
                         <tr>
-                            <td><code>${w.id}</code></td>
-                            <td><span style="color: ${w.type === 'COMMISSION' ? '#c084fc' : '#60a5fa'}; font-weight: bold;">${w.type}</span></td>
-                            <td><code style="color: #c084fc;" title="${w.wallet_address}">${w.wallet_address.substring(0,6)}...${w.wallet_address.slice(-4)}</code></td>
-                            <td>${w.plan_name}</td>
-                            <td><strong style="color: #34d399;">$${w.amount.toFixed(2)} USDT</strong></td>
+                            <td><code>${escapeHTML(w.id)}</code></td>
+                            <td><span style="color: ${w.type === 'COMMISSION' ? '#c084fc' : '#60a5fa'}; font-weight: bold;">${escapeHTML(w.type)}</span></td>
+                            <td><code style="color: #c084fc;" title="${escapeHTML(w.wallet_address)}">${escapeHTML(w.wallet_address.substring(0,6))}...${escapeHTML(w.wallet_address.slice(-4))}</code></td>
+                            <td>${accountDetails}</td>
+                            <td>${amountDetails}</td>
                             <td><span style="color: ${statusColor}; font-weight: bold;">${w.status}</span></td>
                             <td>${actionsHtml}</td>
                         </tr>
                     `;
                 });
+                tbody.onclick = event => {
+                    const withdrawalButton = event.target.closest('[data-withdrawal-id]');
+                    if (withdrawalButton) {
+                        processWithdrawal(
+                            withdrawalButton.dataset.withdrawalId,
+                            withdrawalButton.dataset.withdrawalAction,
+                            withdrawalButton.dataset.withdrawalType
+                        );
+                        return;
+                    }
+                    const accountButton = event.target.closest('[data-admin-account-action]');
+                    if (accountButton) adminAccountAction(accountButton.dataset.adminAccountId, accountButton.dataset.adminAccountAction);
+                };
             } catch (err) { console.error(err); }
         }
 
+        function renderAdminTradeTable(trades) {
+            if (!trades.length) return '<p class="account-chart-empty">No trades recorded.</p>';
+            const rows = trades.map(trade => `
+                <tr>
+                    <td><code>${escapeHTML(trade.id)}</code></td>
+                    <td>${escapeHTML(trade.symbol)}</td>
+                    <td>${escapeHTML(trade.side)}</td>
+                    <td>${escapeHTML(trade.status)}</td>
+                    <td>$${Number(trade.entry_price).toFixed(2)}</td>
+                    <td>$${Number(trade.size_usd).toFixed(2)}</td>
+                    <td>$${Number(trade.pnl || 0).toFixed(2)}</td>
+                </tr>
+            `).join('');
+            return `<div class="table-responsive"><table class="admin-trade-table"><thead><tr><th>Trade</th><th>Pair</th><th>Side</th><th>Status</th><th>Entry</th><th>Size</th><th>PnL</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+        }
+
+        async function loadAdminAccounts() {
+            const container = document.getElementById('admin-account-list');
+            if (!container) return;
+            try {
+                const authorization = await signedTradeAuthorization();
+                const response = await fetch('/api/admin/accounts', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(authorization)
+                });
+                const data = await response.json();
+                if (!response.ok) throw new Error(data.error || 'Unable to load account reviews.');
+                if (!data.accounts?.length) {
+                    container.innerHTML = '<p class="account-chart-empty">No accounts found.</p>';
+                    return;
+                }
+                container.innerHTML = data.accounts.map(account => {
+                    const mllCap = Number(account.initial_balance) * (1 + Number(account.max_drawdown_pct) / 100);
+                    const riskLock = account.permanent_lock
+                        ? `Permanent risk lock: ${escapeHTML(account.lock_reason || 'MLL')}`
+                        : account.locked_until ? `Risk lock until ${escapeHTML(account.locked_until)}` : '';
+                    const adminFreeze = Number(account.admin_frozen) === 1;
+                    const automaticPause = Number(account.withdrawal_pending) === 1;
+                    return `
+                        <article class="admin-account-card">
+                            <div class="admin-account-heading">
+                                <div><strong>${escapeHTML(account.plan_name)}</strong> · <code>${escapeHTML(account.id)}</code><br><code>${escapeHTML(account.wallet_address)}</code></div>
+                                <button class="${adminFreeze ? 'btn-sell' : 'btn-wallet'}" data-admin-account-action="${adminFreeze ? 'UNFREEZE' : 'FREEZE'}" data-admin-account-id="${escapeHTML(account.id)}">${adminFreeze ? 'Unfreeze account' : 'Freeze account'}</button>
+                            </div>
+                            <div class="admin-account-stats">
+                                <span>Balance: <strong>$${Number(account.current_balance).toFixed(2)}</strong></span>
+                                <span>Equity: <strong>$${Number(account.current_equity).toFixed(2)}</strong></span>
+                                <span>Protected floor: <strong>$${mllCap.toFixed(2)}</strong></span>
+                                ${adminFreeze ? `<span class="admin-account-flag">Manual freeze: ${escapeHTML(account.admin_freeze_reason || '')}</span>` : ''}
+                                ${automaticPause ? '<span class="admin-account-flag">Withdrawal review pause active</span>' : ''}
+                                ${riskLock ? `<span class="admin-account-flag">${riskLock}</span>` : ''}
+                            </div>
+                            <details><summary>Review ${account.trades?.length || 0} trades</summary>${renderAdminTradeTable(account.trades || [])}</details>
+                        </article>
+                    `;
+                }).join('');
+                container.onclick = event => {
+                    const button = event.target.closest('[data-admin-account-action]');
+                    if (button) adminAccountAction(button.dataset.adminAccountId, button.dataset.adminAccountAction);
+                };
+            } catch (err) {
+                console.error(err);
+                container.innerHTML = `<p class="account-chart-empty">${escapeHTML(err.message)}</p>`;
+            }
+        }
+
+        async function adminAccountAction(accountId, action) {
+            const reason = action === 'FREEZE' ? prompt('Why is this account being frozen?')?.trim() : '';
+            if (action === 'FREEZE' && !reason) return;
+            const promptText = action === 'FREEZE'
+                ? `Freeze this account? New trades and withdrawals will be blocked.`
+                : 'Remove the administrator freeze? Any DLL/MLL risk lock will remain.';
+            if (!confirm(promptText)) return;
+            try {
+                const authorization = await signedTradeAuthorization();
+                const response = await fetch('/api/admin/accounts/action', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ ...authorization, account_id: accountId, action, reason })
+                });
+                const data = await response.json();
+                if (!response.ok) throw new Error(data.error || 'Unable to update account freeze.');
+                alert(data.message);
+                loadAdminAccounts();
+                loadAdminWithdrawals();
+            } catch (err) {
+                console.error(err);
+                alert(err.message);
+            }
+        }
+
         async function processWithdrawal(withdrawalId, action, type) {
-            if (!confirm(`Are you sure you want to mark this withdrawal as ${action}?`)) return;
+            if (!confirm(action === 'APPROVE'
+                ? `Approve this payout? The gross amount will be deducted from the account. Transfer 90% to the user and retain 10% for admin.`
+                : `Reject this withdrawal request? No account funds have been deducted.`)) return;
             try {
                 const authorization = await signedTradeAuthorization();
                 const res = await fetch('/api/admin/withdrawals/action', {
@@ -830,7 +970,7 @@ let connectedWallet = null;
                     body: JSON.stringify({ ...authorization, withdrawal_id: withdrawalId, action, type })
                 });
                 const data = await res.json();
-                if (data.success) { alert(data.message); loadAdminWithdrawals(); }
+                if (data.success) { alert(data.message); loadAdminWithdrawals(); loadAdminAccounts(); if (connectedWallet) loadUserAccounts(connectedWallet); }
                 else alert("Error: " + data.error);
             } catch (err) { console.error(err); }
         }

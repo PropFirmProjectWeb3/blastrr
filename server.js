@@ -7,6 +7,7 @@ const db = require('./database');
 const defaultPlans = require('./config/plans.json');
 const markets = require('./public/config/markets.json');
 const { advanceRiskBaselines, getActiveLock, getMllFloor, getRiskBreach } = require('./riskRules');
+const { getProtectedPayoutBalance, getAvailableGrossWithdrawal, splitWithdrawal } = require('./payoutRules');
 
 const app = express();
 const PORT = process.env.PORT || 4480;
@@ -230,7 +231,9 @@ function refreshRiskBaselines(accountId, callback) {
   const today = new Date().toISOString().slice(0, 10);
   const selectAccount = (done) => db.get(
     `SELECT a.*, p.name AS plan_name, p.profit_target, p.simulated_capital,
-     p.max_drawdown_pct, p.daily_loss_pct
+     p.max_drawdown_pct, p.daily_loss_pct,
+     COALESCE((SELECT SUM(w.amount) FROM withdrawals w
+       WHERE w.account_id = a.id AND w.status = 'PENDING'), 0) AS pending_withdrawal_amount
      FROM accounts a JOIN plans p ON a.plan_id = p.id WHERE a.id = ?`,
     [accountId],
     done
@@ -733,7 +736,9 @@ app.get('/api/accounts/details', requireWalletSession, (req, res) => {
   }
 
   db.get(
-    `SELECT a.*, p.name as plan_name, p.profit_target, p.max_drawdown_pct, p.daily_loss_pct, p.simulated_capital 
+    `SELECT a.*, p.name as plan_name, p.profit_target, p.max_drawdown_pct, p.daily_loss_pct, p.simulated_capital,
+     COALESCE((SELECT SUM(w.amount) FROM withdrawals w
+       WHERE w.account_id = a.id AND w.status = 'PENDING'), 0) AS pending_withdrawal_amount
      FROM accounts a JOIN plans p ON a.plan_id = p.id WHERE a.id = ?`,
     [accountId],
     (err, account) => {
@@ -761,6 +766,12 @@ app.get('/api/accounts/details', requireWalletSession, (req, res) => {
         const maxAllowedDLL = account.daily_starting_balance * (account.daily_loss_pct / 100);
         const currentDLL = Math.max(0, account.daily_starting_balance - account.current_equity);
         const dllProgress = Math.min(100, Math.max(0, (currentDLL / maxAllowedDLL) * 100));
+        const withdrawalFloor = getProtectedPayoutBalance(account.initial_balance, account.max_drawdown_pct);
+        const withdrawableAmount = getAvailableGrossWithdrawal(
+          account.current_balance,
+          withdrawalFloor,
+          Number(account.pending_withdrawal_amount || 0)
+        );
 
         let consistencyScore = 100;
         if (trades && trades.length > 0) {
@@ -795,6 +806,10 @@ app.get('/api/accounts/details', requireWalletSession, (req, res) => {
                 dllProgress: dllProgress.toFixed(1),
                 maxAllowedDLL,
                 currentDLL,
+                withdrawalFloor,
+                pendingWithdrawalAmount: Number(account.pending_withdrawal_amount || 0),
+                withdrawableAmount,
+                withdrawalPending: Number(account.pending_withdrawal_amount || 0) > 0,
                 consistencyScore
               },
               dailySummaries: dailySummaries || [],
@@ -896,7 +911,7 @@ app.post('/api/accounts/purchase', sensitiveLimiter, async (req, res) => {
 // --- SECURE WITHDRAWAL REQUEST ENDPOINT ---
 app.post('/api/withdrawals/request', sensitiveLimiter, requireTradeSignature, (req, res) => {
     const { account_id, wallet_address, amount } = req.body;
-    const amountValue = Number(amount);
+    const amountValue = Math.round(Number(amount) * 100) / 100;
     const userIp = req.ip;
 
     if (!account_id || !Number.isFinite(amountValue) || amountValue <= 0) {
@@ -908,54 +923,56 @@ app.post('/api/withdrawals/request', sensitiveLimiter, requireTradeSignature, (r
       db.run('BEGIN IMMEDIATE', (beginErr) => {
         if (beginErr) return res.status(500).json({ success: false, error: 'Unable to start withdrawal request.' });
         db.get(`
-            SELECT a.*, p.name as plan_name, p.profit_target, p.simulated_capital
+            SELECT a.*, p.name as plan_name, p.max_drawdown_pct
             FROM accounts a 
             JOIN plans p ON a.plan_id = p.id 
             WHERE a.id = ? AND LOWER(a.wallet_address) = LOWER(?)
         `, [account_id, wallet_address], (accountErr, account) => {
           if (accountErr) return rollback(500, 'Unable to load account.');
           if (!account) return rollback(404, 'Account not found or wallet mismatch.');
+          if (Number(account.admin_frozen) === 1) return rollback(403, 'This account is frozen by an administrator.');
           if (account.status !== 'ACTIVE') return rollback(400, 'Account is not active.');
 
-          const targetThreshold = account.initial_balance + account.profit_target;
-          if (account.current_balance < targetThreshold) {
-            const shortFall = targetThreshold - account.current_balance;
-            return rollback(400, `Account is not ready for withdrawal. You need $${shortFall.toLocaleString()} more to reach the $${targetThreshold.toLocaleString()} target.`);
-          }
-
           db.get(
-            `SELECT COALESCE(SUM(amount), 0) AS reserved FROM withdrawals
-             WHERE account_id = ? AND status IN ('PENDING', 'PAID')`,
+            `SELECT COALESCE(SUM(amount), 0) AS pending_amount, COUNT(*) AS pending_count FROM withdrawals
+             WHERE account_id = ? AND status = 'PENDING'`,
             [account_id],
             (sumErr, row) => {
-              if (sumErr) return rollback(500, 'Unable to verify prior payouts.');
-              const reserved = Number(row.reserved) || 0;
-              const totalProfit = account.current_balance - account.initial_balance + reserved;
-              const maxAllowableWithdrawal = Math.max(0, totalProfit * 0.5 - reserved);
+              if (sumErr) return rollback(500, 'Unable to verify pending payouts.');
+              if (Number(row.pending_count) > 0) {
+                return rollback(409, 'A withdrawal is already awaiting admin review; trading remains frozen until it is resolved.');
+              }
+              const withdrawalFloor = getProtectedPayoutBalance(account.initial_balance, account.max_drawdown_pct);
+              const pendingAmount = Number(row.pending_amount) || 0;
+              const maxAllowableWithdrawal = getAvailableGrossWithdrawal(
+                account.current_balance,
+                withdrawalFloor,
+                pendingAmount
+              );
               if (amountValue > maxAllowableWithdrawal) {
-                return rollback(400, `Withdrawal exceeds the remaining 50% profit split limit of $${maxAllowableWithdrawal.toLocaleString()} USDT.`);
+                return rollback(400, `Withdrawal exceeds the amount above the protected account balance of $${withdrawalFloor.toLocaleString()}. Available to request: $${maxAllowableWithdrawal.toFixed(2)} USDT.`);
               }
 
+              const withdrawalId = `WDR-${crypto.randomBytes(5).toString('hex').toUpperCase()}`;
+              const { gross, userAmount, adminShare } = splitWithdrawal(amountValue);
               db.run(
-                `UPDATE accounts SET current_balance = current_balance - ?
-                 WHERE id = ? AND current_balance >= ? AND status = 'ACTIVE'`,
-                [amountValue, account_id, amountValue],
-                function(balanceErr) {
-                  if (balanceErr) return rollback(500, 'Unable to reserve withdrawal funds.');
-                  if (this.changes !== 1) return rollback(409, 'Account balance changed; refresh and retry.');
-                  const withdrawalId = `WDR-${crypto.randomBytes(5).toString('hex').toUpperCase()}`;
-                  db.run(
-                    `INSERT INTO withdrawals (id, account_id, wallet_address, type, plan_name, amount, user_ip, status, created_at)
-                     VALUES (?, ?, ?, 'PROFIT_SPLIT', ?, ?, ?, 'PENDING', datetime('now'))`,
-                    [withdrawalId, account_id, wallet_address, account.plan_name, amountValue, userIp],
-                    (insertErr) => {
-                      if (insertErr) return rollback(500, 'Unable to record withdrawal request.');
-                      db.run('COMMIT', (commitErr) => {
-                        if (commitErr) return rollback(500, 'Unable to complete withdrawal request.');
-                        res.json({ success: true, message: 'Withdrawal request submitted successfully to the admin queue!' });
-                      });
-                    }
-                  );
+                `INSERT INTO withdrawals
+                 (id, account_id, wallet_address, type, plan_name, amount, user_amount, admin_share, user_ip, status, funds_deducted, created_at)
+                 VALUES (?, ?, ?, 'PROFIT_SPLIT', ?, ?, ?, ?, ?, 'PENDING', 0, datetime('now'))`,
+                [withdrawalId, account_id, wallet_address, account.plan_name, gross, userAmount, adminShare, userIp],
+                (insertErr) => {
+                  if (insertErr) return rollback(500, 'Unable to record withdrawal request.');
+                  db.run('COMMIT', (commitErr) => {
+                    if (commitErr) return rollback(500, 'Unable to complete withdrawal request.');
+                    res.json({
+                      success: true,
+                      message: 'Withdrawal request submitted for admin review.',
+                      gross_amount: gross,
+                      user_amount: userAmount,
+                      admin_share: adminShare,
+                      protected_balance: withdrawalFloor
+                    });
+                  });
                 }
               );
             }
@@ -967,25 +984,118 @@ app.post('/api/withdrawals/request', sensitiveLimiter, requireTradeSignature, (r
 
 app.post('/api/admin/withdrawals', sensitiveLimiter, requireTradeSignature, requireAdminWallet, (req, res) => {
   db.all(
-    `SELECT w.*, 'ACCOUNT' as type, p.name as plan_name 
+    `SELECT w.id, w.account_id, w.wallet_address, w.amount, w.status, w.created_at, w.funds_deducted,
+     'ACCOUNT' as type, p.name as plan_name, w.user_ip, a.current_balance AS account_balance,
+     a.initial_balance, a.high_water_mark, a.admin_frozen, a.admin_freeze_reason,
+     p.max_drawdown_pct,
+     COALESCE(w.user_amount, ROUND(w.amount * 0.9, 2)) AS user_amount,
+     COALESCE(w.admin_share, ROUND(w.amount - ROUND(w.amount * 0.9, 2), 2)) AS admin_share
      FROM withdrawals w 
      JOIN accounts a ON w.account_id = a.id 
      JOIN plans p ON a.plan_id = p.id 
      UNION ALL
-     SELECT id as id, NULL as account_id, wallet_address, amount, status, created_at, 'COMMISSION' as type, 'Referral Commission' as plan_name, NULL as user_ip 
+     SELECT id as id, NULL as account_id, wallet_address, amount, status, created_at, NULL AS funds_deducted,
+      'COMMISSION' as type, 'Referral Commission' as plan_name, NULL as account_balance,
+      NULL AS initial_balance, NULL AS high_water_mark, NULL AS admin_frozen,
+      NULL AS admin_freeze_reason, NULL AS max_drawdown_pct,
+      amount AS user_amount, 0 AS admin_share, NULL as user_ip
      FROM referral_withdrawals
      ORDER BY created_at DESC`,
     [],
     (err, rows) => {
-      if (err) return res.status(500).json({ error: err.message });
-      res.json({ withdrawals: rows || [] });
+      if (err) return res.status(500).json({ error: 'Unable to load withdrawal queue.' });
+      const withdrawals = rows || [];
+      const accountIds = [...new Set(withdrawals.filter(row => row.type === 'ACCOUNT').map(row => row.account_id))];
+      const tradesByAccount = new Map();
+      const loadNext = (index) => {
+        if (index >= accountIds.length) {
+          return res.json({
+            withdrawals: withdrawals.map(row => ({
+              ...row,
+              trades: row.type === 'ACCOUNT' ? (tradesByAccount.get(row.account_id) || []) : []
+            }))
+          });
+        }
+        const accountId = accountIds[index];
+        db.all(
+          `SELECT id, symbol, side, entry_price, size_usd, pnl, status, created_at, closed_at
+           FROM trades WHERE account_id = ? ORDER BY created_at DESC`,
+          [accountId],
+          (tradeErr, trades) => {
+            if (tradeErr) return res.status(500).json({ error: 'Unable to load account trade review.' });
+            tradesByAccount.set(accountId, trades || []);
+            loadNext(index + 1);
+          }
+        );
+      };
+      loadNext(0);
+    }
+  );
+});
+
+app.post('/api/admin/accounts', sensitiveLimiter, requireTradeSignature, requireAdminWallet, (req, res) => {
+  db.all(
+    `SELECT a.id, a.wallet_address, a.plan_id, a.initial_balance, a.current_balance, a.current_equity,
+     a.high_water_mark, a.daily_starting_balance, a.status, a.lock_reason, a.locked_until,
+     a.permanent_lock, a.admin_frozen, a.admin_freeze_reason, p.name AS plan_name,
+     p.max_drawdown_pct, p.daily_loss_pct,
+     EXISTS(SELECT 1 FROM withdrawals w WHERE w.account_id = a.id AND w.status = 'PENDING') AS withdrawal_pending
+     FROM accounts a JOIN plans p ON a.plan_id = p.id ORDER BY a.created_at DESC`,
+    [],
+    (err, accounts) => {
+      if (err) return res.status(500).json({ error: 'Unable to load account management list.' });
+      const rows = accounts || [];
+      const loadNext = (index) => {
+        if (index >= rows.length) return res.json({ accounts: rows });
+        db.all(
+          `SELECT id, symbol, side, entry_price, size_usd, pnl, status, created_at, closed_at
+           FROM trades WHERE account_id = ? ORDER BY created_at DESC`,
+          [rows[index].id],
+          (tradeErr, trades) => {
+            if (tradeErr) return res.status(500).json({ error: 'Unable to load account trade review.' });
+            rows[index].trades = trades || [];
+            loadNext(index + 1);
+          }
+        );
+      };
+      loadNext(0);
+    }
+  );
+});
+
+app.post('/api/admin/accounts/action', sensitiveLimiter, requireTradeSignature, requireAdminWallet, (req, res) => {
+  const { account_id, action } = req.body;
+  const reason = typeof req.body.reason === 'string' ? req.body.reason.trim() : '';
+  if (typeof account_id !== 'string' || !account_id || !['FREEZE', 'UNFREEZE'].includes(action) ||
+      (action === 'FREEZE' && (!reason || reason.length > 500))) {
+    return res.status(400).json({ error: 'Account, action, and a freeze reason (up to 500 characters) are required.' });
+  }
+  if (action === 'FREEZE') {
+    return db.run(
+      `UPDATE accounts SET admin_frozen = 1, admin_freeze_reason = ? WHERE id = ?`,
+      [reason, account_id],
+      function(err) {
+        if (err) return res.status(500).json({ error: 'Unable to freeze account.' });
+        if (this.changes !== 1) return res.status(404).json({ error: 'Account not found.' });
+        res.json({ success: true, message: 'Account frozen. New trades and withdrawals are disabled.' });
+      }
+    );
+  }
+  db.run(
+    `UPDATE accounts SET admin_frozen = 0, admin_freeze_reason = NULL WHERE id = ? AND admin_frozen = 1`,
+    [account_id],
+    function(err) {
+      if (err) return res.status(500).json({ error: 'Unable to unfreeze account.' });
+      if (this.changes !== 1) return res.status(409).json({ error: 'Account is not currently frozen or was not found.' });
+      res.json({ success: true, message: 'Administrator freeze removed. Any active risk lock remains in effect.' });
     }
   );
 });
 
 app.post('/api/admin/withdrawals/action', sensitiveLimiter, requireTradeSignature, requireAdminWallet, (req, res) => {
   const { withdrawal_id, action, type } = req.body;
-  if (!withdrawal_id || !['REJECT', 'PAID'].includes(action) || !['ACCOUNT', 'COMMISSION'].includes(type)) {
+  const normalizedAction = action === 'APPROVE' ? 'PAID' : action;
+  if (!withdrawal_id || !['REJECT', 'PAID'].includes(normalizedAction) || !['ACCOUNT', 'COMMISSION'].includes(type)) {
     return res.status(400).json({ error: "A valid withdrawal ID and action are required." });
   }
 
@@ -1001,25 +1111,68 @@ app.post('/api/admin/withdrawals/action', sensitiveLimiter, requireTradeSignatur
         if (wdr.status !== 'PENDING') return rollback(409, 'Request already processed.');
 
         const updateStatus = () => db.run(
-          `UPDATE ${tableName} SET status = ? WHERE id = ? AND status = 'PENDING'`,
-          [action === 'REJECT' ? 'REJECTED' : 'PAID', withdrawal_id],
+          `UPDATE ${tableName} SET status = ?${isCommission ? '' : ", funds_deducted = CASE WHEN ? = 'PAID' THEN 1 ELSE funds_deducted END"}
+           WHERE id = ? AND status = 'PENDING'`,
+          isCommission
+            ? [normalizedAction === 'REJECT' ? 'REJECTED' : 'PAID', withdrawal_id]
+            : [normalizedAction === 'REJECT' ? 'REJECTED' : 'PAID', normalizedAction, withdrawal_id],
           function(updateErr) {
             if (updateErr) return rollback(500, 'Unable to update withdrawal status.');
             if (this.changes !== 1) return rollback(409, 'Request already processed.');
             db.run('COMMIT', (commitErr) => {
               if (commitErr) return rollback(500, 'Unable to commit withdrawal update.');
-              res.json({ success: true, message: `Withdrawal marked as ${action}.` });
+              res.json({ success: true, message: `Withdrawal marked as ${normalizedAction}.` });
             });
           }
         );
 
-        if (action !== 'REJECT' || isCommission || !wdr.account_id) return updateStatus();
-        db.run(
-          'UPDATE accounts SET current_balance = current_balance + ? WHERE id = ?',
-          [wdr.amount, wdr.account_id],
-          (refundErr) => {
-            if (refundErr) return rollback(500, 'Unable to return reserved withdrawal funds.');
-            updateStatus();
+        if (isCommission || !wdr.account_id) return updateStatus();
+        if (normalizedAction === 'REJECT') {
+          if (Number(wdr.funds_deducted) !== 1) return updateStatus();
+          return db.run(
+            `UPDATE accounts SET current_balance = current_balance + ? WHERE id = ?`,
+            [wdr.amount, wdr.account_id],
+            (refundErr) => {
+              if (refundErr) return rollback(500, 'Unable to return previously reserved withdrawal funds.');
+              updateStatus();
+            }
+          );
+        }
+        if (Number(wdr.funds_deducted) === 1) return updateStatus();
+        db.get(
+          `SELECT a.current_balance, a.current_equity, a.daily_starting_balance, a.admin_frozen,
+           a.initial_balance, p.max_drawdown_pct
+           FROM accounts a JOIN plans p ON a.plan_id = p.id WHERE a.id = ?`,
+          [wdr.account_id],
+          (accountErr, account) => {
+            if (accountErr) return rollback(500, 'Unable to load account for withdrawal approval.');
+            if (!account) return rollback(404, 'Withdrawal account not found.');
+            if (Number(account.admin_frozen) === 1) return rollback(409, 'Unfreeze this account before approving the withdrawal.');
+            const withdrawalFloor = getProtectedPayoutBalance(account.initial_balance, account.max_drawdown_pct);
+            db.get(
+              `SELECT COALESCE(SUM(amount), 0) AS other_pending FROM withdrawals
+               WHERE account_id = ? AND status = 'PENDING' AND id != ?`,
+              [wdr.account_id, withdrawal_id],
+              (pendingErr, pendingRow) => {
+                if (pendingErr) return rollback(500, 'Unable to check other pending withdrawals.');
+                if (account.current_balance - wdr.amount - Number(pendingRow.other_pending) < withdrawalFloor - 0.005) {
+                  return rollback(409, `Approval would reduce account balance or remaining pending payouts below its protected $${withdrawalFloor.toFixed(2)} floor.`);
+                }
+                db.run(
+                  `UPDATE accounts
+                   SET current_balance = current_balance - ?,
+                       current_equity = current_equity - ?,
+                       daily_starting_balance = daily_starting_balance - ?
+                   WHERE id = ? AND current_balance - ? >= ? AND admin_frozen = 0`,
+                  [wdr.amount, wdr.amount, wdr.amount, wdr.account_id, wdr.amount, withdrawalFloor],
+                  function(balanceErr) {
+                    if (balanceErr) return rollback(500, 'Unable to deduct approved withdrawal.');
+                    if (this.changes !== 1) return rollback(409, 'Account balance changed; refresh and retry.');
+                    updateStatus();
+                  }
+                );
+              }
+            );
           }
         );
       });
@@ -1041,7 +1194,9 @@ app.post('/api/trades/execute', sensitiveLimiter, requireTradeSignature, (req, r
   }
 
   db.get(
-    `SELECT a.*, p.max_drawdown_pct, p.daily_loss_pct
+    `SELECT a.*, p.max_drawdown_pct, p.daily_loss_pct,
+     COALESCE((SELECT SUM(w.amount) FROM withdrawals w
+       WHERE w.account_id = a.id AND w.status = 'PENDING'), 0) AS pending_withdrawal_amount
      FROM accounts a JOIN plans p ON a.plan_id = p.id WHERE a.id = ?`,
     [account_id],
     (err, account) => {
@@ -1056,6 +1211,9 @@ app.post('/api/trades/execute', sensitiveLimiter, requireTradeSignature, (req, r
       account = refreshedAccount;
       unlockExpiredAccount(account, (unlockErr, activeLock) => {
         if (unlockErr) return res.status(500).json({ error: 'Unable to refresh account lock status.' });
+        if (Number(account.admin_frozen) === 1) {
+          return res.status(403).json({ error: `Account is frozen by an administrator${account.admin_freeze_reason ? `: ${account.admin_freeze_reason}` : '.'}` });
+        }
         if (activeLock) {
           const message = activeLock.permanent
             ? 'Account permanently locked after exceeding the maximum loss limit (MLL).'
@@ -1065,6 +1223,10 @@ app.post('/api/trades/execute', sensitiveLimiter, requireTradeSignature, (req, r
 
         if (account.status !== 'ACTIVE') {
           return res.status(403).json({ error: `Account is not active (${account.status}).` });
+        }
+
+        if (Number(account.pending_withdrawal_amount) > 0) {
+          return res.status(403).json({ error: 'Trading is temporarily frozen while a withdrawal awaits admin review.' });
         }
 
         const existingBreach = getRiskBreach(account, account);
@@ -1099,8 +1261,9 @@ app.post('/api/trades/execute', sensitiveLimiter, requireTradeSignature, (req, r
             db.run('BEGIN IMMEDIATE');
             db.run(
               `UPDATE accounts SET current_balance = current_balance - ?
-               WHERE id = ? AND current_balance >= ? AND status = 'ACTIVE'`,
-              [margin, account_id, margin],
+               WHERE id = ? AND current_balance >= ? AND status = 'ACTIVE' AND admin_frozen = 0
+               AND NOT EXISTS (SELECT 1 FROM withdrawals WHERE account_id = ? AND status = 'PENDING')`,
+              [margin, account_id, margin, account_id],
               function(updateErr) {
                 if (updateErr || this.changes !== 1) {
                   return db.run('ROLLBACK', () => res.status(409).json({ error: 'Account balance or status changed. Refresh and retry.' }));

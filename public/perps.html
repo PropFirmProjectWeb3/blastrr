@@ -289,22 +289,22 @@
                 </div>
 
                 <div>
-                    <!-- PERPETUAL EXECUTION CARD -->
+<!-- PERPETUAL EXECUTION CARD -->
                     <div class="card" style="border-color: rgba(168, 85, 247, 0.3);">
                         <div class="card-title" style="color: #c084fc;">⚡ Perpetual Futures Execution</div>
                         
                         <div class="form-group">
                             <label>Perpetual & Futures Market Selection</label>
                             <select id="order-symbol" onchange="onPerpSymbolChanged(this.value)">
-                                <!-- Micro Index & Commodity Futures (CME) -->
-                                <optgroup label="CME Micro Futures (Indices & Commodities)">
-                                    <option value="COMEX:MGC1!" data-pair="MGC" data-type="COMMODITY">MGC - Micro Gold Futures</option>
-                                    <option value="NYMEX:MCL1!" data-pair="MCL" data-type="COMMODITY">MCL - Micro Crude Oil</option>
-                                    <option value="CME_MINI:MNQ1!" data-pair="MNQ" data-type="INDEX">MNQ - Micro E-mini Nasdaq</option>
-                                    <option value="CME_MINI:MES1!" data-pair="MES" data-type="INDEX">MES - Micro E-mini S&P 500</option>
+                                <!-- CME Micro Futures & Indices -->
+                                <optgroup label="CME Micro Futures & Indices">
+                                    <option value="COMEX:MGCZ26" data-pair="MGC" data-type="COMMODITY">MGC - Micro Gold Futures</option>
+                                    <option value="NYMEX:MCLZ26" data-pair="MCL" data-type="COMMODITY">MCL - Micro Crude Oil</option>
+                                    <option value="CME_MINI:MNQZ26" data-pair="MNQ" data-type="INDEX">MNQ - Micro E-mini Nasdaq</option>
+                                    <option value="CME_MINI:MESZ26" data-pair="MES" data-type="INDEX">MES - Micro E-mini S&P 500</option>
                                 </optgroup>
 
-                                <!-- Standard Index & Commodity Perps -->
+                                <!-- Standard Index & Commodity Benchmarks -->
                                 <optgroup label="Full-Size Benchmark Futures">
                                     <option value="TVC:GOLD" data-pair="GC" data-type="COMMODITY">GC - Gold Perpetual</option>
                                     <option value="TVC:USOIL" data-pair="CL" data-type="COMMODITY">CL - Crude Oil Perpetual</option>

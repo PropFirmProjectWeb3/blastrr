@@ -103,7 +103,37 @@ const sensitiveLimiter = createRateLimiter(30, 60000);
 function seedPlans() {
   const syncNextPlan = (index) => {
     if (index === defaultPlans.length) {
-      console.log(`Synchronized ${defaultPlans.length} plan definitions from config/plans.json.`);
+      const whalePlan = defaultPlans.find(plan => plan.name === 'Whale $250k');
+      if (!whalePlan || whalePlan.simulated_capital !== 250000) {
+        console.error('Unable to correct untouched Whale accounts because the configured capital is unexpected.');
+        return;
+      }
+      return db.run(
+        `UPDATE accounts
+         SET initial_balance = ?, current_balance = ?, current_equity = ?,
+             high_water_mark = ?, daily_starting_balance = ?
+         WHERE plan_id = (SELECT id FROM plans WHERE name = ? ORDER BY id LIMIT 1)
+           AND status = 'ACTIVE' AND COALESCE(permanent_lock, 0) = 0
+           AND lock_reason IS NULL AND COALESCE(admin_frozen, 0) = 0
+           AND initial_balance = 250050 AND current_balance = 250050
+           AND current_equity = 250050 AND high_water_mark = 250050
+           AND daily_starting_balance = 250050
+           AND NOT EXISTS (SELECT 1 FROM trades WHERE trades.account_id = accounts.id)
+           AND NOT EXISTS (SELECT 1 FROM withdrawals WHERE withdrawals.account_id = accounts.id)`,
+        [
+          whalePlan.simulated_capital,
+          whalePlan.simulated_capital,
+          whalePlan.simulated_capital,
+          whalePlan.simulated_capital,
+          whalePlan.simulated_capital,
+          whalePlan.name
+        ],
+        function(migrationErr) {
+          if (migrationErr) return console.error('Unable to correct untouched Whale account balances:', migrationErr.message);
+          if (this.changes) console.log(`Corrected ${this.changes} untouched Whale account balance(s) to $${whalePlan.simulated_capital}.`);
+          console.log(`Synchronized ${defaultPlans.length} plan definitions from config/plans.json.`);
+        }
+      );
       return;
     }
     const plan = defaultPlans[index];

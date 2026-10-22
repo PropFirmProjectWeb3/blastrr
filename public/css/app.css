@@ -270,7 +270,8 @@
         .account-preview-stat strong { color: #f3f4f6; font-size: 16px; }
         .account-preview-stat:nth-child(2) strong, .account-preview-stat:nth-child(3) strong { color: #34d399; }
         .account-risk-preview { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 16px; margin: 18px 0; }
-        .account-risk-item { display: grid; gap: 7px; }
+        .account-risk-item { display: grid; grid-template-rows: 18px 7px 14px; gap: 7px; align-content: start; }
+        .account-risk-item > div:first-child { min-height: 18px; white-space: nowrap; }
         .account-risk-item > div:first-child strong { color: #e5e7eb; }
         .account-risk-item:nth-child(1) .account-progress i { background: #34d399; }
         .account-risk-item:nth-child(2) .account-progress i { background: #ef4444; }

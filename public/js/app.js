@@ -706,6 +706,7 @@ let connectedWallet = null;
                                 <div class="account-risk-item">
                                     <div><span>Profit target</span><strong id="p-prog-val-${acc.id}">${m.profitProgress}%</strong></div>
                                     <div class="account-progress"><i id="p-prog-bar-${acc.id}"></i></div>
+                                    <small id="profit-target-${acc.id}"></small>
                                 </div>
                                 <div class="account-risk-item">
                                     <div><span>Daily loss (DLL)</span><strong id="dll-prog-val-${acc.id}">${m.dllProgress}%</strong></div>
@@ -745,6 +746,7 @@ let connectedWallet = null;
                 cardElem.querySelector(`#profit-val-${CSS.escape(acc.id)}`).innerText = `$${m.currentProfit.toLocaleString()}`;
                 cardElem.querySelector(`#p-prog-val-${CSS.escape(acc.id)}`).innerText = `${m.profitProgress}%`;
                 cardElem.querySelector(`#p-prog-bar-${CSS.escape(acc.id)}`).style.width = `${m.profitProgress}%`;
+                cardElem.querySelector(`#profit-target-${CSS.escape(acc.id)}`).innerText = `Target: $${acc.profit_target.toLocaleString()}`;
                 cardElem.querySelector(`#dll-prog-val-${CSS.escape(acc.id)}`).innerText = `${m.dllProgress}%`;
                 cardElem.querySelector(`#dll-prog-bar-${CSS.escape(acc.id)}`).style.width = `${m.dllProgress}%`;
                 cardElem.querySelector(`#dd-prog-val-${CSS.escape(acc.id)}`).innerText = `${m.ddProgress}%`;

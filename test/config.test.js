@@ -24,6 +24,7 @@ test('plan configuration preserves existing seed limits and valid values', () =>
     assert.equal(plan.max_drawdown_pct, 10);
     assert.equal(plan.daily_loss_pct, 5);
   }
+  assert.equal(plans.find(plan => plan.name === 'Whale $250k').simulated_capital, 250000);
 });
 
 test('market configuration has unique symbols and supported price sources', () => {

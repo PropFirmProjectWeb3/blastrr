@@ -65,6 +65,13 @@ test('purchase calldata encodes USDT amounts using each token decimal precision'
   assert.equal(toUnits('12.34', 6).toString(), '12340000');
 });
 
+test('startup correction only adjusts untouched accounts with the old Whale capital', () => {
+  assert.match(serverJs, /initial_balance = 250050 AND current_balance = 250050/);
+  assert.match(serverJs, /current_equity = 250050 AND high_water_mark = 250050/);
+  assert.match(serverJs, /NOT EXISTS \(SELECT 1 FROM trades WHERE trades\.account_id = accounts\.id\)/);
+  assert.match(serverJs, /NOT EXISTS \(SELECT 1 FROM withdrawals WHERE withdrawals\.account_id = accounts\.id\)/);
+});
+
 test('live market PnL feeds server-side risk checks and active trade responses', () => {
   assert.match(serverJs, /function loadAccountWithLiveRisk/);
   assert.match(serverJs, /getLiveRiskBalance\(account, openTrades, pricesBySymbol\)/);
@@ -114,6 +121,9 @@ test('account cards expose expandable trade history and daily profit charts', ()
   assert.match(appJs, /renderDailyProfitChart/);
   assert.match(appJs, /Daily profit by date/);
   assert.match(appJs, /walletFetch\(`\/api\/accounts\/details/);
+  assert.match(appJs, /id="profit-target-\$\{acc\.id\}"/);
+  assert.match(appJs, /Target: \$\$\{acc\.profit_target\.toLocaleString\(\)\}/);
+  assert.match(appCss, /\.account-risk-item \{ display: grid; grid-template-rows: 18px 7px 14px;/);
 });
 
 test('accounts view hides locked accounts by default and can reveal them with its active-only switch', () => {

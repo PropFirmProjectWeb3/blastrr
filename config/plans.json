@@ -53,7 +53,7 @@
     "name": "Whale $250k",
     "base_price_usdt": 25000,
     "price_usdt": 2500,
-    "simulated_capital": 250050,
+    "simulated_capital": 250000,
     "profit_target": 50000,
     "max_drawdown_pct": 10,
     "daily_loss_pct": 5,

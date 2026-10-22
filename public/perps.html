@@ -76,9 +76,13 @@
             border-color: rgba(255, 255, 255, 0.04);
             white-space: nowrap;
             text-decoration: none;
+            display: inline-flex;
+            align-items: center;
         }
         .nav-tab:hover { color: #f3f4f6; background: radial-gradient(circle at center, rgba(55, 65, 81, 0.6) 0%, rgba(31, 41, 55, 0.85) 100%); border-color: rgba(255, 255, 255, 0.1); }
         .nav-tab.active { color: #ffffff; background: linear-gradient(135deg, #7c3aed 0%, #4c1d95 100%); border-color: rgba(168, 85, 247, 0.4); box-shadow: 0 0 15px rgba(124, 58, 237, 0.35); }
+        .nav-tab.admin-tab { display: none; background: radial-gradient(circle at center, rgba(153, 27, 27, 0.4) 0%, rgba(69, 10, 10, 0.8) 100%); color: #fca5a5; border-color: rgba(239, 68, 68, 0.2); }
+        .nav-tab.admin-tab.active { background: #dc2626; color: #ffffff; border-color: #f87171; box-shadow: 0 0 15px rgba(220, 38, 38, 0.4); }
 
         .hamburger-btn {
             display: none;
@@ -116,6 +120,32 @@
             font-size: 13.5px;
             box-shadow: inset 0 0 12px rgba(0, 0, 0, 0.4), 0 0 12px rgba(124, 58, 237, 0.2);
             white-space: nowrap;
+        }
+
+        .btn-new-wallet {
+            background: radial-gradient(circle at center, rgba(37, 99, 235, 0.4) 0%, rgba(15, 23, 42, 0.85) 100%);
+            color: #60a5fa;
+            border: 1px solid rgba(59, 130, 246, 0.3);
+            padding: 10px 14px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 13.5px;
+            display: none;
+            box-shadow: inset 0 0 8px rgba(0, 0, 0, 0.4), 0 0 10px rgba(59, 130, 246, 0.15);
+        }
+
+        .btn-disconnect {
+            background: radial-gradient(circle at center, rgba(220, 38, 38, 0.35) 0%, rgba(69, 10, 10, 0.8) 100%);
+            color: #d1d5db;
+            border: 1px solid rgba(239, 68, 68, 0.3);
+            padding: 10px 14px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 13.5px;
+            display: none;
+            box-shadow: inset 0 0 8px rgba(0, 0, 0, 0.4), 0 0 10px rgba(239, 68, 68, 0.15);
         }
 
         .btn-buy { width: 100%; color: white; border: 1px solid rgba(52, 211, 153, 0.35); padding: 12px; border-radius: 8px; font-weight: 700; cursor: pointer; font-size: 14px; margin-bottom: 10px; }
@@ -233,15 +263,23 @@
             <span style="display:none;">⚡ BLASTRR</span>
         </a>
 
+        <!-- COMPLETE UNIFIED HEADER NAVIGATION -->
         <nav id="nav-menu">
             <a href="spot.html" class="nav-tab">📈 Spot Terminal</a>
             <a href="perps.html" class="nav-tab active">⚡ Perpetual Futures</a>
+            <a href="spot.html#accountsView" class="nav-tab">My Accounts</a>
+            <a href="spot.html#leaderboardView" class="nav-tab">🏆 Leaderboard</a>
+            <a href="spot.html#profileView" class="nav-tab">👤 Profile & Promos</a>
+            <a href="spot.html#buyView" class="nav-tab">Buy Plans</a>
+            <a href="spot.html#adminView" id="admin-nav-item" class="nav-tab admin-tab">🛡️ Admin Control</a>
         </nav>
 
         <div class="header-actions">
             <span id="wallet-status" class="status-pill">Disconnected</span>
             <button id="connect-btn" class="btn-wallet" onclick="connectWallet()">Connect Wallet</button>
             <select id="wallet-select" class="wallet-select" onchange="onWalletSwitched(this.value)"></select>
+            <button id="connect-new-btn" class="btn-new-wallet" onclick="connectNewWallet()">+ Add Wallet</button>
+            <button id="disconnect-btn" class="btn-disconnect" onclick="disconnectWallet()">Disconnect</button>
             <button class="hamburger-btn" onclick="toggleMobileMenu()" id="hamburger-icon">☰</button>
         </div>
     </header>
@@ -371,11 +409,31 @@
         window.addEventListener('DOMContentLoaded', () => {
             initTradingViewWidget("TVC:GOLD");
             onPerpSymbolChanged("TVC:GOLD");
+
+            const provider = getProvider();
+            if (provider?.on) {
+                provider.on('accountsChanged', (accounts) => {
+                    if (accounts && accounts.length > 0) {
+                        availableWallets = accounts;
+                        updateWalletDropdown();
+                        onWalletSwitched(accounts[0]);
+                    } else {
+                        disconnectWallet();
+                    }
+                });
+            }
         });
 
-        function toggleMobileMenu() {
+        function toggleMobileMenu(forceClose = false) {
             const nav = document.getElementById('nav-menu');
+            const hamburger = document.getElementById('hamburger-icon');
+            if (forceClose === true) {
+                nav.classList.remove('mobile-open');
+                hamburger.innerText = '☰';
+                return;
+            }
             nav.classList.toggle('mobile-open');
+            hamburger.innerText = nav.classList.contains('mobile-open') ? '✕' : '☰';
         }
 
         function initTradingViewWidget(symbol) {
@@ -515,11 +573,73 @@
             try {
                 const accounts = await provider.request({ method: 'eth_requestAccounts' });
                 if (!accounts || accounts.length === 0) return;
+                availableWallets = accounts;
                 connectedWallet = accounts[0];
-                document.getElementById('connect-btn').style.display = 'none';
-                document.getElementById('wallet-status').innerText = "Connected";
-                document.getElementById('wallet-status').classList.add("connected");
+                updateWalletUIState(true);
+                updateWalletDropdown();
+                onWalletSwitched(connectedWallet);
             } catch (err) { console.error("Wallet Connection Error:", err); }
+        }
+
+        async function connectNewWallet() {
+            const provider = getProvider();
+            if (!provider) { alert("No Web3 wallet found!"); return; }
+            try {
+                const permissions = await provider.request({ method: 'wallet_requestPermissions', params: [{ eth_accounts: {} }] });
+                const accountsPermission = permissions.find(p => p.parentCapability === 'eth_accounts');
+                if (accountsPermission) {
+                    const accounts = await provider.request({ method: 'eth_accounts' });
+                    if (accounts && accounts.length > 0) {
+                        availableWallets = accounts;
+                        connectedWallet = accounts[0];
+                        updateWalletUIState(true);
+                        updateWalletDropdown();
+                        onWalletSwitched(connectedWallet);
+                    }
+                }
+            } catch (err) { console.error(err); }
+        }
+
+        function updateWalletDropdown() {
+            const walletSelect = document.getElementById('wallet-select');
+            walletSelect.innerHTML = '';
+            availableWallets.forEach(acc => {
+                const shortAddr = acc.substring(0, 6) + '...' + acc.slice(-4);
+                walletSelect.innerHTML += `<option value="${acc}" ${acc.toLowerCase() === connectedWallet?.toLowerCase() ? 'selected' : ''}>${shortAddr}</option>`;
+            });
+        }
+
+        function updateWalletUIState(isConnected) {
+            document.getElementById('connect-btn').style.display = isConnected ? 'none' : 'inline-block';
+            document.getElementById('wallet-select').style.display = isConnected ? 'inline-block' : 'none';
+            document.getElementById('connect-new-btn').style.display = isConnected ? 'inline-block' : 'none';
+            document.getElementById('disconnect-btn').style.display = isConnected ? 'inline-block' : 'none';
+            const statusPill = document.getElementById('wallet-status');
+            statusPill.innerText = isConnected ? "Connected" : "Disconnected";
+            statusPill.classList.toggle("connected", isConnected);
+        }
+
+        function onWalletSwitched(walletAddress) {
+            if (!walletAddress) return;
+            connectedWallet = walletAddress;
+            checkRole(connectedWallet);
+        }
+
+        function disconnectWallet() {
+            connectedWallet = null;
+            availableWallets = [];
+            userAccounts = [];
+            selectedAccountId = null;
+            activeAccount = null;
+            updateWalletUIState(false);
+            document.getElementById('admin-nav-item').style.display = 'none';
+            document.getElementById('active-account-select').innerHTML = '<option value="">No Accounts Available</option>';
+        }
+
+        async function checkRole(wallet) {
+            const res = await fetch(`/api/auth/role?wallet=${wallet}`);
+            const data = await res.json();
+            document.getElementById('admin-nav-item').style.display = data.isAdmin ? 'inline-block' : 'none';
         }
     </script>
 </body>

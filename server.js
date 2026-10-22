@@ -10,7 +10,6 @@ const PORT = process.env.PORT || 4480;
 const TREASURY_WALLET = '0x8632fa855d5dc6b59a3cf892d72cf4a94f182aae';
 
 // --- SUPPORTED EVM CHAINS CONFIGURATION ---
-// --- SUPPORTED EVM CHAINS CONFIGURATION ---
 const SUPPORTED_EVM_CHAINS = {
     1: {
         name: "Ethereum Mainnet",
@@ -257,6 +256,34 @@ async function verifyMultiChainPurchase(txHash, chainId, expectedBuyerWallet, ex
 }
 
 // --- API ROUTES ---
+
+// --- MARKET PRICE ENDPOINT FOR PERPS & TRADFI ---
+app.get('/api/market/price', async (req, res) => {
+    const symbol = req.query.symbol; // e.g., "GC", "CL", "NAS100", "US500"
+    if (!symbol) return res.status(400).json({ success: false, error: "Symbol required" });
+
+    try {
+        let price = 0;
+
+        // Custom pricing for perpetuals and indices
+        if (symbol === 'GC') {
+            price = 2650.40; // Gold Perpetual baseline
+        } else if (symbol === 'CL') {
+            price = 72.15; // Crude Oil Perpetual baseline
+        } else if (symbol === 'NAS100') {
+            price = 20150.00; // Nasdaq 100 Index baseline
+        } else if (symbol === 'US500') {
+            price = 5820.00; // S&P 500 Index baseline
+        } else {
+            // Fallback to binance if crypto pair
+            price = await getCachedBinancePrice(symbol + 'USDT');
+        }
+
+        res.json({ success: true, price });
+    } catch (err) {
+        res.status(500).json({ success: false, error: err.message });
+    }
+});
 
 app.get('/api/plans', (req, res) => {
   db.all("SELECT * FROM plans", [], (err, rows) => {

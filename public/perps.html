@@ -289,11 +289,7 @@
                 </div>
 
                 <div>
-<!-- PERPETUAL EXECUTION CARD -->
-                    <div class="card" style="border-color: rgba(168, 85, 247, 0.3);">
-                        <div class="card-title" style="color: #c084fc;">⚡ Perpetual Futures Execution</div>
-                        
-                        <!-- PERPETUAL EXECUTION CARD -->
+                    <!-- PERPETUAL EXECUTION CARD -->
                     <div class="card" style="border-color: rgba(168, 85, 247, 0.3);">
                         <div class="card-title" style="color: #c084fc;">⚡ Perpetual Futures Execution</div>
                         
@@ -373,8 +369,8 @@
         let currentLivePrice = 0;
 
         window.addEventListener('DOMContentLoaded', () => {
-            initTradingViewWidget("COMEX:MGC1!");
-            onPerpSymbolChanged("COMEX:MGC1!");
+            initTradingViewWidget("TVC:GOLD");
+            onPerpSymbolChanged("TVC:GOLD");
         });
 
         function toggleMobileMenu() {
@@ -426,12 +422,10 @@
         async function fetchPerpPrice(pair, type) {
             try {
                 if (type === 'CRYPTO') {
-                    // Fetched directly from the user's browser/IP to Binance Futures API to bypass server limits
                     const res = await fetch(`https://fapi.binance.com/fapi/v1/ticker/price?symbol=${pair}`);
                     const data = await res.json();
                     if (data && data.price) currentLivePrice = parseFloat(data.price);
                 } else {
-                    // Fallback to backend oracle for TradFi & CME micros
                     const res = await fetch(`/api/market/price?symbol=${pair}`);
                     const data = await res.json();
                     if (data && data.price) currentLivePrice = parseFloat(data.price);

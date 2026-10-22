@@ -1,6 +1,7 @@
 let connectedWallet = null;
         let availableWallets = [];
         let userAccounts = [];
+        let userReviewAccounts = [];
         let selectedAccountId = null;
         let activeAccount = null;
         let tvWidget = null;
@@ -642,6 +643,12 @@ let connectedWallet = null;
             if (reviewUsername) reviewUsername.value = '';
             const reviewSubmit = document.querySelector('#user-review-form button[type="submit"]');
             if (reviewSubmit) reviewSubmit.disabled = true;
+            userReviewAccounts = [];
+            const reviewAccountSelect = document.getElementById('review-account');
+            if (reviewAccountSelect) {
+                reviewAccountSelect.disabled = true;
+                reviewAccountSelect.innerHTML = '<option value="">Connect wallet to check eligibility</option>';
+            }
             const reviewComment = document.getElementById('review-comment');
             if (reviewComment) reviewComment.value = '';
             const reviewFeedback = document.getElementById('review-form-feedback');
@@ -1183,16 +1190,16 @@ let connectedWallet = null;
                             <div><h3>${escapeHTML(review.username)}</h3>${renderStarRating(review.rating)}</div>
                             <div class="admin-review-actions">
                                 <span class="support-status ${Number(review.published) ? 'support-status-open' : 'support-status-needs-info'}">${Number(review.published) ? 'Published' : 'Awaiting approval'}</span>
-                                <button class="${Number(review.published) ? 'btn-sell' : 'btn-wallet'}" data-review-wallet="${escapeHTML(review.wallet_address)}" data-review-action="${Number(review.published) ? 'HIDE' : 'PUBLISH'}">${Number(review.published) ? 'Hide from homepage' : 'Publish to homepage'}</button>
+                                <button class="${Number(review.published) ? 'btn-sell' : 'btn-wallet'}" data-review-account="${escapeHTML(review.account_id)}" data-review-action="${Number(review.published) ? 'HIDE' : 'PUBLISH'}">${Number(review.published) ? 'Hide from homepage' : 'Publish to homepage'}</button>
                             </div>
                         </div>
-                        <p class="support-review-meta"><code>${escapeHTML(review.wallet_address)}</code> · Updated ${escapeHTML(new Date(review.updated_at).toLocaleString())}</p>
+                        <p class="support-review-meta">${escapeHTML(review.plan_name || 'Purchased account')} · <code>${escapeHTML(review.account_id)}</code><br><code>${escapeHTML(review.wallet_address)}</code> · Updated ${escapeHTML(new Date(review.updated_at).toLocaleString())}</p>
                         <p class="support-review-comment">${escapeHTML(review.comment)}</p>
                     </article>
                 `).join('');
                 container.onclick = event => {
                     const button = event.target.closest('[data-review-action]');
-                    if (button) processAdminReview(button.dataset.reviewWallet, button.dataset.reviewAction);
+                    if (button) processAdminReview(button.dataset.reviewAccount, button.dataset.reviewAction);
                 };
             } catch (err) {
                 console.error(err);
@@ -1200,13 +1207,13 @@ let connectedWallet = null;
             }
         }
 
-        async function processAdminReview(wallet, action) {
+        async function processAdminReview(accountId, action) {
             try {
                 const authorization = await signedTradeAuthorization();
                 const response = await fetch('/api/admin/reviews/action', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ ...authorization, review_wallet: wallet, action })
+                    body: JSON.stringify({ ...authorization, review_account_id: accountId, action })
                 });
                 const data = await readAdminApiResponse(response, '/api/admin/reviews/action');
                 if (!response.ok) throw new Error(data.error || 'Unable to update review publication.');
@@ -1687,8 +1694,9 @@ let connectedWallet = null;
             const feedback = document.getElementById('review-form-feedback');
             const submit = form.querySelector('button[type="submit"]');
             const usernameField = document.getElementById('review-username');
+            const accountSelect = document.getElementById('review-account');
             if (usernameField) usernameField.value = currentUserProfile?.username || '';
-            if (submit) submit.disabled = !currentUserProfile?.username;
+            if (submit) submit.disabled = true;
             document.getElementById('review-comment').value = '';
             document.getElementById('review-rating').value = '5';
             if (feedback) feedback.textContent = 'Loading your review…';
@@ -1696,20 +1704,52 @@ let connectedWallet = null;
                 const response = await walletFetch(`/api/user/review?wallet=${encodeURIComponent(wallet)}`);
                 const data = await response.json();
                 if (!response.ok) throw new Error(data.error || 'Unable to load your review.');
-                if (data.review) {
-                    document.getElementById('review-rating').value = String(data.review.rating);
-                    document.getElementById('review-comment').value = data.review.comment;
-                    if (feedback) feedback.textContent = data.review.published
-                        ? 'Your review is published. Saving changes will send it for approval again.'
-                        : 'Your review is awaiting admin approval.';
-                } else if (feedback) {
-                    feedback.textContent = currentUserProfile?.username
-                        ? 'Reviews are reviewed by an admin before appearing on the homepage.'
-                        : 'Set up your profile username before submitting a review.';
+                userReviewAccounts = Array.isArray(data.accounts) ? data.accounts : [];
+                if (!accountSelect) return;
+                const previouslySelected = accountSelect.value;
+                accountSelect.innerHTML = userReviewAccounts.length
+                    ? userReviewAccounts.map(account => `<option value="${escapeHTML(account.account_id)}">${escapeHTML(account.plan_name || 'Purchased account')} · ${escapeHTML(account.account_id)}</option>`).join('')
+                    : '<option value="">No purchased accounts available</option>';
+                accountSelect.disabled = userReviewAccounts.length === 0;
+                if (userReviewAccounts.some(account => account.account_id === previouslySelected)) {
+                    accountSelect.value = previouslySelected;
                 }
+                renderSelectedUserReview();
             } catch (err) {
                 console.error(err);
                 if (feedback) feedback.textContent = err.message;
+                if (accountSelect) {
+                    accountSelect.disabled = true;
+                    accountSelect.innerHTML = '<option value="">Unable to load eligible accounts</option>';
+                }
+            }
+        }
+
+        function renderSelectedUserReview() {
+            const form = document.getElementById('user-review-form');
+            const accountSelect = document.getElementById('review-account');
+            const feedback = document.getElementById('review-form-feedback');
+            const submit = form?.querySelector('button[type="submit"]');
+            const selectedAccount = userReviewAccounts.find(account => account.account_id === accountSelect?.value);
+            const hasUsername = Boolean(currentUserProfile?.username);
+            document.getElementById('review-comment').value = selectedAccount?.comment || '';
+            document.getElementById('review-rating').value = String(selectedAccount?.rating || 5);
+            if (submit) submit.disabled = !selectedAccount || !hasUsername;
+            if (!feedback) return;
+            if (!userReviewAccounts.length) {
+                feedback.textContent = hasUsername
+                    ? 'A purchased account is required before you can submit a review.'
+                    : 'Set up your profile username and purchase an account before submitting a review.';
+            } else if (!hasUsername) {
+                feedback.textContent = 'Set up your profile username before submitting a review.';
+            } else if (!selectedAccount) {
+                feedback.textContent = 'Select a purchased account to write its review.';
+            } else if (selectedAccount.rating) {
+                feedback.textContent = selectedAccount.published
+                    ? 'Your review is published. Saving changes will send it for approval again.'
+                    : 'Your review is awaiting admin approval. You may edit this account review.';
+            } else {
+                feedback.textContent = 'One review is allowed per purchased account. Reviews are approved before appearing on the homepage.';
             }
         }
 
@@ -1725,6 +1765,7 @@ let connectedWallet = null;
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
+                        account_id: document.getElementById('review-account').value,
                         rating: Number(document.getElementById('review-rating').value),
                         comment: document.getElementById('review-comment').value
                     })
@@ -1894,6 +1935,7 @@ let connectedWallet = null;
 
         document.getElementById('support-ticket-form')?.addEventListener('submit', submitSupportTicket);
         document.getElementById('user-review-form')?.addEventListener('submit', submitUserReview);
+        document.getElementById('review-account')?.addEventListener('change', renderSelectedUserReview);
         document.getElementById('user-ticket-list')?.addEventListener('click', event => {
             const button = event.target.closest('[data-user-ticket-reply]');
             const card = button?.closest('[data-ticket-id]');

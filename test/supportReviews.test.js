@@ -14,6 +14,10 @@ test('support ticket and review schema is text-only and constrained', () => {
   assert.match(databaseJs, /CREATE TABLE IF NOT EXISTS support_ticket_messages/);
   assert.match(databaseJs, /CHECK\(author_role IN \('USER', 'ADMIN'\)\)/);
   assert.match(databaseJs, /CREATE TABLE IF NOT EXISTS user_reviews/);
+  assert.match(databaseJs, /account_id TEXT PRIMARY KEY,[\s\S]*?FOREIGN KEY\(account_id\) REFERENCES accounts\(id\)/);
+  assert.match(databaseJs, /ALTER TABLE user_reviews RENAME TO user_reviews_legacy/);
+  assert.match(databaseJs, /JOIN purchases p ON p\.account_id = a\.id/);
+  assert.match(databaseJs, /FROM user_reviews_legacy old[\s\S]*?JOIN purchases p ON p\.account_id = a\.id/);
   assert.match(databaseJs, /rating INTEGER NOT NULL CHECK\(rating BETWEEN 1 AND 5\)/);
   assert.match(databaseJs, /published INTEGER NOT NULL DEFAULT 0/);
   assert.match(appHtml, /id="ticket-message"[^>]*maxlength="5000"/);
@@ -34,6 +38,11 @@ test('ticket endpoints enforce wallet ownership, account ownership, and admin au
 
 test('review submission and moderation are wallet-bound and admin-protected', () => {
   assert.match(serverJs, /app\.post\('\/api\/user\/reviews', sensitiveLimiter, requireWalletSession/);
+  assert.match(serverJs, /EXISTS \(SELECT 1 FROM purchases purchase[\s\S]*?purchase\.account_id = a\.id/);
+  assert.match(serverJs, /WHERE a\.id = \? AND LOWER\(a\.wallet_address\) = LOWER\(\?\)/);
+  assert.match(serverJs, /INSERT INTO user_reviews \(account_id, wallet_address, username, rating, comment, published\)/);
+  assert.match(serverJs, /ON CONFLICT\(account_id\) DO UPDATE/);
+  assert.match(serverJs, /WHERE LOWER\(user_reviews\.wallet_address\) = LOWER\(excluded\.wallet_address\)/);
   assert.match(serverJs, /rating < 1 \|\| rating > 5/);
   assert.match(serverJs, /published = 0/);
   assert.match(serverJs, /app\.get\('\/api\/reviews'/);
@@ -46,6 +55,11 @@ test('support and moderation views render action controls and visual ticket stat
   assert.match(appHtml, /id="user-ticket-list"/);
   assert.match(appHtml, /id="admin-ticket-list"/);
   assert.match(appHtml, /id="admin-review-list"/);
+  assert.match(appHtml, /id="review-account" required disabled/);
+  assert.match(appHtml, /one review per account/i);
+  assert.match(appJs, /data-review-account="\$\{escapeHTML\(review\.account_id\)\}"/);
+  assert.match(appJs, /review_account_id: accountId/);
+  assert.match(appJs, /account_id: document\.getElementById\('review-account'\)\.value/);
   assert.match(appJs, /data-admin-ticket-action="REPLY"/);
   assert.match(appJs, /data-admin-ticket-action="CLOSE"/);
   assert.match(appJs, /data-review-action="\$\{Number\(review\.published\) \? 'HIDE' : 'PUBLISH'\}"/);

@@ -156,19 +156,20 @@ function initTables() {
     )`);
 
     db.run(`CREATE TABLE IF NOT EXISTS user_reviews (
-      wallet_address TEXT PRIMARY KEY,
+      account_id TEXT PRIMARY KEY,
+      wallet_address TEXT NOT NULL,
       username TEXT NOT NULL,
       rating INTEGER NOT NULL CHECK(rating BETWEEN 1 AND 5),
       comment TEXT NOT NULL,
       published INTEGER NOT NULL DEFAULT 0,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY(account_id) REFERENCES accounts(id)
     )`);
 
     db.run('CREATE INDEX IF NOT EXISTS idx_support_tickets_wallet_updated ON support_tickets(wallet_address, updated_at DESC)');
     db.run('CREATE INDEX IF NOT EXISTS idx_support_tickets_status_updated ON support_tickets(status, updated_at DESC)');
     db.run('CREATE INDEX IF NOT EXISTS idx_support_ticket_messages_ticket ON support_ticket_messages(ticket_id, created_at)');
-    db.run('CREATE INDEX IF NOT EXISTS idx_user_reviews_published_updated ON user_reviews(published, updated_at DESC)');
 
     db.all("PRAGMA table_info(accounts)", (err, columns) => {
       if (err) {
@@ -213,6 +214,73 @@ function initTables() {
           if (alterErr) console.error('Unable to add trades.leverage', alterErr.message);
         });
       }
+
+      db.all("PRAGMA table_info(user_reviews)", (err, columns) => {
+        if (err) {
+          console.error('Unable to inspect user_reviews schema', err.message);
+          return;
+        }
+        if (columns.some(column => column.name === 'account_id')) {
+          db.run('CREATE INDEX IF NOT EXISTS idx_user_reviews_published_updated ON user_reviews(published, updated_at DESC)', (indexErr) => {
+            if (indexErr) console.error('Unable to index user reviews', indexErr.message);
+          });
+          return;
+        }
+
+        db.serialize(() => {
+          db.run('BEGIN IMMEDIATE', (beginErr) => {
+            if (beginErr) {
+              console.error('Unable to start user review migration', beginErr.message);
+              return;
+            }
+            const rollback = (label, migrationErr) => db.run('ROLLBACK', () => {
+              console.error(label, migrationErr?.message || 'Migration rolled back.');
+            });
+            db.run('ALTER TABLE user_reviews RENAME TO user_reviews_legacy', (renameErr) => {
+              if (renameErr) return rollback('Unable to prepare user review migration', renameErr);
+              db.run(`CREATE TABLE user_reviews (
+                account_id TEXT PRIMARY KEY,
+                wallet_address TEXT NOT NULL,
+                username TEXT NOT NULL,
+                rating INTEGER NOT NULL CHECK(rating BETWEEN 1 AND 5),
+                comment TEXT NOT NULL,
+                published INTEGER NOT NULL DEFAULT 0,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY(account_id) REFERENCES accounts(id)
+              )`, (createErr) => {
+                if (createErr) return rollback('Unable to create account-linked reviews table', createErr);
+                db.run(`INSERT INTO user_reviews (account_id, wallet_address, username, rating, comment, published, created_at, updated_at)
+                  SELECT (SELECT a.id FROM accounts a
+                          JOIN purchases p ON p.account_id = a.id
+                            AND LOWER(p.wallet_address) = LOWER(a.wallet_address)
+                          WHERE LOWER(a.wallet_address) = LOWER(old.wallet_address)
+                          ORDER BY a.created_at, a.id LIMIT 1),
+                         old.wallet_address, old.username, old.rating, old.comment, old.published, old.created_at, old.updated_at
+                  FROM user_reviews_legacy old
+                  WHERE EXISTS (
+                    SELECT 1 FROM accounts a
+                    JOIN purchases p ON p.account_id = a.id
+                      AND LOWER(p.wallet_address) = LOWER(a.wallet_address)
+                    WHERE LOWER(a.wallet_address) = LOWER(old.wallet_address)
+                  )`,
+                (copyErr) => {
+                  if (copyErr) return rollback('Unable to migrate existing account reviews', copyErr);
+                  db.run('DROP TABLE user_reviews_legacy', (dropErr) => {
+                    if (dropErr) return rollback('Unable to finish user review migration', dropErr);
+                    db.run('CREATE INDEX IF NOT EXISTS idx_user_reviews_published_updated ON user_reviews(published, updated_at DESC)', (indexErr) => {
+                      if (indexErr) return rollback('Unable to index migrated user reviews', indexErr);
+                      db.run('COMMIT', (commitErr) => {
+                        if (commitErr) return rollback('Unable to commit user review migration', commitErr);
+                      });
+                    });
+                  });
+                });
+              });
+            });
+          });
+        });
+      });
     });
 
     db.all("PRAGMA table_info(withdrawals)", (err, columns) => {

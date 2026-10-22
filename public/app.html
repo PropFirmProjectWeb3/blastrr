@@ -295,11 +295,17 @@
             </div>
             <div class="card review-card">
                 <div class="card-title">Share a review</div>
-                <p class="support-note">Your review is private until the admin team approves it for display on the homepage. Editing a published review sends it for approval again.</p>
+                <p class="support-note">Only wallets with a purchased account can review. Submit one review per account; edits return the review to the admin team for approval.</p>
                 <form id="user-review-form">
                     <div class="form-group">
                         <label for="review-username">Reviewing as</label>
                         <input id="review-username" type="text" readonly placeholder="Set up your profile username first">
+                    </div>
+                    <div class="form-group">
+                        <label for="review-account">Purchased account</label>
+                        <select id="review-account" required disabled>
+                            <option value="">Connect wallet to check eligibility</option>
+                        </select>
                     </div>
                     <div class="form-group">
                         <label for="review-rating">Rating</label>

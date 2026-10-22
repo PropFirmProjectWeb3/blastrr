@@ -1028,35 +1028,59 @@ app.get('/api/user/review', requireWalletSession, (req, res) => {
   if (typeof wallet !== 'string' || !ethers.isAddress(wallet) || wallet.toLowerCase() !== req.walletAddress) {
     return res.status(403).json({ error: 'Wallet session does not match the requested review.' });
   }
-  db.get(
-    'SELECT username, rating, comment, published, created_at, updated_at FROM user_reviews WHERE LOWER(wallet_address) = LOWER(?)',
+  db.all(
+    `SELECT a.id AS account_id, a.created_at AS account_created_at, p.name AS plan_name,
+            r.username, r.rating, r.comment, r.published, r.created_at, r.updated_at
+     FROM accounts a
+    LEFT JOIN plans p ON p.id = a.plan_id
+    LEFT JOIN user_reviews r ON r.account_id = a.id AND LOWER(r.wallet_address) = LOWER(a.wallet_address)
+    WHERE LOWER(a.wallet_address) = LOWER(?)
+      AND EXISTS (SELECT 1 FROM purchases purchase
+                  WHERE purchase.account_id = a.id
+                    AND LOWER(purchase.wallet_address) = LOWER(a.wallet_address))
+    ORDER BY a.created_at, a.id`,
     [wallet],
-    (err, review) => {
-      if (err) return res.status(500).json({ error: 'Unable to load your review.' });
-      res.json({ review: review || null });
+    (err, accounts) => {
+      if (err) return res.status(500).json({ error: 'Unable to load your eligible review accounts.' });
+      res.json({ accounts: accounts || [] });
     }
   );
 });
 
 app.post('/api/user/reviews', sensitiveLimiter, requireWalletSession, (req, res) => {
+  const accountId = typeof req.body?.account_id === 'string' ? req.body.account_id.trim() : '';
   const rating = Number(req.body?.rating);
   const comment = typeof req.body?.comment === 'string' ? req.body.comment.trim() : '';
-  if (!Number.isInteger(rating) || rating < 1 || rating > 5 || comment.length < 10 || comment.length > 1500) {
-    return res.status(400).json({ error: 'Choose 1–5 stars and enter a review between 10 and 1,500 characters.' });
+  if (!accountId || !Number.isInteger(rating) || rating < 1 || rating > 5 || comment.length < 10 || comment.length > 1500) {
+    return res.status(400).json({ error: 'Select a purchased account, choose 1–5 stars, and enter a review between 10 and 1,500 characters.' });
   }
   db.get('SELECT username FROM users WHERE LOWER(wallet_address) = LOWER(?)', [req.walletAddress], (err, user) => {
     if (err) return res.status(500).json({ error: 'Unable to load your profile.' });
     if (!user?.username) return res.status(400).json({ error: 'Create a profile username before submitting a review.' });
-    db.run(
-      `INSERT INTO user_reviews (wallet_address, username, rating, comment, published)
-       VALUES (?, ?, ?, ?, 0)
-       ON CONFLICT(wallet_address) DO UPDATE SET username = excluded.username,
-         rating = excluded.rating, comment = excluded.comment, published = 0,
-         updated_at = CURRENT_TIMESTAMP`,
-      [req.walletAddress, user.username, rating, comment],
-      (saveErr) => {
-        if (saveErr) return res.status(500).json({ error: 'Unable to save your review.' });
-        res.json({ success: true, message: 'Review saved and sent to the admin team for review.' });
+    db.get(
+      `SELECT a.id FROM accounts a
+       WHERE a.id = ? AND LOWER(a.wallet_address) = LOWER(?)
+         AND EXISTS (SELECT 1 FROM purchases purchase
+                     WHERE purchase.account_id = a.id
+                       AND LOWER(purchase.wallet_address) = LOWER(a.wallet_address))`,
+      [accountId, req.walletAddress],
+      (accountErr, account) => {
+        if (accountErr) return res.status(500).json({ error: 'Unable to verify purchased account eligibility.' });
+        if (!account) return res.status(403).json({ error: 'Reviews are available only for accounts purchased by this wallet.' });
+        db.run(
+          `INSERT INTO user_reviews (account_id, wallet_address, username, rating, comment, published)
+           VALUES (?, ?, ?, ?, ?, 0)
+           ON CONFLICT(account_id) DO UPDATE SET username = excluded.username,
+             rating = excluded.rating, comment = excluded.comment, published = 0,
+             updated_at = CURRENT_TIMESTAMP
+           WHERE LOWER(user_reviews.wallet_address) = LOWER(excluded.wallet_address)`,
+          [accountId, req.walletAddress, user.username, rating, comment],
+          function(saveErr) {
+            if (saveErr) return res.status(500).json({ error: 'Unable to save your review.' });
+            if (this.changes !== 1) return res.status(403).json({ error: 'This account review belongs to another wallet.' });
+            res.json({ success: true, message: 'Review saved and sent to the admin team for review.' });
+          }
+        );
       }
     );
   });
@@ -1140,8 +1164,12 @@ app.post('/api/admin/tickets/action', sensitiveLimiter, requireTradeSignature, r
 
 app.post('/api/admin/reviews', sensitiveLimiter, requireTradeSignature, requireAdminWallet, (req, res) => {
   db.all(
-    `SELECT wallet_address, username, rating, comment, published, created_at, updated_at
-     FROM user_reviews ORDER BY published ASC, updated_at DESC LIMIT 300`,
+    `SELECT r.account_id, r.wallet_address, r.username, r.rating, r.comment, r.published, r.created_at, r.updated_at,
+            p.name AS plan_name
+     FROM user_reviews r
+     LEFT JOIN accounts a ON a.id = r.account_id
+     LEFT JOIN plans p ON p.id = a.plan_id
+     ORDER BY r.published ASC, r.updated_at DESC LIMIT 300`,
     [],
     (err, reviews) => {
       if (err) return res.status(500).json({ error: 'Unable to load user reviews.' });
@@ -1151,14 +1179,14 @@ app.post('/api/admin/reviews', sensitiveLimiter, requireTradeSignature, requireA
 });
 
 app.post('/api/admin/reviews/action', sensitiveLimiter, requireTradeSignature, requireAdminWallet, (req, res) => {
-  const wallet = req.body?.review_wallet;
+  const accountId = req.body?.review_account_id;
   const action = req.body?.action;
-  if (typeof wallet !== 'string' || !ethers.isAddress(wallet) || !['PUBLISH', 'HIDE'].includes(action)) {
-    return res.status(400).json({ error: 'A valid review wallet and publish or hide action are required.' });
+  if (typeof accountId !== 'string' || !accountId.trim() || !['PUBLISH', 'HIDE'].includes(action)) {
+    return res.status(400).json({ error: 'A valid review account and publish or hide action are required.' });
   }
   db.run(
-    'UPDATE user_reviews SET published = ?, updated_at = CURRENT_TIMESTAMP WHERE LOWER(wallet_address) = LOWER(?)',
-    [action === 'PUBLISH' ? 1 : 0, wallet],
+    'UPDATE user_reviews SET published = ?, updated_at = CURRENT_TIMESTAMP WHERE account_id = ?',
+    [action === 'PUBLISH' ? 1 : 0, accountId.trim()],
     function(updateErr) {
       if (updateErr) return res.status(500).json({ error: 'Unable to update review publication.' });
       if (this.changes !== 1) return res.status(404).json({ error: 'Review not found.' });

@@ -21,11 +21,11 @@ test('trading terminal HTML loads its external stylesheet and application script
 });
 
 test('trading terminal displays a responsive 24/7 crypto market status card', () => {
-  assert.match(appHtml, /class="market-hours-status" aria-label="Crypto market hours"/);
+  assert.match(appHtml, /<div class="chart-heading-group">[\s\S]*?id="chart-title"[\s\S]*?class="market-hours-status" aria-label="Crypto markets trade 24\/7\/365"/);
   assert.match(appHtml, /24\/7 TRADING LIVE/);
-  assert.match(appHtml, /Crypto markets are open around the clock, every day of the year/);
-  assert.match(appCss, /\.market-hours-status\s*\{[^}]*display:\s*flex/);
-  assert.match(appCss, /market-hours-status-note\s*\{\s*display:\s*none/);
+  assert.match(appCss, /\.chart-heading-group\s*\{[^}]*display:\s*flex/);
+  assert.match(appCss, /\.market-hours-status\s*\{[^}]*border-radius:\s*999px/);
+  assert.doesNotMatch(appHtml, /<aside class="market-hours-status"/);
 });
 
 test('trading terminal uses the homepage Blastrr wordmark and lightning mark styling', () => {

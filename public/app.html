@@ -17,12 +17,12 @@
 
         <!-- UNIFIED IN-PAGE NAVIGATION -->
         <nav id="nav-menu">
-            <button class="nav-tab active" onclick="switchView('tradeView')">📈 Trade Terminal</button>
+            <button class="nav-tab active" onclick="switchView('tradeView')">Trade Terminal</button>
             <button class="nav-tab" onclick="switchView('accountsView')">My Accounts</button>
-            <button class="nav-tab" onclick="switchView('leaderboardView')">🏆 Leaderboard</button>
-            <button class="nav-tab" onclick="switchView('profileView')">👤 Profile & Promos</button>
+            <button class="nav-tab" onclick="switchView('leaderboardView')">Leaderboard</button>
+            <button class="nav-tab" onclick="switchView('profileView')">Profile &amp; Promos</button>
             <button class="nav-tab" onclick="switchView('buyView')">Buy Plans</button>
-            <button id="admin-nav-item" class="nav-tab admin-tab" onclick="switchView('adminView')">🛡️ Admin Control</button>
+            <button id="admin-nav-item" class="nav-tab admin-tab" onclick="switchView('adminView')">Admin Control</button>
         </nav>
 
         <div class="header-actions">
@@ -31,7 +31,9 @@
             <select id="wallet-select" class="wallet-select" onchange="onWalletSwitched(this.value)"></select>
             <button id="connect-new-btn" class="btn-new-wallet" onclick="connectNewWallet()">+ Add Wallet</button>
             <button id="disconnect-btn" class="btn-disconnect" onclick="disconnectWallet()">Disconnect</button>
-            <button class="hamburger-btn" onclick="toggleMobileMenu()" id="hamburger-icon" aria-label="Open navigation menu" aria-expanded="false">☰</button>
+            <button class="hamburger-btn" onclick="toggleMobileMenu()" id="hamburger-icon" aria-label="Open navigation menu" aria-expanded="false">
+                <span class="hamburger-glyph" aria-hidden="true"></span>
+            </button>
         </div>
     </header>
 
@@ -44,7 +46,7 @@
                         <div class="card-title">
                             <span id="chart-title">TradingView Unified Terminal</span>
                             <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
-                                <button class="btn-wallet" style="padding: 5px 10px; font-size: 11px;" onclick="manualRefreshData()">🔄 Refresh</button>
+                                <button class="btn-wallet" style="padding: 5px 10px; font-size: 11px;" onclick="manualRefreshData()">Refresh</button>
                                 <label style="font-size: 11px; color: #9ca3af; text-transform: uppercase; font-weight: 700;">Active Account:</label>
                                 <select id="active-account-select" onchange="switchActiveAccount(this.value)" style="background: #05070b; border: 1px solid rgba(255, 255, 255, 0.1); color: white; padding: 6px 10px; border-radius: 6px; font-size: 13px;">
                                     <option value="">No Accounts Found</option>
@@ -81,7 +83,7 @@
 
                 <div>
                     <div class="card order-card">
-                        <div class="card-title order-card-title">⚡ Order Execution</div>
+                        <div class="card-title order-card-title">Order Execution</div>
                         
                         <div class="form-group">
                             <label>Market Selection</label>
@@ -135,8 +137,8 @@
                         </div>
 
                         <div class="order-actions">
-                            <button class="btn-buy" onclick="executeTrade('BUY')">Execute Buy / Long 📈</button>
-                            <button class="btn-sell" onclick="executeTrade('SELL')">Execute Sell / Short 📉</button>
+                            <button class="btn-buy" onclick="executeTrade('BUY')">Execute Buy / Long</button>
+                            <button class="btn-sell" onclick="executeTrade('SELL')">Execute Sell / Short</button>
                         </div>
                         <p id="trade-feedback" class="trade-feedback" role="status" aria-live="polite"></p>
                     </div>
@@ -149,7 +151,7 @@
             <div class="card">
                 <div class="card-title">
                     <span>Your Prop Accounts Portfolio</span>
-                    <button class="btn-wallet" style="padding: 5px 12px; font-size: 11px;" onclick="manualRefreshData()">🔄 Refresh Accounts</button>
+                    <button class="btn-wallet" style="padding: 5px 12px; font-size: 11px;" onclick="manualRefreshData()">Refresh Accounts</button>
                 </div>
                 <label class="account-filter-toggle">
                     <input id="accounts-active-only" type="checkbox" checked onchange="toggleActiveAccountsOnly(this.checked)">
@@ -165,7 +167,7 @@
         <section id="leaderboardView" class="view-panel">
             <div class="card">
                 <div class="card-title" style="margin-bottom: 8px;">
-                    <div>🏆 Global Trader Leaderboard</div>
+                    <div>Global Trader Leaderboard</div>
                     <div style="display: flex; gap: 8px; flex-wrap: wrap;">
                         <button id="lb-btn-daily" class="nav-tab active" onclick="switchLeaderboardMode('DAILY')">Daily Profit</button>
                         <button id="lb-btn-monthly" class="nav-tab" onclick="switchLeaderboardMode('MONTHLY')">Monthly Profit</button>
@@ -178,7 +180,7 @@
                 </p>
 
                 <div style="display: flex; gap: 12px; margin-bottom: 20px; flex-wrap: wrap; align-items: center;">
-                    <input type="text" id="lb-search-input" placeholder="🔍 Search username to find rank..." onkeyup="filterLeaderboardTable()" style="max-width: 350px; background: rgba(5,7,11,0.9); border: 1px solid rgba(255,255,255,0.08); color: white; padding: 10px 14px; border-radius: 8px; font-size: 13.5px; width: 100%;">
+                    <input type="text" id="lb-search-input" placeholder="Search username to find rank..." onkeyup="filterLeaderboardTable()" style="max-width: 350px; background: rgba(5,7,11,0.9); border: 1px solid rgba(255,255,255,0.08); color: white; padding: 10px 14px; border-radius: 8px; font-size: 13.5px; width: 100%;">
                     <span id="lb-my-rank-label" style="color: #c084fc; font-weight: 600; font-size: 13.5px; display: none;">Your Rank: #-</span>
                 </div>
 
@@ -206,7 +208,7 @@
             <div class="card">
                 <div class="card-title">
                     <span>Your Creator & Affiliate Profile</span>
-                    <button id="btn-toggle-edit" class="btn-wallet" style="padding: 6px 12px; font-size: 12px; display: none;" onclick="toggleEditProfile()">✏️ Edit Details</button>
+                    <button id="btn-toggle-edit" class="btn-wallet" style="padding: 6px 12px; font-size: 12px; display: none;" onclick="toggleEditProfile()">Edit Details</button>
                 </div>
                 
                 <div id="profile-setup-box">
@@ -230,7 +232,7 @@
                             <p style="margin: 4px 0;"><strong>Username:</strong> <span id="disp-username" style="color: #c084fc; font-weight: 600;">-</span></p>
                             <p style="margin: 4px 0;"><strong>Your Promo Code:</strong> <code id="disp-code" style="background: rgba(5, 7, 11, 0.9); padding: 4px 10px; border-radius: 6px; color: #34d399; border: 1px solid rgba(52, 211, 153, 0.2);">-</code></p>
                         </div>
-                        <button class="btn-share-x" onclick="shareCreatorCodeOnX()">𝕏 Share Promo Code on X</button>
+                        <button class="btn-share-x" onclick="shareCreatorCodeOnX()">Share Promo Code on X</button>
                     </div>
 
                     <p style="margin-top: 14px;"><strong>Shareable Referral Link:</strong> <input type="text" id="disp-link" readonly style="background: rgba(5, 7, 11, 0.9); border: 1px solid rgba(255, 255, 255, 0.08); color: #9ca3af; padding: 8px 12px; width: 100%; margin-top: 6px; border-radius: 8px;"></p>
@@ -300,7 +302,7 @@
         <!-- 6. ADMIN CONTROL VIEW -->
         <section id="adminView" class="view-panel">
             <div class="card" style="border-color: rgba(220, 38, 38, 0.3);">
-                <div class="card-title" style="color: #f87171;">🛡️ Admin Withdrawal & Payout Queue</div>
+                <div class="card-title admin-payout-title">Admin Withdrawal &amp; Payout Queue</div>
                 <div class="table-responsive">
                     <table>
                         <thead>

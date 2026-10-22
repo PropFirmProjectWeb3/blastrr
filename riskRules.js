@@ -20,12 +20,11 @@ function calculateUnrealizedPnl(trade, currentPrice) {
 }
 
 function getTradeMargin(trade) {
-  const notional = Number(trade.size_usd);
-  const leverage = trade.leverage == null ? 1 : Number(trade.leverage);
-  if (!Number.isFinite(notional) || notional <= 0 || !Number.isFinite(leverage) || leverage <= 0) {
+  const margin = Number(trade.size_usd);
+  if (!Number.isFinite(margin) || margin <= 0) {
     throw new Error('Cannot calculate live risk from invalid trade margin.');
   }
-  return notional / leverage;
+  return margin;
 }
 
 function getLiveRiskBalance(account, openTrades, pricesBySymbol) {
@@ -97,10 +96,15 @@ function getRiskBreach(account, plan, now = Date.now()) {
     return { reason: 'MLL', permanent: true, lockedUntil: null };
   }
   if (dailyLoss >= dailyLossLimit) {
+    const utcMidnight = Date.UTC(
+      new Date(now).getUTCFullYear(),
+      new Date(now).getUTCMonth(),
+      new Date(now).getUTCDate() + 1
+    );
     return {
       reason: 'DLL',
       permanent: false,
-      lockedUntil: new Date(now + DLL_LOCK_HOURS * 60 * 60 * 1000).toISOString()
+      lockedUntil: new Date(Math.min(now + DLL_LOCK_HOURS * 60 * 60 * 1000, utcMidnight)).toISOString()
     };
   }
   return null;

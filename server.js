@@ -295,10 +295,84 @@ function lockAccount(accountId, breach, callback) {
   const status = breach.permanent ? 'PERMANENTLY_LOCKED' : 'LOCKED';
   db.run(
     `UPDATE accounts SET status = ?, lock_reason = ?, locked_until = ?, permanent_lock = ?
-     WHERE id = ?`,
-    [status, breach.reason, breach.lockedUntil, breach.permanent ? 1 : 0, accountId],
-    callback
+     WHERE id = ? AND NOT (COALESCE(permanent_lock, 0) = 1 AND ? = 0)`,
+    [status, breach.reason, breach.lockedUntil, breach.permanent ? 1 : 0, accountId, breach.permanent ? 1 : 0],
+    function(updateErr) {
+      if (updateErr) return callback(updateErr);
+      if (this.changes > 0) return callback(null, breach);
+      db.get(
+        `SELECT lock_reason, locked_until, permanent_lock FROM accounts WHERE id = ?`,
+        [accountId],
+        (selectErr, row) => {
+          if (selectErr) return callback(selectErr);
+          if (!row) return callback(new Error('Account not found while applying risk lock.'));
+          callback(null, getActiveLock(row) || breach);
+        }
+      );
+    }
   );
+}
+
+function settleBreachWithinTransaction(account, breach, callback) {
+  const openTrades = account.open_trades || [];
+  const settleNext = (index) => {
+    if (index >= openTrades.length) {
+      return lockAccount(account.id, breach, (lockErr, appliedLock) => {
+        if (lockErr) return callback(lockErr);
+        account.status = appliedLock.permanent ? 'PERMANENTLY_LOCKED' : 'LOCKED';
+        account.lock_reason = appliedLock.reason;
+        account.locked_until = appliedLock.lockedUntil;
+        account.permanent_lock = appliedLock.permanent ? 1 : 0;
+        callback(null, appliedLock);
+      });
+    }
+
+    const trade = openTrades[index];
+    if (trade.current_price == null || !Number.isFinite(Number(trade.current_price)) ||
+        Number(trade.current_price) <= 0 || trade.live_pnl == null ||
+        !Number.isFinite(Number(trade.live_pnl))) {
+      return callback(new Error(`Cannot close breached account trade ${trade.id} without its live price.`));
+    }
+    const returnedMargin = getTradeMargin(trade) + Number(trade.live_pnl);
+    db.run(
+      `UPDATE trades SET status = 'CLOSED', pnl = ?, closed_at = CURRENT_TIMESTAMP
+       WHERE id = ? AND status = 'OPEN'`,
+      [trade.live_pnl, trade.id],
+      function(updateErr) {
+        if (updateErr) return callback(updateErr);
+        if (this.changes === 0) return settleNext(index + 1);
+        db.run(
+          `UPDATE accounts
+           SET current_balance = COALESCE(current_balance, 0) + ?,
+               current_equity = COALESCE(current_equity, 0) + ?
+           WHERE id = ?`,
+          [returnedMargin, trade.live_pnl, account.id],
+          (balanceErr) => {
+            if (balanceErr) return callback(balanceErr);
+            settleNext(index + 1);
+          }
+        );
+      }
+    );
+  };
+  settleNext(0);
+}
+
+function applyRiskBreach(account, breach, callback) {
+  db.serialize(() => {
+    db.run('BEGIN IMMEDIATE', (beginErr) => {
+      if (beginErr) return callback(beginErr);
+      settleBreachWithinTransaction(account, breach, (settleErr) => {
+        if (settleErr) return db.run('ROLLBACK', () => callback(settleErr));
+        db.run('COMMIT', (commitErr) => {
+          if (commitErr) return db.run('ROLLBACK', () => callback(commitErr));
+          callback(null, account.lock_reason === 'MLL'
+            ? { reason: 'MLL', permanent: true, lockedUntil: null }
+            : breach);
+        });
+      });
+    });
+  });
 }
 
 function refreshRiskBaselines(accountId, callback) {
@@ -334,25 +408,10 @@ function refreshRiskBaselines(accountId, callback) {
                 callback(null, account);
               });
               if (!breach) return commit();
-              db.run(
-                `UPDATE accounts SET status = ?, lock_reason = ?, locked_until = ?, permanent_lock = ?
-                 WHERE id = ?`,
-                [
-                  breach.permanent ? 'PERMANENTLY_LOCKED' : 'LOCKED',
-                  breach.reason,
-                  breach.lockedUntil,
-                  breach.permanent ? 1 : 0,
-                  accountId
-                ],
-                (lockErr) => {
-                  if (lockErr) return rollback(lockErr);
-                  account.status = breach.permanent ? 'PERMANENTLY_LOCKED' : 'LOCKED';
-                  account.lock_reason = breach.reason;
-                  account.locked_until = breach.lockedUntil;
-                  account.permanent_lock = breach.permanent ? 1 : 0;
-                  commit();
-                }
-              );
+              settleBreachWithinTransaction(account, breach, (lockErr) => {
+                if (lockErr) return rollback(lockErr);
+                commit();
+              });
             }
           );
 
@@ -417,7 +476,9 @@ function checkLiveRiskLimits() {
   db.all(
     `SELECT DISTINCT a.id FROM accounts a
      JOIN trades t ON t.account_id = a.id AND t.status = 'OPEN'
-     WHERE a.status = 'ACTIVE' AND a.permanent_lock = 0 ORDER BY a.id`,
+     WHERE (a.status = 'ACTIVE' AND a.permanent_lock = 0)
+        OR a.lock_reason IN ('DLL', 'MLL')
+     ORDER BY a.id`,
     [],
     (err, accounts) => {
       if (err) {
@@ -449,6 +510,60 @@ function checkLiveRiskLimits() {
 setTimeout(checkLiveRiskLimits, 2000);
 setInterval(checkLiveRiskLimits, 5000);
 
+let dllUnlockSweepInProgress = false;
+function unlockExpiredDllAccounts() {
+  if (dllUnlockSweepInProgress) return;
+  dllUnlockSweepInProgress = true;
+  const now = new Date().toISOString();
+  const today = now.slice(0, 10);
+  db.all(
+    `SELECT id FROM accounts
+     WHERE lock_reason = 'DLL' AND permanent_lock = 0
+       AND (locked_until <= ? OR risk_day < ? OR risk_day IS NULL)
+     ORDER BY id`,
+    [now, today],
+    (err, accounts) => {
+      if (err) {
+        dllUnlockSweepInProgress = false;
+        return console.error('Unable to find expired DLL account locks:', err.message);
+      }
+      const processNext = (index) => {
+        if (index >= accounts.length) {
+          dllUnlockSweepInProgress = false;
+          return;
+        }
+        const accountId = accounts[index].id;
+        refreshRiskBaselines(accountId, (baselineErr, account) => {
+          if (baselineErr) {
+            console.error(`Unable to refresh expired DLL account ${accountId}:`, baselineErr.message);
+            return processNext(index + 1);
+          }
+          unlockExpiredAccount(account, (unlockErr, activeLock) => {
+            if (unlockErr) console.error(`Unable to unlock expired DLL account ${accountId}:`, unlockErr.message);
+            if (activeLock) {
+              if (account.open_trades?.length) {
+                return applyRiskBreach(account, activeLock, (closeErr) => {
+                  if (closeErr) console.error(`Unable to close trades for locked account ${accountId}:`, closeErr.message);
+                  processNext(index + 1);
+                });
+              }
+              return processNext(index + 1);
+            }
+            refreshAccountLock(account, (riskErr) => {
+              if (riskErr) console.error(`Unable to recheck account ${accountId} after DLL unlock:`, riskErr.message);
+              processNext(index + 1);
+            });
+          });
+        });
+      };
+      processNext(0);
+    }
+  );
+}
+
+setTimeout(unlockExpiredDllAccounts, 2000);
+setInterval(unlockExpiredDllAccounts, 5000);
+
 function unlockExpiredAccount(account, callback) {
   const lock = getActiveLock(account);
   if (lock) return callback(null, lock);
@@ -474,17 +589,14 @@ function unlockExpiredAccount(account, callback) {
 
 function refreshAccountLock(account, callback) {
   unlockExpiredAccount(account, (unlockErr, activeLock) => {
-    if (unlockErr || activeLock) return callback(unlockErr, activeLock);
+    if (unlockErr) return callback(unlockErr);
+    if (activeLock) {
+      if (!account.open_trades?.length) return callback(null, activeLock);
+      return applyRiskBreach(account, activeLock, callback);
+    }
     const breach = getRiskBreach(account, account);
     if (!breach) return callback(null, null);
-    lockAccount(account.id, breach, (lockErr) => {
-      if (lockErr) return callback(lockErr);
-      account.status = breach.permanent ? 'PERMANENTLY_LOCKED' : 'LOCKED';
-      account.lock_reason = breach.reason;
-      account.locked_until = breach.lockedUntil;
-      account.permanent_lock = breach.permanent ? 1 : 0;
-      callback(null, breach);
-    });
+    applyRiskBreach(account, breach, callback);
   });
 }
 
@@ -1351,13 +1463,13 @@ app.post('/api/trades/execute', sensitiveLimiter, requireWalletSession, (req, re
 
         const existingBreach = getRiskBreach(account, account);
         if (existingBreach) {
-          return lockAccount(account_id, existingBreach, (lockErr) => {
+          return applyRiskBreach(account, existingBreach, (lockErr, appliedLock) => {
             if (lockErr) return res.status(500).json({ error: 'Unable to apply account risk lock.' });
             res.status(403).json({
-              error: existingBreach.permanent
+              error: appliedLock.permanent
                 ? 'Account permanently locked after exceeding the maximum loss limit (MLL).'
-                : `Account locked for DLL breach until ${existingBreach.lockedUntil}.`,
-              lock: existingBreach
+                : `Account locked for DLL breach until ${appliedLock.lockedUntil}.`,
+              lock: appliedLock
             });
           });
         }
@@ -1449,7 +1561,7 @@ app.post('/api/trades/close', sensitiveLimiter, requireWalletSession, (req, res)
         getAuthoritativePrice(market).then((price) => {
         const priceDiff = trade.side === 'BUY' ? price - trade.entry_price : trade.entry_price - price;
         const pnl = priceDiff * trade.units;
-        const returnedMargin = Math.max(0, getTradeMargin(trade) + pnl);
+        const returnedMargin = getTradeMargin(trade) + pnl;
         db.serialize(() => {
           db.run('BEGIN IMMEDIATE');
           db.run(
@@ -1475,12 +1587,12 @@ app.post('/api/trades/close', sensitiveLimiter, requireWalletSession, (req, res)
                         res.json({ success: true, pnl, lock });
                       });
                       if (!breach) return commit(activeLock);
-                      lockAccount(trade.account_id, breach, (lockErr) => {
+                      settleBreachWithinTransaction(account, breach, (lockErr, appliedLock) => {
                         if (lockErr) return db.run('ROLLBACK', () => res.status(500).json({ error: 'Unable to apply account lock.' }));
                         commit({
-                          reason: breach.reason,
-                          permanent: breach.permanent,
-                          lockedUntil: breach.lockedUntil
+                          reason: appliedLock.reason,
+                          permanent: appliedLock.permanent,
+                          lockedUntil: appliedLock.lockedUntil
                         });
                       });
                     });

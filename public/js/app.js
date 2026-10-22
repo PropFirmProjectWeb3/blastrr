@@ -187,7 +187,7 @@ let connectedWallet = null;
             if (forceClose === true) {
                 nav.classList.remove('mobile-open');
                 if (hamburger) {
-                    hamburger.innerText = '☰';
+                    hamburger.classList.remove('menu-open');
                     hamburger.setAttribute('aria-label', 'Open navigation menu');
                     hamburger.setAttribute('aria-expanded', 'false');
                 }
@@ -196,7 +196,7 @@ let connectedWallet = null;
             nav.classList.toggle('mobile-open');
             if (hamburger) {
                 const isOpen = nav.classList.contains('mobile-open');
-                hamburger.innerText = isOpen ? '✕' : '☰';
+                hamburger.classList.toggle('menu-open', isOpen);
                 hamburger.setAttribute('aria-label', isOpen ? 'Close navigation menu' : 'Open navigation menu');
                 hamburger.setAttribute('aria-expanded', String(isOpen));
             }
@@ -522,6 +522,20 @@ let connectedWallet = null;
             loadUserProfile(connectedWallet);
         }
 
+        function isRiskLockedAccount(account) {
+            return account?.lock_reason === 'DLL' ||
+                account?.lock_reason === 'MLL' ||
+                Number(account?.permanent_lock) === 1;
+        }
+
+        function isSelectableTradingAccount(account) {
+            return account?.status === 'ACTIVE' &&
+                !isRiskLockedAccount(account) &&
+                Number(account.admin_frozen) !== 1 &&
+                Number(account.withdrawal_pending) !== 1 &&
+                Number(account.pending_withdrawal_amount || 0) <= 0;
+        }
+
         async function silentSyncUserData(wallet) {
             try {
                 const res = await walletFetch(`/api/accounts?wallet=${encodeURIComponent(wallet)}`);
@@ -531,25 +545,27 @@ let connectedWallet = null;
                 const selectElem = document.getElementById('active-account-select');
                 if (!selectElem) return;
                 const currentSelected = selectElem.value;
+                const selectableAccounts = userAccounts.filter(isSelectableTradingAccount);
+                const nextSelected = selectableAccounts.find(account => account.id === currentSelected)?.id ||
+                    selectableAccounts.find(account => account.id === selectedAccountId)?.id ||
+                    selectableAccounts[0]?.id ||
+                    null;
+                selectedAccountId = nextSelected;
+                activeAccount = selectableAccounts.find(account => account.id === nextSelected) || null;
 
-                if (userAccounts.length === 0) {
-                    selectElem.innerHTML = '<option value="">No Accounts Available</option>';
-                    selectedAccountId = null;
-                    activeAccount = null;
+                if (selectableAccounts.length === 0) {
+                    selectElem.innerHTML = '<option value="">No Unlocked Accounts Available</option>';
+                    const openList = document.getElementById('open-trades-list');
+                    if (openList) openList.innerHTML = '<tr><td colspan="9" style="text-align: center; color: #6b7280; padding: 24px;">No unlocked accounts available.</td></tr>';
+                    updateAvailableBalanceLabel();
                 } else {
                     let selectHtml = '';
-                    userAccounts.forEach((acc) => {
-                        if (!selectedAccountId) selectedAccountId = acc.id;
-                        if (acc.id === selectedAccountId) activeAccount = acc;
+                    selectableAccounts.forEach((acc) => {
                         selectHtml += `<option value="${acc.id}" ${acc.id === selectedAccountId ? 'selected' : ''}>${acc.plan_name} (${acc.id}) - Bal: $${acc.current_balance.toLocaleString()}</option>`;
                     });
                     if (selectElem.innerHTML !== selectHtml) selectElem.innerHTML = selectHtml;
 
-                    if (currentSelected && userAccounts.some(a => a.id === currentSelected)) {
-                        selectElem.value = currentSelected;
-                        selectedAccountId = currentSelected;
-                        activeAccount = userAccounts.find(a => a.id === currentSelected);
-                    }
+                    selectElem.value = selectedAccountId;
                 }
 
                 if (selectedAccountId) {
@@ -725,7 +741,7 @@ let connectedWallet = null;
                 cardElem.querySelector(`#dll-base-${CSS.escape(acc.id)}`).innerText = `Risk baseline: $${acc.daily_starting_balance.toLocaleString()}`;
                 cardElem.querySelector(`#mll-floor-${CSS.escape(acc.id)}`).innerText = `Breach floor: $${m.mllFloor.toLocaleString()}`;
                 cardElem.querySelector(`#cs-val-${CSS.escape(acc.id)}`).innerText = `${m.consistencyScore}%`;
-                const statusLabel = acc.lock_reason === 'MLL'
+                const statusLabel = acc.lock_reason === 'MLL' || Number(acc.permanent_lock) === 1
                     ? 'PERMANENTLY LOCKED — MLL'
                     : acc.lock_reason === 'DLL'
                         ? `LOCKED — DLL until ${new Date(acc.locked_until).toLocaleString()}`
@@ -1074,15 +1090,25 @@ let connectedWallet = null;
         }
 
         function switchActiveAccount(accId) {
-            selectedAccountId = accId;
-            activeAccount = userAccounts.find(a => a.id === accId);
+            activeAccount = userAccounts.find(a => a.id === accId && isSelectableTradingAccount(a)) || null;
+            selectedAccountId = activeAccount?.id || null;
+            if (!activeAccount) {
+                const selectElem = document.getElementById('active-account-select');
+                if (selectElem) selectElem.value = '';
+                updateAvailableBalanceLabel();
+                return;
+            }
             updateAvailableBalanceLabel();
-            loadOpenTrades(accId);
+            loadOpenTrades(selectedAccountId);
         }
 
         function selectAccountAndTrade(accId) {
-            selectedAccountId = accId;
-            activeAccount = userAccounts.find(a => a.id === accId);
+            activeAccount = userAccounts.find(a => a.id === accId && isSelectableTradingAccount(a)) || null;
+            if (!activeAccount) {
+                setTradeFeedback('This account is locked or unavailable for trading.');
+                return;
+            }
+            selectedAccountId = activeAccount.id;
             const selectElem = document.getElementById('active-account-select');
             if (selectElem) selectElem.value = accId;
             updateAvailableBalanceLabel();

@@ -16,6 +16,17 @@ test('trading terminal HTML loads its external stylesheet and application script
   assert.doesNotMatch(appHtml, /<script>\s*[\s\S]*?\bfunction\s/m);
   assert.match(appHtml, /id="nav-menu"/);
   assert.match(appHtml, /id="order-symbol"/);
+  assert.doesNotMatch(appHtml, /\p{Extended_Pictographic}/u);
+  assert.match(appHtml, /class="hamburger-glyph"/);
+});
+
+test('terminal surfaces use the glass and slate theme', () => {
+  assert.match(appCss, /--surface-glass: rgba\(20, 27, 38, 0\.72\)/);
+  assert.match(appCss, /backdrop-filter: blur\(20px\) saturate\(130%\)/);
+  assert.match(appCss, /background: rgba\(30, 41, 59, 0\.46\)/);
+  assert.match(appCss, /header #nav-menu \{[\s\S]*?backdrop-filter: blur\(24px\) saturate\(145%\)/);
+  assert.match(appCss, /\.hamburger-btn\.menu-open \.hamburger-glyph::before \{ transform: rotate\(45deg\); \}/);
+  assert.match(appCss, /\.hamburger-btn\.menu-open \.hamburger-glyph::after \{ transform: rotate\(-45deg\); \}/);
 });
 
 test('trade entry uses metric cards, defaults to spot leverage, and scales the chart for screen size', () => {
@@ -49,8 +60,21 @@ test('live market PnL feeds server-side risk checks and active trade responses',
   assert.match(serverJs, /getLiveRiskBalance\(account, openTrades, pricesBySymbol\)/);
   assert.match(serverJs, /setInterval\(checkLiveRiskLimits, 5000\)/);
   assert.match(serverJs, /risk_balance: getRiskBalance\(liveAccount\)/);
-  assert.match(serverJs, /Math\.max\(0, getTradeMargin\(trade\) \+ pnl\)/);
+  assert.match(serverJs, /getTradeMargin\(trade\) \+ pnl/);
+  assert.match(serverJs, /settleBreachWithinTransaction\(account, breach/);
+  assert.match(serverJs, /function unlockExpiredDllAccounts/);
+  assert.match(serverJs, /a\.lock_reason IN \('DLL', 'MLL'\)/);
+  assert.match(serverJs, /COALESCE\(permanent_lock, 0\) = 1 AND \? = 0/);
+  assert.match(appJs, /acc\.lock_reason === 'MLL' \|\| Number\(acc\.permanent_lock\) === 1/);
   assert.match(appJs, /Number\.isFinite\(Number\(trd\.live_pnl\)\)/);
+});
+
+test('chart account selector excludes risk-locked accounts and clears when none are selectable', () => {
+  assert.match(appJs, /function isRiskLockedAccount\(account\)/);
+  assert.match(appJs, /const selectableAccounts = userAccounts\.filter\(isSelectableTradingAccount\)/);
+  assert.match(appJs, /No Unlocked Accounts Available/);
+  assert.match(appJs, /function isSelectableTradingAccount\(account\)/);
+  assert.match(appJs, /isRiskLockedAccount\(account\)/);
 });
 
 test('live market polling uses browser-side provider URLs, not the app proxy', () => {

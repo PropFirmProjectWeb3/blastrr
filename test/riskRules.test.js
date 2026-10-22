@@ -70,7 +70,7 @@ test('live risk keeps legacy cash balance authoritative when stored equity is st
 test('live unrealized losses reduce account equity and trigger DLL before MLL', () => {
   const account = {
     initial_balance: 250000,
-    current_balance: 230000,
+    current_balance: 150000,
     current_equity: 250000,
     daily_starting_balance: 250000,
     high_water_mark: 250000
@@ -79,7 +79,7 @@ test('live unrealized losses reduce account equity and trigger DLL before MLL', 
   const liveRiskBalance = getLiveRiskBalance(account, [trade], new Map([['BTC/USDT', 87]]));
 
   assert.equal(calculateUnrealizedPnl(trade, 87), -13000);
-  assert.equal(getTradeMargin(trade), 20000);
+  assert.equal(getTradeMargin(trade), 100000);
   assert.equal(liveRiskBalance, 237000);
   assert.equal(getRiskBreach({ ...account, risk_balance: liveRiskBalance }, plan, 0).reason, 'DLL');
 });
@@ -87,7 +87,7 @@ test('live unrealized losses reduce account equity and trigger DLL before MLL', 
 test('live unrealized losses at the MLL floor trigger a permanent lock', () => {
   const account = {
     initial_balance: 250000,
-    current_balance: 210000,
+    current_balance: 50000,
     current_equity: 250000,
     daily_starting_balance: 250000,
     high_water_mark: 250000
@@ -155,12 +155,16 @@ test('legacy accounts use their current balance as the first DLL baseline', () =
   assert.equal(getRiskBreach({ ...legacy, ...baseline }, plan, 0), null);
 });
 
-test('DLL breaches lock for exactly 24 hours unless MLL is also breached', () => {
+test('DLL expiry is capped at the next UTC day or 24 hours, whichever comes first', () => {
   const now = Date.UTC(2026, 0, 1);
   const breach = getRiskBreach(account(950), plan, now);
   assert.equal(breach.reason, 'DLL');
   assert.equal(breach.permanent, false);
   assert.equal(Date.parse(breach.lockedUntil) - now, DLL_LOCK_HOURS * 60 * 60 * 1000);
+
+  const intraday = Date.UTC(2026, 0, 1, 12);
+  const intradayBreach = getRiskBreach(account(950), plan, intraday);
+  assert.equal(intradayBreach.lockedUntil, '2026-01-02T00:00:00.000Z');
 });
 
 test('the harder MLL breach takes precedence over DLL', () => {

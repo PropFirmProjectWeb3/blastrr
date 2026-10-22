@@ -394,7 +394,7 @@ let connectedWallet = null;
             if (livePriceInterval) clearInterval(livePriceInterval);
             const generation = ++livePriceRequestGeneration;
             fetchPrice(pair, type, source, generation);
-            livePriceInterval = setInterval(() => fetchPrice(pair, type, source, generation), 2000);
+            livePriceInterval = setInterval(() => fetchPrice(pair, type, source, generation), 1000);
         }
 
         async function fetchPrice(pair, type, source, generation) {

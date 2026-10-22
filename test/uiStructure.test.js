@@ -107,14 +107,22 @@ test('chart account selector excludes risk-locked accounts and clears when none 
 test('Binance spot and Bitget perp markets use direct browser prices and trusted server pricing', () => {
   assert.match(appJs, /https:\/\/api\.binance\.com\/api\/v3\/ticker\/price\?symbol=/);
   assert.match(appJs, /https:\/\/api\.bitget\.com\/api\/v2\/mix\/market\/ticker\?productType=USDT-FUTURES&symbol=/);
+  assert.match(appJs, /https:\/\/api\.bitget\.com\/api\/v2\/mix\/market\/candles\?productType=USDT-FUTURES/);
   assert.match(appJs, /data\?\.code !== '00000'/);
   assert.match(appJs, /ticker\?\.symbol !== pair/);
+  assert.match(appJs, /price = Number\(ticker\.markPrice\)/);
+  assert.match(appJs, /function updateLiveMarketChart\(ticker\)/);
+  assert.match(appJs, /liveMarketCandleSeries\.update/);
+  assert.match(appJs, /initLiveMarketChart\(opt\.dataset\.pair\)/);
+  assert.match(appJs, /Charts by TradingView/);
+  assert.match(appHtml, /lightweight-charts@4\.2\.3\/dist\/lightweight-charts\.standalone\.production\.js/);
   assert.doesNotMatch(appJs, /\/api\/market\/price/);
   assert.doesNotMatch(appJs, /fapi\.binance\.com|api\.bybit\.com|api\.nasdaq\.com/);
   assert.match(serverJs, /api\.binance\.com\/api\/v3\/ticker\/price\?symbol=/);
   assert.match(serverJs, /api\.bitget\.com\/api\/v2\/mix\/market\/ticker\?productType=USDT-FUTURES&symbol=/);
   assert.match(serverJs, /parsed\.code !== '00000'/);
   assert.match(serverJs, /ticker\?\.symbol !== market\.pair/);
+  assert.match(serverJs, /priceValue = ticker\.markPrice/);
   assert.match(serverJs, /market\.source === 'BITGET_PERP' \? marketPrice \* 0\.0005 : 5/);
   assert.match(serverJs, /const legacyTradeMarkets = new Map/);
   assert.match(serverJs, /function getTradeMarket\(symbol\)/);

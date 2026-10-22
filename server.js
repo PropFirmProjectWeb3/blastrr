@@ -239,7 +239,7 @@ function getAuthoritativePrice(market) {
             if (parsed.code !== '00000') return reject(new Error(`Bitget market provider error: ${parsed.msg || parsed.code}.`));
             const ticker = parsed.data?.[0];
             if (ticker?.symbol !== market.pair) return reject(new Error('Bitget returned an unexpected market symbol.'));
-            priceValue = ticker.lastPr;
+            priceValue = ticker.markPrice;
           } else {
             priceValue = parsed.price;
           }

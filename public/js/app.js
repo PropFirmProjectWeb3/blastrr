@@ -5,6 +5,14 @@ let connectedWallet = null;
         let selectedAccountId = null;
         let activeAccount = null;
         let tvWidget = null;
+        let liveMarketChart = null;
+        let liveMarketCandleSeries = null;
+        let liveMarketResizeObserver = null;
+        let liveMarketChartPair = null;
+        let liveMarketChartStatus = null;
+        let liveMarketLastCandle = null;
+        let liveMarketChartGeneration = 0;
+        let livePriceRequestGeneration = 0;
         let activePromoCode = null;
         let plansData = [];
         let planLoadAttempts = 0;
@@ -215,9 +223,14 @@ let connectedWallet = null;
         }
 
         function initTradingViewWidget(symbol) {
+            disposeLiveMarketChart();
             const container = document.getElementById('tradingview-widget-container');
             if (!container) return;
             container.innerHTML = '';
+            if (!window.TradingView?.widget) {
+                container.textContent = 'TradingView chart is unavailable.';
+                return;
+            }
             tvWidget = new TradingView.widget({
                 "autosize": true,
                 "symbol": symbol,
@@ -231,6 +244,130 @@ let connectedWallet = null;
             });
         }
 
+        function disposeLiveMarketChart() {
+            liveMarketChartGeneration += 1;
+            liveMarketResizeObserver?.disconnect();
+            liveMarketResizeObserver = null;
+            liveMarketChart?.remove();
+            liveMarketChart = null;
+            liveMarketCandleSeries = null;
+            liveMarketChartPair = null;
+            liveMarketChartStatus = null;
+            liveMarketLastCandle = null;
+        }
+
+        async function initLiveMarketChart(pair) {
+            disposeLiveMarketChart();
+            const container = document.getElementById('tradingview-widget-container');
+            if (!container) return;
+            container.replaceChildren();
+            tvWidget = null;
+
+            if (!window.LightweightCharts?.createChart) {
+                container.textContent = 'Live perpetual chart is unavailable. Check the chart library connection.';
+                return;
+            }
+
+            const generation = liveMarketChartGeneration;
+            liveMarketChartPair = pair;
+            const chartHost = document.createElement('div');
+            chartHost.className = 'live-market-chart-host';
+            liveMarketChartStatus = document.createElement('div');
+            liveMarketChartStatus.className = 'live-market-chart-status';
+            liveMarketChartStatus.textContent = 'Loading live Bitget candles…';
+            const attribution = document.createElement('a');
+            attribution.className = 'live-market-chart-attribution';
+            attribution.href = 'https://www.tradingview.com/';
+            attribution.target = '_blank';
+            attribution.rel = 'noopener noreferrer';
+            attribution.textContent = 'Charts by TradingView';
+            container.replaceChildren(chartHost, liveMarketChartStatus, attribution);
+
+            liveMarketChart = LightweightCharts.createChart(chartHost, {
+                width: chartHost.clientWidth,
+                height: chartHost.clientHeight,
+                layout: {
+                    background: { color: '#090d13' },
+                    textColor: '#9ca3af'
+                },
+                grid: {
+                    vertLines: { color: 'rgba(148, 163, 184, 0.08)' },
+                    horzLines: { color: 'rgba(148, 163, 184, 0.08)' }
+                },
+                rightPriceScale: { borderColor: 'rgba(148, 163, 184, 0.16)' },
+                timeScale: { borderColor: 'rgba(148, 163, 184, 0.16)', timeVisible: true },
+                crosshair: { mode: LightweightCharts.CrosshairMode?.Normal ?? 0 }
+            });
+            liveMarketCandleSeries = liveMarketChart.addCandlestickSeries({
+                upColor: '#34d399',
+                downColor: '#f87171',
+                borderVisible: false,
+                wickUpColor: '#34d399',
+                wickDownColor: '#f87171'
+            });
+            if (window.ResizeObserver) {
+                liveMarketResizeObserver = new ResizeObserver(entries => {
+                    const { width, height } = entries[0].contentRect;
+                    if (width > 0 && height > 0) liveMarketChart?.applyOptions({ width, height });
+                });
+                liveMarketResizeObserver.observe(chartHost);
+            }
+
+            try {
+                const endpoint = `https://api.bitget.com/api/v2/mix/market/candles?productType=USDT-FUTURES&symbol=${encodeURIComponent(pair)}&granularity=1m&limit=120`;
+                const response = await fetch(endpoint);
+                if (!response.ok) throw new Error(`Bitget candle request failed (${response.status}).`);
+                const data = await response.json();
+                if (data?.code !== '00000') throw new Error(`Bitget candle request failed (${data?.msg || data?.code}).`);
+                if (generation !== liveMarketChartGeneration || liveMarketChartPair !== pair) return;
+
+                const candles = (data.data || []).map(candle => ({
+                    time: Math.floor(Number(candle[0]) / 1000),
+                    open: Number(candle[1]),
+                    high: Number(candle[2]),
+                    low: Number(candle[3]),
+                    close: Number(candle[4])
+                })).filter(candle => Number.isFinite(candle.time) &&
+                    [candle.open, candle.high, candle.low, candle.close].every(value => Number.isFinite(value) && value > 0))
+                    .sort((a, b) => a.time - b.time);
+                if (candles.length === 0) throw new Error('Bitget returned no valid candles.');
+                liveMarketCandleSeries.setData(candles);
+                liveMarketLastCandle = { ...candles[candles.length - 1] };
+                liveMarketChart.timeScale().fitContent();
+                liveMarketChartStatus.remove();
+                liveMarketChartStatus = null;
+            } catch (error) {
+                if (generation !== liveMarketChartGeneration) return;
+                console.error(`Unable to load Bitget candles for ${pair}:`, error.message);
+                liveMarketChartStatus.textContent = 'Unable to load live candles. Retrying with the next price update.';
+            }
+        }
+
+        function updateLiveMarketChart(ticker) {
+            if (!liveMarketCandleSeries || !ticker || ticker.symbol !== liveMarketChartPair) return;
+            const price = Number(ticker.markPrice);
+            const timestamp = Number(ticker.ts);
+            if (!Number.isFinite(price) || price <= 0) return;
+            const time = Math.floor((Number.isFinite(timestamp) ? timestamp : Date.now()) / 60000) * 60;
+            const latest = liveMarketLastCandle;
+            if (!latest || time < latest.time) return;
+            if (time === latest.time) {
+                latest.high = Math.max(latest.high, price);
+                latest.low = Math.min(latest.low, price);
+                latest.close = price;
+                liveMarketCandleSeries.update({ ...latest });
+                return;
+            }
+            liveMarketLastCandle = {
+                time,
+                open: latest.close,
+                high: Math.max(latest.close, price),
+                low: Math.min(latest.close, price),
+                close: price
+            };
+            liveMarketCandleSeries.update({ ...liveMarketLastCandle });
+        }
+
         function updateTradingViewSymbol(symbol) {
             if (tvWidget && tvWidget.chart) {
                 try { tvWidget.chart().setSymbol(symbol); } catch(e) { initTradingViewWidget(symbol); }
@@ -241,20 +378,26 @@ let connectedWallet = null;
 
         function onSymbolChanged(tvSymbol) {
             userHasEditedPrice = false;
-            updateTradingViewSymbol(tvSymbol);
             const select = document.getElementById('order-symbol');
             if (!select) return;
             const opt = select.querySelector(`option[value="${tvSymbol}"]`);
-            if (opt) startPricePolling(opt.dataset.pair, opt.dataset.type, opt.dataset.source);
+            if (!opt) return;
+            if (opt.dataset.source === 'BITGET_PERP') {
+                initLiveMarketChart(opt.dataset.pair);
+            } else {
+                updateTradingViewSymbol(tvSymbol);
+            }
+            startPricePolling(opt.dataset.pair, opt.dataset.type, opt.dataset.source);
         }
 
         function startPricePolling(pair, type, source) {
             if (livePriceInterval) clearInterval(livePriceInterval);
-            fetchPrice(pair, type, source);
-            livePriceInterval = setInterval(() => fetchPrice(pair, type, source), 2000);
+            const generation = ++livePriceRequestGeneration;
+            fetchPrice(pair, type, source, generation);
+            livePriceInterval = setInterval(() => fetchPrice(pair, type, source, generation), 2000);
         }
 
-        async function fetchPrice(pair, type, source) {
+        async function fetchPrice(pair, type, source, generation) {
             try {
                 const endpoint = source === 'BINANCE_SPOT'
                     ? `https://api.binance.com/api/v3/ticker/price?symbol=${encodeURIComponent(pair)}`
@@ -272,9 +415,11 @@ let connectedWallet = null;
                     if (data?.code !== '00000') throw new Error(`Bitget price request failed (${data?.msg || data?.code}).`);
                     const ticker = data.data?.[0];
                     if (ticker?.symbol !== pair) throw new Error('Bitget returned an unexpected market symbol.');
-                    price = Number(ticker.lastPr);
+                    price = Number(ticker.markPrice);
+                    if (generation === livePriceRequestGeneration) updateLiveMarketChart(ticker);
                 }
                 if (!Number.isFinite(price) || price <= 0) throw new Error('Market provider returned an invalid price.');
+                if (generation !== livePriceRequestGeneration) return;
                 currentLivePrice = price;
 
                 const priceInput = document.getElementById('order-price');

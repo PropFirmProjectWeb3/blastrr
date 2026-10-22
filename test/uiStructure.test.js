@@ -104,10 +104,17 @@ test('chart account selector excludes risk-locked accounts and clears when none 
   assert.match(appJs, /isRiskLockedAccount\(account\)/);
 });
 
-test('live market polling uses browser-side provider URLs, not the app proxy', () => {
+test('live market polling uses public provider feeds and restricted app endpoints', () => {
   assert.match(appJs, /https:\/\/api\.binance\.com\/api\/v3\/ticker\/price/);
   assert.match(appJs, /https:\/\/fapi\.binance\.com\/fapi\/v1\/ticker\/price/);
+  assert.match(appJs, /https:\/\/api\.bybit\.com\/v5\/market\/tickers\?category=linear&symbol=/);
+  assert.match(appJs, /source === 'NASDAQ_INDEX'[\s\S]*?\/api\/market\/index-price\?symbol=/);
   assert.doesNotMatch(appJs, /\/api\/market\/price/);
+  assert.match(serverJs, /app\.get\('\/api\/market\/index-price', sensitiveLimiter/);
+  assert.match(serverJs, /item\.source === 'NASDAQ_INDEX' && item\.pair === symbol/);
+  assert.match(serverJs, /api\.nasdaq\.com\/api\/quote\/ndx\/summary\?assetclass=index/);
+  assert.match(serverJs, /market\.source === 'NASDAQ_INDEX' \? 5000 : 2000/);
+  assert.match(serverJs, /market\.source === 'BYBIT_PERP' \? marketPrice \* 0\.0005 : 5/);
 });
 
 test('landing-page plans are loaded from the shared plans API', () => {

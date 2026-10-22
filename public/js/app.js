@@ -251,18 +251,39 @@ let connectedWallet = null;
         function startPricePolling(pair, type, source) {
             if (livePriceInterval) clearInterval(livePriceInterval);
             fetchPrice(pair, type, source);
-            livePriceInterval = setInterval(() => fetchPrice(pair, type, source), 2000);
+            const pollingInterval = source === 'NASDAQ_INDEX' ? 5000 : 2000;
+            livePriceInterval = setInterval(() => fetchPrice(pair, type, source), pollingInterval);
         }
 
         async function fetchPrice(pair, type, source) {
             try {
                 if (source === 'BINANCE_PERP' || source === 'BINANCE_SPOT') {
                     const endpoint = source === 'BINANCE_PERP'
-                        ? `https://fapi.binance.com/fapi/v1/ticker/price?symbol=${pair}`
-                        : `https://api.binance.com/api/v3/ticker/price?symbol=${pair}`;
+                        ? `https://fapi.binance.com/fapi/v1/ticker/price?symbol=${encodeURIComponent(pair)}`
+                        : `https://api.binance.com/api/v3/ticker/price?symbol=${encodeURIComponent(pair)}`;
                     const res = await fetch(endpoint);
+                    if (!res.ok) throw new Error(`Binance price request failed (${res.status}).`);
                     const data = await res.json();
-                    if (data && data.price) currentLivePrice = parseFloat(data.price);
+                    const price = Number(data?.price);
+                    if (Number.isFinite(price) && price > 0) currentLivePrice = price;
+                } else if (source === 'BYBIT_PERP') {
+                    const endpoint = `https://api.bybit.com/v5/market/tickers?category=linear&symbol=${encodeURIComponent(pair)}`;
+                    const res = await fetch(endpoint);
+                    if (!res.ok) throw new Error(`Bybit price request failed (${res.status}).`);
+                    const data = await res.json();
+                    if (data?.retCode !== 0) throw new Error(`Bybit price request failed (${data?.retMsg || data?.retCode}).`);
+                    const price = Number(data.result?.list?.[0]?.lastPrice);
+                    if (!Number.isFinite(price) || price <= 0) throw new Error('Bybit returned an invalid market price.');
+                    currentLivePrice = price;
+                } else if (source === 'NASDAQ_INDEX') {
+                    const res = await fetch(`/api/market/index-price?symbol=${encodeURIComponent(pair)}`);
+                    if (!res.ok) throw new Error(`Nasdaq index price request failed (${res.status}).`);
+                    const data = await res.json();
+                    const price = Number(data?.price);
+                    if (!data?.success || !Number.isFinite(price) || price <= 0) {
+                        throw new Error(data?.error || 'Nasdaq returned an invalid index price.');
+                    }
+                    currentLivePrice = price;
                 } else if (source === 'SIMULATED') {
                     const market = marketsData.find(item => item.pair === pair && item.type === type);
                     if (!market) return;

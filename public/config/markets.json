@@ -24,14 +24,28 @@
     "source": "BINANCE_SPOT"
   },
   {
-    "label": "GC - Gold Perpetual",
-    "symbol": "TVC:GOLD",
-    "pair": "GC",
-    "type": "TRADFI",
-    "group": "Perpetual Futures & Indices",
-    "source": "SIMULATED",
-    "base": 2650,
-    "amplitude": 5
+    "label": "Gold (XAU/USDT) Perpetual",
+    "symbol": "BYBIT:XAUUSDT.P",
+    "pair": "XAUUSDT",
+    "type": "BYBIT_PERP",
+    "group": "Commodity & Equity Perps",
+    "source": "BYBIT_PERP"
+  },
+  {
+    "label": "Silver (XAG/USDT) Perpetual",
+    "symbol": "BYBIT:XAGUSDT.P",
+    "pair": "XAGUSDT",
+    "type": "BYBIT_PERP",
+    "group": "Commodity & Equity Perps",
+    "source": "BYBIT_PERP"
+  },
+  {
+    "label": "Nasdaq 100 Index (NDX)",
+    "symbol": "CAPITALCOM:US100",
+    "pair": "NDX",
+    "type": "INDEX",
+    "group": "Index Markets (Non-Perpetual)",
+    "source": "NASDAQ_INDEX"
   },
   {
     "label": "CL - Crude Oil Perpetual",
@@ -44,31 +58,11 @@
     "amplitude": 0.8
   },
   {
-    "label": "NQ - Nasdaq 100 Index",
-    "symbol": "CAPITALCOM:US100",
-    "pair": "NAS100",
-    "type": "TRADFI",
-    "group": "Perpetual Futures & Indices",
-    "source": "SIMULATED",
-    "base": 20150,
-    "amplitude": 15
-  },
-  {
-    "label": "ES - S&P 500 Index",
-    "symbol": "CAPITALCOM:US500",
-    "pair": "US500",
-    "type": "TRADFI",
-    "group": "Perpetual Futures & Indices",
-    "source": "SIMULATED",
-    "base": 5820,
-    "amplitude": 4
-  },
-  {
     "label": "BTC/USDT Perpetual",
     "symbol": "BINANCE:BTCUSDT.P",
     "pair": "BTCUSDT",
     "type": "CRYPTO_PERP",
-    "group": "Perpetual Futures & Indices",
+    "group": "Crypto Perpetuals",
     "source": "BINANCE_PERP"
   },
   {
@@ -76,7 +70,7 @@
     "symbol": "BINANCE:ETHUSDT.P",
     "pair": "ETHUSDT",
     "type": "CRYPTO_PERP",
-    "group": "Perpetual Futures & Indices",
+    "group": "Crypto Perpetuals",
     "source": "BINANCE_PERP"
   },
   {
@@ -84,7 +78,7 @@
     "symbol": "BINANCE:SOLUSDT.P",
     "pair": "SOLUSDT",
     "type": "CRYPTO_PERP",
-    "group": "Perpetual Futures & Indices",
+    "group": "Crypto Perpetuals",
     "source": "BINANCE_PERP"
   }
 ]

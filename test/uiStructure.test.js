@@ -63,6 +63,15 @@ test('trade entry uses metric cards, defaults to spot leverage, and scales the c
   assert.match(appJs, /liquidation-price-label/);
 });
 
+test('TradingView chart uses homepage candle colors with a purple EMA overlay and matching order buttons', () => {
+  assert.match(appJs, /"studies":\s*\["MAExp@tv-basicstudies"\]/);
+  assert.match(appJs, /"moving average exponential\.plot\.color":\s*"#b68aff"/);
+  assert.match(appJs, /"mainSeriesProperties\.candleStyle\.upColor":\s*"#72f0c3"/);
+  assert.match(appJs, /"mainSeriesProperties\.candleStyle\.downColor":\s*"#ff638e"/);
+  assert.match(appCss, /\.order-actions \.btn-buy\s*\{[^}]*#72f0c3/);
+  assert.match(appCss, /\.order-actions \.btn-sell\s*\{[^}]*#ff638e/);
+});
+
 test('open positions show margin and notional separately and refresh PnL with live quotes', () => {
   assert.match(appHtml, /<th>Margin \/ Notional \(\$\)<\/th>/);
   assert.match(appJs, /const notional = Number\(trd\.units\) \* Number\(trd\.entry_price\)/);

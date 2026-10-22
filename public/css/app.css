@@ -382,6 +382,8 @@
 
         .btn-buy { width: 100%; background: linear-gradient(135deg, rgba(5, 120, 87, 0.76), rgba(6, 95, 70, 0.82)); color: white; border: 1px solid rgba(110, 231, 183, 0.22); padding: 12px; border-radius: 9px; font-weight: 700; cursor: pointer; font-size: 14px; margin-bottom: 10px; }
         .btn-sell { width: 100%; background: linear-gradient(135deg, rgba(153, 54, 62, 0.76), rgba(127, 29, 40, 0.82)); color: white; border: 1px solid rgba(252, 165, 165, 0.2); padding: 12px; border-radius: 9px; font-weight: 700; cursor: pointer; font-size: 14px; }
+        .order-actions .btn-buy { background: linear-gradient(135deg, #72f0c3, #43d9a4); color: #06251c; border-color: rgba(114, 240, 195, 0.8); }
+        .order-actions .btn-sell { background: linear-gradient(135deg, #ff638e, #f04470); color: #310814; border-color: rgba(255, 99, 142, 0.8); }
 
         .table-responsive { width: 100%; overflow-x: auto; }
         table { width: 100%; border-collapse: collapse; text-align: left; font-size: 13.5px; min-width: 600px; }

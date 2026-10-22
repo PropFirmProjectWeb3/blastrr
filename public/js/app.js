@@ -241,6 +241,22 @@ let connectedWallet = null;
                 "style": "1",
                 "locale": "en",
                 "toolbar_bg": "#090d13",
+                "studies": ["MAExp@tv-basicstudies"],
+                "studies_overrides": {
+                    "moving average exponential.plot.color": "#b68aff",
+                    "moving average exponential.plot.linewidth": 2
+                },
+                "overrides": {
+                    "paneProperties.background": "#090d13",
+                    "paneProperties.vertGridProperties.color": "rgba(196, 178, 255, 0.10)",
+                    "paneProperties.horzGridProperties.color": "rgba(196, 178, 255, 0.10)",
+                    "mainSeriesProperties.candleStyle.upColor": "#72f0c3",
+                    "mainSeriesProperties.candleStyle.downColor": "#ff638e",
+                    "mainSeriesProperties.candleStyle.borderUpColor": "#72f0c3",
+                    "mainSeriesProperties.candleStyle.borderDownColor": "#ff638e",
+                    "mainSeriesProperties.candleStyle.wickUpColor": "#72f0c3",
+                    "mainSeriesProperties.candleStyle.wickDownColor": "#ff638e"
+                },
                 "container_id": "tradingview-widget-container"
             });
         }

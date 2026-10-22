@@ -28,6 +28,12 @@ test('trading terminal uses the homepage Blastrr wordmark and lightning mark sty
   assert.match(landingHtml, /\.brand-mark\{[^}]*background:linear-gradient\(145deg,#bd91ff,#6424e8\)[^}]*clip-path:polygon\(40% 0,100% 0,64% 43%,91% 43%,23% 100%,40% 55%,12% 55%\)/);
 });
 
+test('homepage focuses on crypto markets without advertising perps or futures', () => {
+  assert.match(landingHtml, /20 major Binance crypto markets/);
+  assert.match(landingHtml, /Crypto trading terminal/);
+  assert.doesNotMatch(landingHtml, /perpetual|perps|futures|CME|index contract/i);
+});
+
 test('terminal surfaces use the glass and slate theme', () => {
   assert.match(appCss, /--surface-glass: rgba\(20, 27, 38, 0\.72\)/);
   assert.match(appCss, /backdrop-filter: blur\(20px\) saturate\(130%\)/);

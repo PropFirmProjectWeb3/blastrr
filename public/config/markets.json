@@ -16,9 +16,9 @@
     "source": "BINANCE_SPOT"
   },
   {
-    "label": "SOL/USDT Spot",
-    "symbol": "BINANCE:SOLUSDT",
-    "pair": "SOLUSDT",
+    "label": "BNB/USDT Spot",
+    "symbol": "BINANCE:BNBUSDT",
+    "pair": "BNBUSDT",
     "type": "SPOT",
     "group": "Spot Crypto (Binance)",
     "source": "BINANCE_SPOT"
@@ -32,35 +32,131 @@
     "source": "BINANCE_SPOT"
   },
   {
-    "label": "NQ - Nasdaq-100 Perpetual",
-    "symbol": "BITGET:NDX100USDT.P",
-    "pair": "NDX100USDT",
-    "type": "BITGET_PERP",
-    "group": "Index Perpetuals",
-    "source": "BITGET_PERP"
+    "label": "SOL/USDT Spot",
+    "symbol": "BINANCE:SOLUSDT",
+    "pair": "SOLUSDT",
+    "type": "SPOT",
+    "group": "Spot Crypto (Binance)",
+    "source": "BINANCE_SPOT"
   },
   {
-    "label": "ES - S&P 500 Perpetual",
-    "symbol": "BITGET:SP500USDT.P",
-    "pair": "SP500USDT",
-    "type": "BITGET_PERP",
-    "group": "Index Perpetuals",
-    "source": "BITGET_PERP"
+    "label": "TRX/USDT Spot",
+    "symbol": "BINANCE:TRXUSDT",
+    "pair": "TRXUSDT",
+    "type": "SPOT",
+    "group": "Spot Crypto (Binance)",
+    "source": "BINANCE_SPOT"
   },
   {
-    "label": "GC - Gold Perpetual",
-    "symbol": "BITGET:XAUUSDT.P",
-    "pair": "XAUUSDT",
-    "type": "BITGET_PERP",
-    "group": "Commodity Perpetuals",
-    "source": "BITGET_PERP"
+    "label": "ZEC/USDT Spot",
+    "symbol": "BINANCE:ZECUSDT",
+    "pair": "ZECUSDT",
+    "type": "SPOT",
+    "group": "Spot Crypto (Binance)",
+    "source": "BINANCE_SPOT"
   },
   {
-    "label": "AG - Silver Perpetual",
-    "symbol": "BITGET:XAGUSDT.P",
-    "pair": "XAGUSDT",
-    "type": "BITGET_PERP",
-    "group": "Commodity Perpetuals",
-    "source": "BITGET_PERP"
+    "label": "HYPE/USDT Spot",
+    "symbol": "BINANCE:HYPEUSDT",
+    "pair": "HYPEUSDT",
+    "type": "SPOT",
+    "group": "Spot Crypto (Binance)",
+    "source": "BINANCE_SPOT"
+  },
+  {
+    "label": "DOGE/USDT Spot",
+    "symbol": "BINANCE:DOGEUSDT",
+    "pair": "DOGEUSDT",
+    "type": "SPOT",
+    "group": "Spot Crypto (Binance)",
+    "source": "BINANCE_SPOT"
+  },
+  {
+    "label": "LINK/USDT Spot",
+    "symbol": "BINANCE:LINKUSDT",
+    "pair": "LINKUSDT",
+    "type": "SPOT",
+    "group": "Spot Crypto (Binance)",
+    "source": "BINANCE_SPOT"
+  },
+  {
+    "label": "ADA/USDT Spot",
+    "symbol": "BINANCE:ADAUSDT",
+    "pair": "ADAUSDT",
+    "type": "SPOT",
+    "group": "Spot Crypto (Binance)",
+    "source": "BINANCE_SPOT"
+  },
+  {
+    "label": "NEAR/USDT Spot",
+    "symbol": "BINANCE:NEARUSDT",
+    "pair": "NEARUSDT",
+    "type": "SPOT",
+    "group": "Spot Crypto (Binance)",
+    "source": "BINANCE_SPOT"
+  },
+  {
+    "label": "XLM/USDT Spot",
+    "symbol": "BINANCE:XLMUSDT",
+    "pair": "XLMUSDT",
+    "type": "SPOT",
+    "group": "Spot Crypto (Binance)",
+    "source": "BINANCE_SPOT"
+  },
+  {
+    "label": "BCH/USDT Spot",
+    "symbol": "BINANCE:BCHUSDT",
+    "pair": "BCHUSDT",
+    "type": "SPOT",
+    "group": "Spot Crypto (Binance)",
+    "source": "BINANCE_SPOT"
+  },
+  {
+    "label": "LTC/USDT Spot",
+    "symbol": "BINANCE:LTCUSDT",
+    "pair": "LTCUSDT",
+    "type": "SPOT",
+    "group": "Spot Crypto (Binance)",
+    "source": "BINANCE_SPOT"
+  },
+  {
+    "label": "UNI/USDT Spot",
+    "symbol": "BINANCE:UNIUSDT",
+    "pair": "UNIUSDT",
+    "type": "SPOT",
+    "group": "Spot Crypto (Binance)",
+    "source": "BINANCE_SPOT"
+  },
+  {
+    "label": "AVAX/USDT Spot",
+    "symbol": "BINANCE:AVAXUSDT",
+    "pair": "AVAXUSDT",
+    "type": "SPOT",
+    "group": "Spot Crypto (Binance)",
+    "source": "BINANCE_SPOT"
+  },
+  {
+    "label": "SUI/USDT Spot",
+    "symbol": "BINANCE:SUIUSDT",
+    "pair": "SUIUSDT",
+    "type": "SPOT",
+    "group": "Spot Crypto (Binance)",
+    "source": "BINANCE_SPOT"
+  },
+  {
+    "label": "HBAR/USDT Spot",
+    "symbol": "BINANCE:HBARUSDT",
+    "pair": "HBARUSDT",
+    "type": "SPOT",
+    "group": "Spot Crypto (Binance)",
+    "source": "BINANCE_SPOT"
+  },
+  {
+    "label": "SHIB/USDT Spot",
+    "symbol": "BINANCE:SHIBUSDT",
+    "pair": "SHIBUSDT",
+    "type": "SPOT",
+    "group": "Spot Crypto (Binance)",
+    "source": "BINANCE_SPOT"
   }
 ]

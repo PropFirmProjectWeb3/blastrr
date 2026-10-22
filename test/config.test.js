@@ -27,25 +27,23 @@ test('plan configuration preserves existing seed limits and valid values', () =>
   assert.equal(plans.find(plan => plan.name === 'Whale $250k').simulated_capital, 250000);
 });
 
-test('market configuration has unique symbols and supported price sources', () => {
-  assert.equal(markets.length, 8);
+test('market configuration exposes only the top Binance USDT crypto spot selection', () => {
+  assert.equal(markets.length, 20);
   const symbols = new Set();
   for (const market of markets) {
     assert.ok(market.label && market.symbol && market.pair && market.group);
     assert.ok(!symbols.has(market.symbol), `duplicate market symbol: ${market.symbol}`);
     symbols.add(market.symbol);
-    assert.ok(['BINANCE_SPOT', 'BITGET_PERP'].includes(market.source));
+    assert.equal(market.source, 'BINANCE_SPOT');
+    assert.equal(market.type, 'SPOT');
+    assert.equal(market.group, 'Spot Crypto (Binance)');
+    assert.ok(market.pair.endsWith('USDT'));
+    assert.equal(market.symbol, `BINANCE:${market.pair}`);
   }
-  assert.deepEqual(markets.filter(market => market.source === 'BINANCE_SPOT').map(({ label, pair }) => ({ label, pair })), [
-    { label: 'BTC/USDT Spot', pair: 'BTCUSDT' },
-    { label: 'ETH/USDT Spot', pair: 'ETHUSDT' },
-    { label: 'SOL/USDT Spot', pair: 'SOLUSDT' },
-    { label: 'XRP/USDT Spot', pair: 'XRPUSDT' }
-  ]);
-  assert.deepEqual(markets.filter(market => market.source === 'BITGET_PERP').map(({ label, pair }) => ({ label, pair })), [
-    { label: 'NQ - Nasdaq-100 Perpetual', pair: 'NDX100USDT' },
-    { label: 'ES - S&P 500 Perpetual', pair: 'SP500USDT' },
-    { label: 'GC - Gold Perpetual', pair: 'XAUUSDT' },
-    { label: 'AG - Silver Perpetual', pair: 'XAGUSDT' }
+  assert.deepEqual(markets.map(({ pair }) => pair), [
+    'BTCUSDT', 'ETHUSDT', 'BNBUSDT', 'XRPUSDT', 'SOLUSDT',
+    'TRXUSDT', 'ZECUSDT', 'HYPEUSDT', 'DOGEUSDT', 'LINKUSDT',
+    'ADAUSDT', 'NEARUSDT', 'XLMUSDT', 'BCHUSDT', 'LTCUSDT',
+    'UNIUSDT', 'AVAXUSDT', 'SUIUSDT', 'HBARUSDT', 'SHIBUSDT'
   ]);
 });

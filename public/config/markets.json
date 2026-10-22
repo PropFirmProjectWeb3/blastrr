@@ -1,5 +1,37 @@
 [
   {
+    "label": "BTC/USDT Spot",
+    "symbol": "BINANCE:BTCUSDT",
+    "pair": "BTCUSDT",
+    "type": "SPOT",
+    "group": "Spot Crypto (Binance)",
+    "source": "BINANCE_SPOT"
+  },
+  {
+    "label": "ETH/USDT Spot",
+    "symbol": "BINANCE:ETHUSDT",
+    "pair": "ETHUSDT",
+    "type": "SPOT",
+    "group": "Spot Crypto (Binance)",
+    "source": "BINANCE_SPOT"
+  },
+  {
+    "label": "SOL/USDT Spot",
+    "symbol": "BINANCE:SOLUSDT",
+    "pair": "SOLUSDT",
+    "type": "SPOT",
+    "group": "Spot Crypto (Binance)",
+    "source": "BINANCE_SPOT"
+  },
+  {
+    "label": "XRP/USDT Spot",
+    "symbol": "BINANCE:XRPUSDT",
+    "pair": "XRPUSDT",
+    "type": "SPOT",
+    "group": "Spot Crypto (Binance)",
+    "source": "BINANCE_SPOT"
+  },
+  {
     "label": "NQ - Nasdaq-100 Perpetual",
     "symbol": "BITGET:NDX100USDT.P",
     "pair": "NDX100USDT",

@@ -256,17 +256,25 @@ let connectedWallet = null;
 
         async function fetchPrice(pair, type, source) {
             try {
-                if (source !== 'BITGET_PERP') throw new Error(`Unsupported market price source: ${source}`);
-                const endpoint = `https://api.bitget.com/api/v2/mix/market/ticker?productType=USDT-FUTURES&symbol=${encodeURIComponent(pair)}`;
+                const endpoint = source === 'BINANCE_SPOT'
+                    ? `https://api.binance.com/api/v3/ticker/price?symbol=${encodeURIComponent(pair)}`
+                    : source === 'BITGET_PERP'
+                        ? `https://api.bitget.com/api/v2/mix/market/ticker?productType=USDT-FUTURES&symbol=${encodeURIComponent(pair)}`
+                        : null;
+                if (!endpoint) throw new Error(`Unsupported market price source: ${source}`);
                 const res = await fetch(endpoint);
-                if (!res.ok) throw new Error(`Bitget price request failed (${res.status}).`);
+                if (!res.ok) throw new Error(`Market price request failed (${res.status}).`);
                 const data = await res.json();
-                if (data?.code !== '00000') throw new Error(`Bitget price request failed (${data?.msg || data?.code}).`);
-                const ticker = data.data?.[0];
-                const price = Number(ticker?.lastPr);
-                if (ticker?.symbol !== pair || !Number.isFinite(price) || price <= 0) {
-                    throw new Error('Bitget returned an invalid market price.');
+                let price;
+                if (source === 'BINANCE_SPOT') {
+                    price = Number(data?.price);
+                } else {
+                    if (data?.code !== '00000') throw new Error(`Bitget price request failed (${data?.msg || data?.code}).`);
+                    const ticker = data.data?.[0];
+                    if (ticker?.symbol !== pair) throw new Error('Bitget returned an unexpected market symbol.');
+                    price = Number(ticker.lastPr);
                 }
+                if (!Number.isFinite(price) || price <= 0) throw new Error('Market provider returned an invalid price.');
                 currentLivePrice = price;
 
                 const priceInput = document.getElementById('order-price');

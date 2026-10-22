@@ -104,12 +104,14 @@ test('chart account selector excludes risk-locked accounts and clears when none 
   assert.match(appJs, /isRiskLockedAccount\(account\)/);
 });
 
-test('the four offered perps use direct Bitget browser prices and trusted server pricing', () => {
+test('Binance spot and Bitget perp markets use direct browser prices and trusted server pricing', () => {
+  assert.match(appJs, /https:\/\/api\.binance\.com\/api\/v3\/ticker\/price\?symbol=/);
   assert.match(appJs, /https:\/\/api\.bitget\.com\/api\/v2\/mix\/market\/ticker\?productType=USDT-FUTURES&symbol=/);
   assert.match(appJs, /data\?\.code !== '00000'/);
   assert.match(appJs, /ticker\?\.symbol !== pair/);
   assert.doesNotMatch(appJs, /\/api\/market\/price/);
-  assert.doesNotMatch(appJs, /api\.binance\.com|api\.bybit\.com|api\.nasdaq\.com/);
+  assert.doesNotMatch(appJs, /fapi\.binance\.com|api\.bybit\.com|api\.nasdaq\.com/);
+  assert.match(serverJs, /api\.binance\.com\/api\/v3\/ticker\/price\?symbol=/);
   assert.match(serverJs, /api\.bitget\.com\/api\/v2\/mix\/market\/ticker\?productType=USDT-FUTURES&symbol=/);
   assert.match(serverJs, /parsed\.code !== '00000'/);
   assert.match(serverJs, /ticker\?\.symbol !== market\.pair/);

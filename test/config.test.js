@@ -28,16 +28,21 @@ test('plan configuration preserves existing seed limits and valid values', () =>
 });
 
 test('market configuration has unique symbols and supported price sources', () => {
-  assert.equal(markets.length, 4);
+  assert.equal(markets.length, 8);
   const symbols = new Set();
   for (const market of markets) {
     assert.ok(market.label && market.symbol && market.pair && market.group);
     assert.ok(!symbols.has(market.symbol), `duplicate market symbol: ${market.symbol}`);
     symbols.add(market.symbol);
-    assert.equal(market.source, 'BITGET_PERP');
-    assert.equal(market.type, 'BITGET_PERP');
+    assert.ok(['BINANCE_SPOT', 'BITGET_PERP'].includes(market.source));
   }
-  assert.deepEqual(markets.map(({ label, pair }) => ({ label, pair })), [
+  assert.deepEqual(markets.filter(market => market.source === 'BINANCE_SPOT').map(({ label, pair }) => ({ label, pair })), [
+    { label: 'BTC/USDT Spot', pair: 'BTCUSDT' },
+    { label: 'ETH/USDT Spot', pair: 'ETHUSDT' },
+    { label: 'SOL/USDT Spot', pair: 'SOLUSDT' },
+    { label: 'XRP/USDT Spot', pair: 'XRPUSDT' }
+  ]);
+  assert.deepEqual(markets.filter(market => market.source === 'BITGET_PERP').map(({ label, pair }) => ({ label, pair })), [
     { label: 'NQ - Nasdaq-100 Perpetual', pair: 'NDX100USDT' },
     { label: 'ES - S&P 500 Perpetual', pair: 'SP500USDT' },
     { label: 'GC - Gold Perpetual', pair: 'XAUUSDT' },

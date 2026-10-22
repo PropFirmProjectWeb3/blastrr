@@ -411,15 +411,16 @@
 
         @media (max-width: 700px) {
             main { padding: 16px 12px; }
-            header { gap: 10px; padding: 12px; }
+            header { flex-wrap: wrap; row-gap: 10px; gap: 10px; padding: 12px; }
             .logo { font-size: 17px; gap: 10px; }
             .logo .brand-mark { flex-basis: 30px; width: 30px; height: 30px; }
-            .header-actions { gap: 7px; flex-wrap: wrap; justify-content: flex-end; }
+            .header-actions { order: 2; flex: 1 0 100%; min-width: 0; gap: 7px; flex-wrap: wrap; justify-content: flex-start; }
             .header-actions .status-pill { padding: 5px 9px; font-size: 10px; }
             .header-actions .btn-wallet, .header-actions .btn-new-wallet, .header-actions .btn-disconnect { padding: 9px 10px; font-size: 12px; }
-            .hamburger-btn { min-width: 44px; min-height: 44px; padding: 9px 12px; }
-            header #nav-menu { padding: 12px; }
+            .hamburger-btn { position: absolute; top: 12px; right: 12px; min-width: 44px; min-height: 44px; padding: 9px 12px; }
+            header #nav-menu { z-index: 1001; padding: 12px; background: rgba(11, 16, 24, 0.98); }
             header #nav-menu .nav-tab { min-height: 54px; padding: 14px 16px; font-size: 16px; }
+            header #nav-menu .nav-tab:not(.active) { color: #e2e8f0; background: rgba(30, 41, 59, 0.82); }
             #tradingview-widget-container { height: clamp(420px, 62svh, 680px); }
             .order-metrics { grid-template-columns: 1fr; }
             .order-metric { min-height: 96px; }

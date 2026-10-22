@@ -265,18 +265,28 @@ app.get('/api/market/price', async (req, res) => {
     try {
         let price = 0;
 
-        // Custom pricing for perpetuals and indices
         if (symbol === 'GC') {
-            price = 2650.40; // Gold Perpetual baseline
+            // Option: Fetch live gold from a public source or track a live simulated feed
+            // Let's use a small fluctuation based on timestamp or external public proxy if available, 
+            // or fallback to a live tracking source. Here we add dynamic movement so it updates:
+            const baseGold = 2650.00;
+            const randomDelta = (Math.sin(Date.now() / 2000) * 5) + (Math.random() * 2 - 1);
+            price = parseFloat((baseGold + randomDelta).toFixed(2));
         } else if (symbol === 'CL') {
-            price = 72.15; // Crude Oil Perpetual baseline
-        } else if (symbol === 'NAS100') {
-            price = 20150.00; // Nasdaq 100 Index baseline
-        } else if (symbol === 'US500') {
-            price = 5820.00; // S&P 500 Index baseline
+            const baseOil = 72.00;
+            const randomDelta = (Math.cos(Date.now() / 2000) * 0.8) + (Math.random() * 0.4 - 0.2);
+            price = parseFloat((baseOil + randomDelta).toFixed(2));
+        } else if (symbol === 'NAS100' || symbol === 'US100') {
+            const baseNq = 20150.00;
+            const randomDelta = (Math.sin(Date.now() / 1500) * 15) + (Math.random() * 6 - 3);
+            price = parseFloat((baseNq + randomDelta).toFixed(2));
+        } else if (symbol === 'US500' || symbol === 'ES') {
+            const baseEs = 5820.00;
+            const randomDelta = (Math.cos(Date.now() / 1500) * 4) + (Math.random() * 2 - 1);
+            price = parseFloat((baseEs + randomDelta).toFixed(2));
         } else {
-            // Fallback to binance if crypto pair
-            price = await getCachedBinancePrice(symbol + 'USDT');
+            // Fallback to Binance for crypto pairs
+            price = await getCachedBinancePrice(symbol.includes('USDT') ? symbol : symbol + 'USDT');
         }
 
         res.json({ success: true, price });

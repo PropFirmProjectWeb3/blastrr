@@ -263,7 +263,7 @@
             <span style="display:none;">⚡ BLASTRR</span>
         </a>
 
-        <!-- COMPLETE UNIFIED HEADER NAVIGATION -->
+        <!-- UNIFIED NAVIGATION HEADER -->
         <nav id="nav-menu">
             <a href="spot.html" class="nav-tab">📈 Spot Terminal</a>
             <a href="perps.html" class="nav-tab active">⚡ Perpetual Futures</a>
@@ -334,7 +334,6 @@
                         <div class="form-group">
                             <label>Perpetual & Futures Market Selection</label>
                             <select id="order-symbol" onchange="onPerpSymbolChanged(this.value)">
-                                <!-- Benchmark Perpetual Futures -->
                                 <optgroup label="Full-Size Benchmark Futures">
                                     <option value="TVC:GOLD" data-pair="GC" data-type="COMMODITY">GC - Gold Perpetual</option>
                                     <option value="TVC:USOIL" data-pair="CL" data-type="COMMODITY">CL - Crude Oil Perpetual</option>
@@ -342,7 +341,6 @@
                                     <option value="GLOBALPRIME:US500" data-pair="ES" data-type="INDEX">ES - S&P 500 Index</option>
                                 </optgroup>
                                 
-                                <!-- Binance Crypto Perps -->
                                 <optgroup label="Binance Crypto Perps (USDT-M)">
                                     <option value="BINANCE:BTCUSDT.P" data-pair="BTCUSDT" data-type="CRYPTO">BTC/USDT Perpetual</option>
                                     <option value="BINANCE:ETHUSDT.P" data-pair="ETHUSDT" data-type="CRYPTO">ETH/USDT Perpetual</option>
@@ -353,7 +351,6 @@
                             </select>
                         </div>
 
-                        <!-- Leverage Selector for High-Risk Perps -->
                         <div class="form-group">
                             <label>Perpetual Leverage Multiplier: <span id="leverage-label" style="color: #ef4444; font-weight: bold;">10x Risk Mode</span></label>
                             <select id="order-leverage" onchange="updateLeverageDisplay(this.value)" style="background: rgba(5, 7, 11, 0.95); border-color: rgba(239, 68, 68, 0.3);">
@@ -406,21 +403,34 @@
         let livePriceInterval = null;
         let currentLivePrice = 0;
 
-        window.addEventListener('DOMContentLoaded', () => {
+        window.addEventListener('DOMContentLoaded', async () => {
             initTradingViewWidget("TVC:GOLD");
             onPerpSymbolChanged("TVC:GOLD");
 
             const provider = getProvider();
-            if (provider?.on) {
-                provider.on('accountsChanged', (accounts) => {
+            if (provider) {
+                try {
+                    const accounts = await provider.request({ method: 'eth_accounts' });
                     if (accounts && accounts.length > 0) {
                         availableWallets = accounts;
+                        connectedWallet = accounts[0];
+                        updateWalletUIState(true);
                         updateWalletDropdown();
-                        onWalletSwitched(accounts[0]);
-                    } else {
-                        disconnectWallet();
+                        onWalletSwitched(connectedWallet);
                     }
-                });
+                } catch(e) { console.error("Auto-connect error:", e); }
+
+                if (provider.on) {
+                    provider.on('accountsChanged', (accounts) => {
+                        if (accounts && accounts.length > 0) {
+                            availableWallets = accounts;
+                            updateWalletDropdown();
+                            onWalletSwitched(accounts[0]);
+                        } else {
+                            disconnectWallet();
+                        }
+                    });
+                }
             }
         });
 
@@ -516,6 +526,86 @@
             }
         }
 
+        async function loadUserAccounts(wallet) {
+            try {
+                const res = await fetch(`/api/accounts?wallet=${wallet}`);
+                userAccounts = await res.json();
+
+                const select = document.getElementById('active-account-select');
+                select.innerHTML = '';
+
+                if (!userAccounts || userAccounts.length === 0) {
+                    select.innerHTML = '<option value="">No Accounts Found</option>';
+                    selectedAccountId = null;
+                    activeAccount = null;
+                    document.getElementById('available-bal-label').innerText = `Available Balance: $0.00`;
+                    return;
+                }
+
+                userAccounts.forEach(acc => {
+                    select.innerHTML += `<option value="${acc.id}">${acc.plan_type} (#${acc.id}) - Balance: $${parseFloat(acc.current_balance).toLocaleString()}</option>`;
+                });
+
+                switchActiveAccount(userAccounts[0].id);
+            } catch (err) {
+                console.error("Failed loading accounts:", err);
+            }
+        }
+
+        function switchActiveAccount(accId) {
+            if (!accId) return;
+            selectedAccountId = accId;
+            activeAccount = userAccounts.find(a => a.id == accId);
+            if (activeAccount) {
+                document.getElementById('available-bal-label').innerText = `Available Balance: $${parseFloat(activeAccount.current_balance).toLocaleString()}`;
+                loadOpenPositions(accId);
+            }
+        }
+
+        async function loadOpenPositions(accId) {
+            try {
+                const res = await fetch(`/api/trades/open?account_id=${accId}`);
+                const trades = await res.json();
+                const tbody = document.getElementById('open-trades-list');
+
+                if (!trades || trades.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="9" style="text-align: center; color: #6b7280; padding: 24px;">No open perpetual positions.</td></tr>';
+                    return;
+                }
+
+                tbody.innerHTML = trades.map(t => `
+                    <tr>
+                        <td>#${t.id}</td>
+                        <td><strong>${t.symbol}</strong></td>
+                        <td style="color: ${t.side === 'BUY' ? '#34d399' : '#f87171'}; font-weight: bold;">${t.side}</td>
+                        <td>${t.leverage || 10}x</td>
+                        <td>$${parseFloat(t.entry_price).toFixed(2)}</td>
+                        <td>$${parseFloat(t.size_usd).toLocaleString()}</td>
+                        <td>$${parseFloat(t.margin_used || 0).toLocaleString()}</td>
+                        <td style="color: ${parseFloat(t.pnl) >= 0 ? '#34d399' : '#f87171'}; font-weight: bold;">$${parseFloat(t.pnl || 0).toFixed(2)}</td>
+                        <td><button onclick="closePosition(${t.id})" style="background: rgba(220,38,38,0.2); border: 1px solid #ef4444; color: #fca5a5; padding: 4px 8px; border-radius: 4px; cursor: pointer;">Close</button></td>
+                    </tr>
+                `).join('');
+            } catch (err) { console.error("Error loading positions:", err); }
+        }
+
+        async function closePosition(tradeId) {
+            try {
+                const res = await fetch('/api/trades/close', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ trade_id: tradeId })
+                });
+                const data = await res.json();
+                if (data.success) {
+                    alert("Position closed!");
+                    if (selectedAccountId) switchActiveAccount(selectedAccountId);
+                } else {
+                    alert("Failed to close position: " + data.error);
+                }
+            } catch (err) { console.error(err); }
+        }
+
         async function executePerpTrade(side) {
             if (!selectedAccountId || !activeAccount) {
                 alert("Please connect wallet and select an active account!");
@@ -557,6 +647,7 @@
 
                 if (data.success) {
                     alert(`Perpetual ${side} order executed at $${data.execution_price.toFixed(2)} with ${leverage}x leverage!`);
+                    switchActiveAccount(selectedAccountId);
                 } else {
                     alert("Error: " + data.error);
                 }
@@ -623,6 +714,7 @@
             if (!walletAddress) return;
             connectedWallet = walletAddress;
             checkRole(connectedWallet);
+            loadUserAccounts(connectedWallet);
         }
 
         function disconnectWallet() {
@@ -634,12 +726,15 @@
             updateWalletUIState(false);
             document.getElementById('admin-nav-item').style.display = 'none';
             document.getElementById('active-account-select').innerHTML = '<option value="">No Accounts Available</option>';
+            document.getElementById('open-trades-list').innerHTML = '<tr><td colspan="9" style="text-align: center; color: #6b7280; padding: 24px;">Select an account to view open perpetual positions.</td></tr>';
         }
 
         async function checkRole(wallet) {
-            const res = await fetch(`/api/auth/role?wallet=${wallet}`);
-            const data = await res.json();
-            document.getElementById('admin-nav-item').style.display = data.isAdmin ? 'inline-block' : 'none';
+            try {
+                const res = await fetch(`/api/auth/role?wallet=${wallet}`);
+                const data = await res.json();
+                document.getElementById('admin-nav-item').style.display = data.isAdmin ? 'inline-block' : 'none';
+            } catch (err) { console.error(err); }
         }
     </script>
 </body>

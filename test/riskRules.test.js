@@ -84,6 +84,22 @@ test('live unrealized losses reduce account equity and trigger DLL before MLL', 
   assert.equal(getRiskBreach({ ...account, risk_balance: liveRiskBalance }, plan, 0).reason, 'DLL');
 });
 
+test('50x trade PnL matches the reported BTC movement after accounting for different entries', () => {
+  const spotEntry = 81319;
+  const spotUnits = 100000 / spotEntry;
+  const currentPrice = spotEntry + 22.97 / spotUnits;
+  const leveragedTrade = {
+    symbol: 'BTC/USDT',
+    side: 'BUY',
+    entry_price: 81304.26,
+    units: 5000000 / 81304.26,
+    size_usd: 100000,
+    leverage: 50
+  };
+
+  assert.ok(Math.abs(calculateUnrealizedPnl(leveragedTrade, currentPrice) - 2055.24) < 0.1);
+});
+
 test('live unrealized losses at the MLL floor trigger a permanent lock', () => {
   const account = {
     initial_balance: 250000,

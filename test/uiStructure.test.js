@@ -54,6 +54,14 @@ test('trade entry uses metric cards, defaults to spot leverage, and scales the c
   assert.match(appJs, /liquidation-price-label/);
 });
 
+test('open positions show margin and notional separately and refresh PnL with live quotes', () => {
+  assert.match(appHtml, /<th>Margin \/ Notional \(\$\)<\/th>/);
+  assert.match(appJs, /const notional = Number\(trd\.units\) \* Number\(trd\.entry_price\)/);
+  assert.match(appJs, /function updateDisplayedOpenTradePnls\(currentPrice\)/);
+  assert.match(appJs, /updateDisplayedOpenTradePnls\(currentLivePrice\)/);
+  assert.match(appJs, /setInterval\(\(\) => fetchPrice\(pair, type, source, generation\), 1000\)/);
+});
+
 test('mobile navigation has readable, touch-sized links and accessible expanded state', () => {
   assert.match(appHtml, /id="hamburger-icon"[^>]*aria-expanded="false"/);
   assert.match(appJs, /hamburger\.setAttribute\('aria-expanded', String\(isOpen\)\)/);

@@ -19,6 +19,7 @@ let connectedWallet = null;
         let livePriceInterval = null;
         let autoSyncInterval = null;
         let currentLivePrice = 0;
+        let displayedOpenTrades = [];
         let userHasEditedPrice = false;
         let availableCommissionBalance = 0;
         let currentLeaderboardMode = 'DAILY';
@@ -427,6 +428,7 @@ let connectedWallet = null;
                     priceInput.value = currentLivePrice;
                     calculateMetrics();
                 }
+                updateDisplayedOpenTradePnls(currentLivePrice);
                 monitorClientStops();
             } catch (err) { 
                 console.warn("Price feed warning for", pair, err); 
@@ -1549,18 +1551,21 @@ let connectedWallet = null;
             const tbody = document.getElementById('open-trades-list');
             if (!tbody) return;
             tbody.innerHTML = '';
+            displayedOpenTrades = data.trades || [];
 
-            if (!data.trades || data.trades.length === 0) {
+            if (displayedOpenTrades.length === 0) {
                 tbody.innerHTML = '<tr><td colspan="9" style="text-align: center; color: #6b7280; padding: 24px;">No open positions for this account.</td></tr>';
                 return;
             }
 
-            data.trades.forEach(trd => {
+            displayedOpenTrades.forEach(trd => {
                 const currentPrice = trd.current_price || currentLivePrice || trd.entry_price;
                 const priceDiff = trd.side === 'BUY' ? (currentPrice - trd.entry_price) : (trd.entry_price - currentPrice);
                 const pnl = Number.isFinite(Number(trd.live_pnl)) ? Number(trd.live_pnl) : priceDiff * trd.units;
                 const pnlColor = pnl >= 0 ? '#34d399' : '#ef4444';
                 const leverageDisplay = trd.leverage && trd.leverage > 1 ? `${trd.leverage}x Perp` : '1x Spot';
+                const margin = Number(trd.size_usd);
+                const notional = Number(trd.units) * Number(trd.entry_price);
 
                 tbody.innerHTML += `
                     <tr>
@@ -1569,13 +1574,34 @@ let connectedWallet = null;
                         <td><span style="color: ${trd.side === 'BUY' ? '#34d399' : '#ef4444'}; font-weight: bold;">${trd.side}</span></td>
                         <td>${leverageDisplay}</td>
                         <td>$${trd.entry_price.toFixed(2)}</td>
-                        <td>$${trd.size_usd.toLocaleString()}</td>
+                        <td>$${margin.toLocaleString()} / $${notional.toLocaleString()}</td>
                         <td>SL: ${trd.sl || 'None'} / TP: ${trd.tp || 'None'}</td>
-                        <td><span style="color: ${pnlColor}; font-weight: bold;">$${pnl.toFixed(2)}</span></td>
+                        <td><span data-trade-pnl="${trd.id}" style="color: ${pnlColor}; font-weight: bold;">$${pnl.toFixed(2)}</span></td>
                         <td><button class="btn-sell" style="padding:5px 10px; font-size:11px;" onclick="closeTrade('${trd.id}', ${currentPrice})">Close Early</button></td>
                     </tr>
                 `;
             });
+        }
+
+        function updateDisplayedOpenTradePnls(currentPrice) {
+            if (!Number.isFinite(currentPrice) || currentPrice <= 0) return;
+            const selectedSymbol = document.getElementById('order-symbol')?.value;
+            const tbody = document.getElementById('open-trades-list');
+            if (!selectedSymbol || !tbody) return;
+
+            for (const trade of displayedOpenTrades) {
+                if (trade.symbol !== selectedSymbol) continue;
+                const priceDiff = trade.side === 'BUY'
+                    ? currentPrice - Number(trade.entry_price)
+                    : Number(trade.entry_price) - currentPrice;
+                const pnl = priceDiff * Number(trade.units);
+                if (!Number.isFinite(pnl)) continue;
+                const pnlCell = Array.from(tbody.querySelectorAll('[data-trade-pnl]'))
+                    .find(cell => cell.dataset.tradePnl === trade.id);
+                if (!pnlCell) continue;
+                pnlCell.textContent = `$${pnl.toFixed(2)}`;
+                pnlCell.style.color = pnl >= 0 ? '#34d399' : '#ef4444';
+            }
         }
 
         async function executeTrade(side) {

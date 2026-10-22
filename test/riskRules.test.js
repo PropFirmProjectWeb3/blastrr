@@ -5,6 +5,7 @@ const {
   advanceRiskBaselines,
   getActiveLock,
   getMllFloor,
+  getRiskBalance,
   getRiskBreach
 } = require('../riskRules');
 
@@ -24,6 +25,30 @@ test('MLL breaches at the current trailing floor and are permanent', () => {
     permanent: true,
     lockedUntil: null
   });
+});
+
+test('legacy account balance can trigger a permanent MLL lock when stored equity is stale', () => {
+  const legacy = {
+    initial_balance: 5000,
+    current_balance: 4900,
+    current_equity: 5600,
+    high_water_mark: 5500,
+    daily_starting_balance: 5600
+  };
+  assert.equal(getRiskBalance(legacy), 4900);
+  assert.equal(getRiskBreach(legacy, plan, 0).reason, 'MLL');
+});
+
+test('reserved open-trade margin is included in the risk balance', () => {
+  const openPosition = {
+    initial_balance: 5000,
+    current_balance: 4400,
+    current_equity: 5000,
+    risk_balance: 5000,
+    high_water_mark: 5000,
+    daily_starting_balance: 5000
+  };
+  assert.equal(getRiskBreach(openPosition, plan, 0), null);
 });
 
 test('MLL trails the EOD high-water mark by the initial fixed loss amount and caps at initial capital', () => {
@@ -56,6 +81,7 @@ test('EOD rollover starts the new DLL from closing equity without changing initi
 test('legacy accounts begin tracking without treating an intraday balance as an EOD high', () => {
   const account = {
     initial_balance: 5000,
+    current_balance: 5000,
     current_equity: 5100,
     daily_starting_balance: 5000,
     high_water_mark: 5000,
@@ -65,6 +91,20 @@ test('legacy accounts begin tracking without treating an intraday balance as an 
   assert.equal(baseline.risk_day, '2026-01-02');
   assert.equal(baseline.high_water_mark, 5000);
   assert.equal(baseline.daily_starting_balance, 5000);
+});
+
+test('legacy accounts use their current balance as the first DLL baseline', () => {
+  const legacy = {
+    initial_balance: 5000,
+    current_balance: 4750,
+    current_equity: 5100,
+    daily_starting_balance: 5000,
+    high_water_mark: 5000,
+    risk_day: null
+  };
+  const baseline = advanceRiskBaselines(legacy, plan, '2026-01-02');
+  assert.equal(baseline.daily_starting_balance, 4750);
+  assert.equal(getRiskBreach({ ...legacy, ...baseline }, plan, 0), null);
 });
 
 test('DLL breaches lock for exactly 24 hours unless MLL is also breached', () => {

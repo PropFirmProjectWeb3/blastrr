@@ -1,5 +1,13 @@
 const DLL_LOCK_HOURS = 24;
 
+function getRiskBalance(account) {
+  const explicitRiskBalance = account.risk_balance == null ? NaN : Number(account.risk_balance);
+  if (Number.isFinite(explicitRiskBalance)) return explicitRiskBalance;
+  const balance = account.current_balance == null ? NaN : Number(account.current_balance);
+  if (Number.isFinite(balance)) return balance;
+  return Number(account.current_equity);
+}
+
 function getMllFloor(account, plan) {
   const maxLoss = account.initial_balance * (plan.max_drawdown_pct / 100);
   const trailingCap = account.initial_balance + maxLoss;
@@ -13,6 +21,7 @@ function getMllFloor(account, plan) {
 function advanceRiskBaselines(account, plan, today) {
   const maxLoss = account.initial_balance * (plan.max_drawdown_pct / 100);
   const trailingCap = account.initial_balance + maxLoss;
+  const riskBalance = getRiskBalance(account);
   const storedHighWaterMark = Math.min(
     trailingCap,
     Math.max(account.initial_balance, Number(account.high_water_mark) || account.initial_balance)
@@ -21,7 +30,7 @@ function advanceRiskBaselines(account, plan, today) {
   if (!account.risk_day) {
     return {
       risk_day: today,
-      daily_starting_balance: account.daily_starting_balance,
+      daily_starting_balance: riskBalance,
       high_water_mark: storedHighWaterMark
     };
   }
@@ -34,21 +43,22 @@ function advanceRiskBaselines(account, plan, today) {
   }
   const highWaterMark = Math.min(
     trailingCap,
-    Math.max(storedHighWaterMark, account.current_equity)
+    Math.max(storedHighWaterMark, riskBalance)
   );
   return {
     risk_day: today,
-    daily_starting_balance: account.current_equity,
+    daily_starting_balance: riskBalance,
     high_water_mark: highWaterMark
   };
 }
 
 function getRiskBreach(account, plan, now = Date.now()) {
+  const riskBalance = getRiskBalance(account);
   const dailyLossLimit = account.daily_starting_balance * (plan.daily_loss_pct / 100);
   const mllFloor = getMllFloor(account, plan);
-  const dailyLoss = account.daily_starting_balance - account.current_equity;
+  const dailyLoss = account.daily_starting_balance - riskBalance;
 
-  if (account.current_equity <= mllFloor) {
+  if (riskBalance <= mllFloor) {
     return { reason: 'MLL', permanent: true, lockedUntil: null };
   }
   if (dailyLoss >= dailyLossLimit) {
@@ -74,4 +84,4 @@ function getActiveLock(account, now = Date.now()) {
   return null;
 }
 
-module.exports = { DLL_LOCK_HOURS, advanceRiskBaselines, getActiveLock, getMllFloor, getRiskBreach };
+module.exports = { DLL_LOCK_HOURS, advanceRiskBaselines, getActiveLock, getMllFloor, getRiskBalance, getRiskBreach };

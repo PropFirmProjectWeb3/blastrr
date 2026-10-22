@@ -39,6 +39,14 @@ test('account cards expose expandable trade history and daily profit charts', ()
   assert.match(appJs, /walletFetch\(`\/api\/accounts\/details/);
 });
 
+test('accounts view hides locked accounts by default and can reveal them with its active-only switch', () => {
+  assert.match(appHtml, /id="accounts-active-only" type="checkbox" checked/);
+  assert.match(appHtml, /Show active accounts only/);
+  assert.match(appJs, /function toggleActiveAccountsOnly\(checked\)/);
+  assert.match(appJs, /!acc\.lock_reason/);
+  assert.match(appJs, /showActiveAccountsOnly && !isActive/);
+});
+
 test('payout UI shows the 90/10 split, admin trade review, and account freeze controls', () => {
   assert.match(appJs, /You receive: \$\$\{data\.user_amount\.toFixed\(2\)\}/);
   assert.match(appJs, /renderAdminTradeTable/);
@@ -46,6 +54,12 @@ test('payout UI shows the 90/10 split, admin trade review, and account freeze co
   assert.match(appJs, /withdrawalPending/);
   assert.match(appHtml, /admin-account-list/);
   assert.match(appHtml, /Gross \/ user net \/ admin share/);
+});
+
+test('admin UI reports non-JSON API responses with a server deployment hint', () => {
+  assert.match(appJs, /readAdminApiResponse/);
+  assert.match(appJs, /HTML page instead of API JSON/);
+  assert.match(appJs, /Restart\/deploy the latest server code/);
 });
 
 test('browser application files contain no copied provider credentials', () => {

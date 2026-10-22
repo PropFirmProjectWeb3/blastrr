@@ -15,6 +15,7 @@ let connectedWallet = null;
         let currentLeaderboardMode = 'DAILY';
         let rawLeaderboardData = [];
         let currentUserProfile = null;
+        let showActiveAccountsOnly = true;
         let walletSessionToken = null;
         let walletSessionOwner = null;
         let walletSessionExpiresAt = 0;
@@ -33,6 +34,18 @@ let connectedWallet = null;
                 '"': '&quot;',
                 "'": '&#39;'
             })[character]);
+        }
+
+        async function readAdminApiResponse(response, endpoint) {
+            const body = await response.text();
+            try {
+                return JSON.parse(body);
+            } catch {
+                const detail = body.trimStart().startsWith('<')
+                    ? 'The server returned an HTML page instead of API JSON. Restart/deploy the latest server code so the admin API routes are available.'
+                    : 'The server returned an invalid API response.';
+                throw new Error(`${endpoint} failed (HTTP ${response.status}). ${detail}`);
+            }
         }
 
         const SUPPORTED_EVM_CHAINS = {
@@ -548,6 +561,11 @@ let connectedWallet = null;
             renderAccountsPortfolioFlickerFree();
         }
 
+        function toggleActiveAccountsOnly(checked) {
+            showActiveAccountsOnly = checked;
+            renderAccountsPortfolioFlickerFree();
+        }
+
         async function renderAccountsPortfolioFlickerFree() {
             const container = document.getElementById('accounts-portfolio-container');
             if (!container) return;
@@ -569,6 +587,15 @@ let connectedWallet = null;
                 Object.assign(acc, details.account);
                 const m = details.metrics;
                 const trades = details.trades;
+                const isActive = acc.status === 'ACTIVE' &&
+                    !acc.lock_reason &&
+                    Number(acc.permanent_lock) !== 1 &&
+                    Number(acc.admin_frozen) !== 1 &&
+                    !m.withdrawalPending;
+                if (showActiveAccountsOnly && !isActive) {
+                    document.getElementById(`acc-card-${acc.id}`)?.remove();
+                    continue;
+                }
 
                 let cardElem = document.getElementById(`acc-card-${acc.id}`);
                 if (!cardElem) {
@@ -690,9 +717,17 @@ let connectedWallet = null;
                 const dailyHistory = [...(details.dailySummaries || [])];
                 dailyHistory.push({
                     day: acc.risk_day || new Date().toISOString().slice(0, 10),
-                    profit: acc.current_equity - acc.daily_starting_balance
+                    profit: m.riskBalance - acc.daily_starting_balance
                 });
                 renderDailyProfitChart(cardElem.querySelector(`#profit-chart-${CSS.escape(acc.id)}`), dailyHistory);
+            }
+            if (!container.querySelector('[id^="acc-card-"]')) {
+                const emptyMessage = document.createElement('p');
+                emptyMessage.className = 'account-chart-empty';
+                emptyMessage.textContent = showActiveAccountsOnly
+                    ? 'No active accounts. Turn off “Show active accounts only” to review breached or frozen accounts.'
+                    : 'No accounts found.';
+                container.replaceChildren(emptyMessage);
             }
         }
 
@@ -813,7 +848,7 @@ let connectedWallet = null;
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(authorization)
                 });
-                const data = await res.json();
+                const data = await readAdminApiResponse(res, '/api/admin/withdrawals');
                 const tbody = document.getElementById('admin-payout-queue');
                 if (!tbody) return;
                 if (!res.ok) throw new Error(data.error || 'Unable to load withdrawal queue.');
@@ -863,7 +898,11 @@ let connectedWallet = null;
                     const accountButton = event.target.closest('[data-admin-account-action]');
                     if (accountButton) adminAccountAction(accountButton.dataset.adminAccountId, accountButton.dataset.adminAccountAction);
                 };
-            } catch (err) { console.error(err); }
+            } catch (err) {
+                console.error(err);
+                const tbody = document.getElementById('admin-payout-queue');
+                if (tbody) tbody.innerHTML = `<tr><td colspan="7" style="color:#f87171;padding:18px;">${escapeHTML(err.message)}</td></tr>`;
+            }
         }
 
         function renderAdminTradeTable(trades) {
@@ -892,7 +931,7 @@ let connectedWallet = null;
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(authorization)
                 });
-                const data = await response.json();
+                const data = await readAdminApiResponse(response, '/api/admin/accounts');
                 if (!response.ok) throw new Error(data.error || 'Unable to load account reviews.');
                 if (!data.accounts?.length) {
                     container.innerHTML = '<p class="account-chart-empty">No accounts found.</p>';
@@ -913,6 +952,7 @@ let connectedWallet = null;
                             </div>
                             <div class="admin-account-stats">
                                 <span>Balance: <strong>$${Number(account.current_balance).toFixed(2)}</strong></span>
+                                <span>Risk balance: <strong>$${Number(account.risk_balance).toFixed(2)}</strong></span>
                                 <span>Equity: <strong>$${Number(account.current_equity).toFixed(2)}</strong></span>
                                 <span>Protected floor: <strong>$${mllCap.toFixed(2)}</strong></span>
                                 ${adminFreeze ? `<span class="admin-account-flag">Manual freeze: ${escapeHTML(account.admin_freeze_reason || '')}</span>` : ''}
@@ -947,7 +987,7 @@ let connectedWallet = null;
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ ...authorization, account_id: accountId, action, reason })
                 });
-                const data = await response.json();
+                const data = await readAdminApiResponse(response, '/api/admin/accounts/action');
                 if (!response.ok) throw new Error(data.error || 'Unable to update account freeze.');
                 alert(data.message);
                 loadAdminAccounts();
@@ -969,7 +1009,7 @@ let connectedWallet = null;
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ ...authorization, withdrawal_id: withdrawalId, action, type })
                 });
-                const data = await res.json();
+                const data = await readAdminApiResponse(res, '/api/admin/withdrawals/action');
                 if (data.success) { alert(data.message); loadAdminWithdrawals(); loadAdminAccounts(); if (connectedWallet) loadUserAccounts(connectedWallet); }
                 else alert("Error: " + data.error);
             } catch (err) { console.error(err); }

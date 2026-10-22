@@ -6,7 +6,7 @@ const { ethers } = require('ethers');
 const db = require('./database');
 const defaultPlans = require('./config/plans.json');
 const markets = require('./public/config/markets.json');
-const { advanceRiskBaselines, getActiveLock, getMllFloor, getRiskBreach } = require('./riskRules');
+const { advanceRiskBaselines, getActiveLock, getMllFloor, getRiskBalance, getRiskBreach } = require('./riskRules');
 const { getProtectedPayoutBalance, getAvailableGrossWithdrawal, splitWithdrawal } = require('./payoutRules');
 
 const app = express();
@@ -232,6 +232,8 @@ function refreshRiskBaselines(accountId, callback) {
   const selectAccount = (done) => db.get(
     `SELECT a.*, p.name AS plan_name, p.profit_target, p.simulated_capital,
      p.max_drawdown_pct, p.daily_loss_pct,
+     COALESCE(a.current_balance, a.current_equity, 0) + COALESCE((SELECT SUM(t.size_usd) FROM trades t
+       WHERE t.account_id = a.id AND t.status = 'OPEN'), 0) AS risk_balance,
      COALESCE((SELECT SUM(w.amount) FROM withdrawals w
        WHERE w.account_id = a.id AND w.status = 'PENDING'), 0) AS pending_withdrawal_amount
      FROM accounts a JOIN plans p ON a.plan_id = p.id WHERE a.id = ?`,
@@ -299,8 +301,8 @@ function refreshRiskBaselines(accountId, callback) {
               accountId,
               account.risk_day,
               account.daily_starting_balance,
-              account.current_equity,
-              account.current_equity - account.daily_starting_balance
+              getRiskBalance(account),
+              getRiskBalance(account) - account.daily_starting_balance
             ],
             (summaryErr) => {
               if (summaryErr) return rollback(summaryErr);
@@ -737,6 +739,8 @@ app.get('/api/accounts/details', requireWalletSession, (req, res) => {
 
   db.get(
     `SELECT a.*, p.name as plan_name, p.profit_target, p.max_drawdown_pct, p.daily_loss_pct, p.simulated_capital,
+     COALESCE(a.current_balance, a.current_equity, 0) + COALESCE((SELECT SUM(t.size_usd) FROM trades t
+       WHERE t.account_id = a.id AND t.status = 'OPEN'), 0) AS risk_balance,
      COALESCE((SELECT SUM(w.amount) FROM withdrawals w
        WHERE w.account_id = a.id AND w.status = 'PENDING'), 0) AS pending_withdrawal_amount
      FROM accounts a JOIN plans p ON a.plan_id = p.id WHERE a.id = ?`,
@@ -760,11 +764,12 @@ app.get('/api/accounts/details', requireWalletSession, (req, res) => {
         
         const maxAllowedDD = account.initial_balance * (account.max_drawdown_pct / 100);
         const mllFloor = getMllFloor(account, account);
-        const currentDD = Math.max(0, account.high_water_mark - account.current_equity);
+        const riskBalance = getRiskBalance(account);
+        const currentDD = Math.max(0, account.high_water_mark - riskBalance);
         const ddProgress = Math.min(100, Math.max(0, (currentDD / maxAllowedDD) * 100));
 
         const maxAllowedDLL = account.daily_starting_balance * (account.daily_loss_pct / 100);
-        const currentDLL = Math.max(0, account.daily_starting_balance - account.current_equity);
+        const currentDLL = Math.max(0, account.daily_starting_balance - riskBalance);
         const dllProgress = Math.min(100, Math.max(0, (currentDLL / maxAllowedDLL) * 100));
         const withdrawalFloor = getProtectedPayoutBalance(account.initial_balance, account.max_drawdown_pct);
         const withdrawableAmount = getAvailableGrossWithdrawal(
@@ -810,6 +815,7 @@ app.get('/api/accounts/details', requireWalletSession, (req, res) => {
                 pendingWithdrawalAmount: Number(account.pending_withdrawal_amount || 0),
                 withdrawableAmount,
                 withdrawalPending: Number(account.pending_withdrawal_amount || 0) > 0,
+                riskBalance,
                 consistencyScore
               },
               dailySummaries: dailySummaries || [],
@@ -1039,6 +1045,8 @@ app.post('/api/admin/accounts', sensitiveLimiter, requireTradeSignature, require
      a.high_water_mark, a.daily_starting_balance, a.status, a.lock_reason, a.locked_until,
      a.permanent_lock, a.admin_frozen, a.admin_freeze_reason, p.name AS plan_name,
      p.max_drawdown_pct, p.daily_loss_pct,
+     COALESCE(a.current_balance, a.current_equity, 0) + COALESCE((SELECT SUM(t.size_usd) FROM trades t
+       WHERE t.account_id = a.id AND t.status = 'OPEN'), 0) AS risk_balance,
      EXISTS(SELECT 1 FROM withdrawals w WHERE w.account_id = a.id AND w.status = 'PENDING') AS withdrawal_pending
      FROM accounts a JOIN plans p ON a.plan_id = p.id ORDER BY a.created_at DESC`,
     [],
@@ -1195,6 +1203,8 @@ app.post('/api/trades/execute', sensitiveLimiter, requireTradeSignature, (req, r
 
   db.get(
     `SELECT a.*, p.max_drawdown_pct, p.daily_loss_pct,
+     COALESCE(a.current_balance, a.current_equity, 0) + COALESCE((SELECT SUM(t.size_usd) FROM trades t
+       WHERE t.account_id = a.id AND t.status = 'OPEN'), 0) AS risk_balance,
      COALESCE((SELECT SUM(w.amount) FROM withdrawals w
        WHERE w.account_id = a.id AND w.status = 'PENDING'), 0) AS pending_withdrawal_amount
      FROM accounts a JOIN plans p ON a.plan_id = p.id WHERE a.id = ?`,
@@ -1346,7 +1356,9 @@ app.post('/api/trades/close', sensitiveLimiter, requireTradeSignature, (req, res
                 (balanceErr) => {
                   if (balanceErr) return db.run('ROLLBACK', () => res.status(500).json({ error: 'Unable to settle trade.' }));
                   db.get(
-                    `SELECT a.*, p.max_drawdown_pct, p.daily_loss_pct
+                    `SELECT a.*, p.max_drawdown_pct, p.daily_loss_pct,
+                     COALESCE(a.current_balance, a.current_equity, 0) + COALESCE((SELECT SUM(open_trade.size_usd) FROM trades open_trade
+                       WHERE open_trade.account_id = a.id AND open_trade.status = 'OPEN'), 0) AS risk_balance
                      FROM accounts a JOIN plans p ON a.plan_id = p.id WHERE a.id = ?`,
                     [trade.account_id],
                     (accountErr, account) => {
@@ -1400,6 +1412,10 @@ app.get('/api/trades/active', requireWalletSession, (req, res) => {
       res.json({ trades: trades || [] });
     });
   });
+});
+
+app.use('/api', (req, res) => {
+  res.status(404).json({ error: `API endpoint not found: ${req.method} ${req.path}` });
 });
 
 app.listen(PORT, () => {

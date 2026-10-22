@@ -216,6 +216,8 @@
         }
 
         .account-card { background: rgba(8, 12, 18, 0.85); border-color: rgba(255, 255, 255, 0.08); }
+        .account-filter-toggle { display: inline-flex; align-items: center; gap: 9px; margin: 0 0 16px; color: #cbd5e1; font-size: 13px; cursor: pointer; }
+        .account-filter-toggle input { width: 16px; height: 16px; accent-color: #8b5cf6; cursor: pointer; }
         .account-card-header, .account-card-actions, .account-preview-stat > span,
         .account-risk-item > div:first-child, .account-card-footer {
             display: flex;

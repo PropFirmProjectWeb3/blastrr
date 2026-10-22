@@ -184,7 +184,7 @@
         }
         .status-pill.connected { background: rgba(6, 95, 70, 0.3); color: #34d399; border-color: rgba(52, 211, 153, 0.3); }
 
-        main { padding: 28px; max-width: 1440px; margin: 0 auto; }
+        main { padding: 28px; max-width: 1920px; margin: 0 auto; }
         .view-panel { display: none; }
         .view-panel.active { display: block; animation: fadeIn 0.25s ease-out; }
 
@@ -275,7 +275,25 @@
         .admin-account-card details summary { color: #c084fc; cursor: pointer; font-weight: 700; padding: 10px 0; }
         .admin-trade-table { font-size: 12px; }
 
-        .trade-grid { display: grid; grid-template-columns: 3fr 1fr; gap: 24px; }
+        .trade-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(300px, 380px); gap: 24px; align-items: start; }
+        .trade-grid > div { min-width: 0; }
+        #tradingview-widget-container { width: 100%; height: clamp(500px, 65vh, 960px); border-radius: 8px; overflow: hidden; }
+        .order-card { border-color: rgba(168, 85, 247, 0.3); }
+        .order-card-title { color: #c084fc; }
+        .order-card .form-group { margin-bottom: 18px; }
+        .order-card .form-group input, .order-card .form-group select { min-height: 44px; }
+        .order-card .form-group label span { color: #c084fc; font-weight: 700; }
+        .order-metrics { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 12px; }
+        .order-metric { display: flex; flex-direction: column; justify-content: space-between; gap: 8px; min-width: 0; min-height: 108px; padding: 12px; border: 1px solid rgba(192, 132, 252, 0.18); border-radius: 9px; background: rgba(124, 58, 237, 0.08); }
+        .order-metric > span { color: #c4b5fd; font-size: 10px; line-height: 1.4; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; }
+        .order-metric > strong { color: #e9d5ff; font-size: clamp(15px, 1.25vw, 20px); line-height: 1.2; overflow-wrap: anywhere; }
+        .order-metric > small { color: #9ca3af; font-size: 10px; line-height: 1.4; }
+        .order-metric-risk { border-color: rgba(248, 113, 113, 0.2); background: rgba(220, 38, 38, 0.07); }
+        .order-metric-risk > span { color: #fca5a5; }
+        .order-metric-risk > strong { color: #fecaca; }
+        .available-balance { margin: 12px 0 0; color: #9ca3af; font-size: 12px; font-weight: 600; }
+        .order-actions { display: grid; gap: 10px; }
+        .order-actions .btn-buy, .order-actions .btn-sell { margin: 0; min-height: 46px; }
         .trade-feedback { min-height: 18px; margin: 10px 0 0; color: #f87171; font-size: 12px; }
         .trade-feedback:empty { display: none; }
         .grid-3 { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px; }
@@ -306,7 +324,7 @@
 
         @media (max-width: 1250px) {
             .hamburger-btn { display: inline-flex; align-items: center; justify-content: center; }
-            nav {
+            header #nav-menu {
                 display: none;
                 flex-direction: column;
                 width: 100%;
@@ -315,16 +333,33 @@
                 position: absolute;
                 top: 100%;
                 left: 0;
-                padding: 16px;
+                max-height: calc(100vh - 76px);
+                overflow-y: auto;
+                padding: 14px 18px 20px;
+                gap: 8px;
                 border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+                box-shadow: 0 18px 28px rgba(0, 0, 0, 0.4);
             }
-            nav.mobile-open { display: flex; }
-            nav .nav-tab { width: 100%; text-align: left; padding: 12px 16px; font-size: 15px; }
+            header #nav-menu.mobile-open { display: flex; }
+            header #nav-menu .nav-tab { width: 100%; min-height: 50px; text-align: left; justify-content: flex-start; padding: 13px 16px; font-size: 16px; }
             .trade-grid { grid-template-columns: 1fr; }
             header { padding: 14px 18px; }
         }
 
         @media (max-width: 700px) {
+            main { padding: 16px 12px; }
+            header { gap: 10px; padding: 12px; }
+            .logo { font-size: 20px; gap: 8px; }
+            .logo .brand-mark { flex-basis: 30px; width: 30px; height: 30px; }
+            .header-actions { gap: 7px; flex-wrap: wrap; justify-content: flex-end; }
+            .header-actions .status-pill { padding: 5px 9px; font-size: 10px; }
+            .header-actions .btn-wallet, .header-actions .btn-new-wallet, .header-actions .btn-disconnect { padding: 9px 10px; font-size: 12px; }
+            .hamburger-btn { min-width: 44px; min-height: 44px; padding: 9px 12px; }
+            header #nav-menu { padding: 12px; }
+            header #nav-menu .nav-tab { min-height: 54px; padding: 14px 16px; font-size: 16px; }
+            #tradingview-widget-container { height: clamp(420px, 62svh, 680px); }
+            .order-metrics { grid-template-columns: 1fr; }
+            .order-metric { min-height: 96px; }
             .account-card-header, .account-card-actions { align-items: flex-start; flex-direction: column; }
             .account-card-actions { width: 100%; }
             .account-profit-chart { grid-template-columns: 1fr; }

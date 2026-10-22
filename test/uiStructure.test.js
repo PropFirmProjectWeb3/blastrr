@@ -5,6 +5,7 @@ const vm = require('node:vm');
 
 const appHtml = fs.readFileSync('public/app.html', 'utf8');
 const appJs = fs.readFileSync('public/js/app.js', 'utf8');
+const appCss = fs.readFileSync('public/css/app.css', 'utf8');
 const landingHtml = fs.readFileSync('public/index.html', 'utf8');
 const serverJs = fs.readFileSync('server.js', 'utf8');
 
@@ -15,6 +16,25 @@ test('trading terminal HTML loads its external stylesheet and application script
   assert.doesNotMatch(appHtml, /<script>\s*[\s\S]*?\bfunction\s/m);
   assert.match(appHtml, /id="nav-menu"/);
   assert.match(appHtml, /id="order-symbol"/);
+});
+
+test('trade entry uses metric cards, defaults to spot leverage, and scales the chart for screen size', () => {
+  assert.match(appHtml, /id="order-leverage"[^>]*>[\s\S]*?<option value="1" selected>/);
+  assert.match(appHtml, /class="order-metrics"/);
+  assert.match(appHtml, /<span>Total Position Notional<\/span>/);
+  assert.match(appHtml, /<span>Est\. Liquidation Price<\/span>/);
+  assert.doesNotMatch(appHtml, /id="tradingview-widget-container"[^>]*style=/);
+  assert.match(appCss, /#tradingview-widget-container \{[^}]*height: clamp\(/);
+  assert.match(appCss, /main \{[^}]*max-width: 1920px/);
+  assert.match(appJs, /liquidation-price-label/);
+});
+
+test('mobile navigation has readable, touch-sized links and accessible expanded state', () => {
+  assert.match(appHtml, /id="hamburger-icon"[^>]*aria-expanded="false"/);
+  assert.match(appJs, /hamburger\.setAttribute\('aria-expanded', String\(isOpen\)\)/);
+  assert.match(appCss, /header #nav-menu \.nav-tab \{[^}]*min-height: 50px[^}]*font-size: 16px/);
+  assert.match(appCss, /header #nav-menu \.nav-tab \{[^}]*min-height: 54px[^}]*font-size: 16px/);
+  assert.match(appCss, /max-height: calc\(100vh - 76px\)/);
 });
 
 test('live market polling uses browser-side provider URLs, not the app proxy', () => {

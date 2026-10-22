@@ -31,7 +31,7 @@
             <select id="wallet-select" class="wallet-select" onchange="onWalletSwitched(this.value)"></select>
             <button id="connect-new-btn" class="btn-new-wallet" onclick="connectNewWallet()">+ Add Wallet</button>
             <button id="disconnect-btn" class="btn-disconnect" onclick="disconnectWallet()">Disconnect</button>
-            <button class="hamburger-btn" onclick="toggleMobileMenu()" id="hamburger-icon">☰</button>
+            <button class="hamburger-btn" onclick="toggleMobileMenu()" id="hamburger-icon" aria-label="Open navigation menu" aria-expanded="false">☰</button>
         </div>
     </header>
 
@@ -51,7 +51,7 @@
                                 </select>
                             </div>
                         </div>
-                        <div id="tradingview-widget-container" style="width: 100%; height: 500px; border-radius: 8px; overflow: hidden;"></div>
+                        <div id="tradingview-widget-container"></div>
                     </div>
 
                     <div class="card">
@@ -80,8 +80,8 @@
                 </div>
 
                 <div>
-                    <div class="card" style="border-color: rgba(168, 85, 247, 0.3);">
-                        <div class="card-title" style="color: #c084fc;">⚡ Order Execution</div>
+                    <div class="card order-card">
+                        <div class="card-title order-card-title">⚡ Order Execution</div>
                         
                         <div class="form-group">
                             <label>Market Selection</label>
@@ -91,12 +91,12 @@
                         </div>
 
                         <div class="form-group">
-                            <label>Execution Mode: <span id="leverage-label" style="color: #ef4444; font-weight: bold;">10x Risk Mode</span></label>
-                            <select id="order-leverage" onchange="updateLeverageDisplay(this.value)" style="background: rgba(5, 7, 11, 0.95); border-color: rgba(239, 68, 68, 0.3);">
-                                <option value="1">1x Spot / No Leverage</option>
+                            <label>Execution Mode: <span id="leverage-label">1x Spot Mode</span></label>
+                            <select id="order-leverage" onchange="updateLeverageDisplay(this.value)">
+                                <option value="1" selected>1x Spot / No Leverage</option>
                                 <option value="2">2x Leverage</option>
                                 <option value="5">5x Leverage</option>
-                                <option value="10" selected>10x Leverage</option>
+                                <option value="10">10x Leverage</option>
                                 <option value="20">20x Leverage</option>
                                 <option value="50">50x Leverage (High Risk)</option>
                             </select>
@@ -110,9 +110,19 @@
                         <div class="form-group">
                             <label>Collateral Margin ($ USD)</label>
                             <input type="number" id="order-size-usd" placeholder="500" min="10" oninput="calculateMetrics()">
-                            <small id="notional-exposure-label" style="color: #c084fc; display: block; margin-top: 4px; font-weight: 600;">Total Position Notional: $0.00</small>
-                            <small id="liquidation-price-label" style="color: #ef4444; display: block; margin-top: 2px; font-weight: 600;">Est. Liquidation Price: $0.00</small>
-                            <small id="available-bal-label" style="color: #9ca3af; display: block; margin-top: 6px; font-weight: 500;">Available Balance: $0.00</small>
+                            <div class="order-metrics" aria-live="polite">
+                                <section class="order-metric">
+                                    <span>Total Position Notional</span>
+                                    <strong id="notional-exposure-label">$0.00</strong>
+                                    <small id="position-margin-label">Margin: $0.00</small>
+                                </section>
+                                <section class="order-metric order-metric-risk">
+                                    <span>Est. Liquidation Price</span>
+                                    <strong id="liquidation-price-label">Not applicable (1x spot)</strong>
+                                    <small>Estimate only; actual liquidation may vary.</small>
+                                </section>
+                            </div>
+                            <p id="available-bal-label" class="available-balance">Available Balance: $0.00</p>
                         </div>
 
                         <div class="form-group">
@@ -124,8 +134,10 @@
                             <input type="number" id="order-tp" placeholder="Optional">
                         </div>
 
-                        <button class="btn-buy" onclick="executeTrade('BUY')">Execute Buy / Long 📈</button>
-                        <button class="btn-sell" onclick="executeTrade('SELL')">Execute Sell / Short 📉</button>
+                        <div class="order-actions">
+                            <button class="btn-buy" onclick="executeTrade('BUY')">Execute Buy / Long 📈</button>
+                            <button class="btn-sell" onclick="executeTrade('SELL')">Execute Sell / Short 📉</button>
+                        </div>
                         <p id="trade-feedback" class="trade-feedback" role="status" aria-live="polite"></p>
                     </div>
                 </div>

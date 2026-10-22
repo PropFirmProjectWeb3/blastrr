@@ -144,11 +144,20 @@ let connectedWallet = null;
             if (!nav) return;
             if (forceClose === true) {
                 nav.classList.remove('mobile-open');
-                if (hamburger) hamburger.innerText = '☰';
+                if (hamburger) {
+                    hamburger.innerText = '☰';
+                    hamburger.setAttribute('aria-label', 'Open navigation menu');
+                    hamburger.setAttribute('aria-expanded', 'false');
+                }
                 return;
             }
             nav.classList.toggle('mobile-open');
-            if (hamburger) hamburger.innerText = nav.classList.contains('mobile-open') ? '✕' : '☰';
+            if (hamburger) {
+                const isOpen = nav.classList.contains('mobile-open');
+                hamburger.innerText = isOpen ? '✕' : '☰';
+                hamburger.setAttribute('aria-label', isOpen ? 'Close navigation menu' : 'Open navigation menu');
+                hamburger.setAttribute('aria-expanded', String(isOpen));
+            }
         }
 
         function initTradingViewWidget(symbol) {
@@ -225,7 +234,7 @@ let connectedWallet = null;
 
         function updateLeverageDisplay(val) {
             const lbl = document.getElementById('leverage-label');
-            if (lbl) lbl.innerText = val == "1" ? "1x Spot Mode" : `${val}x Risk Mode`;
+            if (lbl) lbl.innerText = val == "1" ? "1x Spot Mode" : `${val}x Leverage Mode`;
             calculateMetrics();
         }
 
@@ -236,15 +245,17 @@ let connectedWallet = null;
             const priceInputVal = parseFloat(document.getElementById('order-price')?.value) || currentLivePrice || 0;
 
             const notionalLabel = document.getElementById('notional-exposure-label');
-            if (notionalLabel) notionalLabel.innerText = `Total Position Notional: $${notional.toLocaleString()} (Margin: $${marginInput.toLocaleString()})`;
+            if (notionalLabel) notionalLabel.innerText = `$${notional.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+            const marginLabel = document.getElementById('position-margin-label');
+            if (marginLabel) marginLabel.innerText = `Margin: $${marginInput.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
             const liqLabel = document.getElementById('liquidation-price-label');
             if (liqLabel) {
                 if (priceInputVal > 0 && marginInput > 0 && leverage > 1) {
                     const estLiqPriceLong = priceInputVal * (1 - (1 / leverage) * 0.9);
-                    liqLabel.innerText = `Est. Liquidation Buffer: ~$${estLiqPriceLong.toFixed(2)}`;
+                    liqLabel.innerText = `$${estLiqPriceLong.toFixed(2)}`;
                 } else {
-                    liqLabel.innerText = `Est. Liquidation Price: $0.00 (Spot Mode)`;
+                    liqLabel.innerText = 'Not applicable (1x spot)';
                 }
             }
         }

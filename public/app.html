@@ -355,11 +355,11 @@
                                     <option value="BINANCE:ETHUSDT" data-pair="ETHUSDT" data-type="SPOT">ETH/USDT Spot</option>
                                     <option value="BINANCE:SOLUSDT" data-pair="SOLUSDT" data-type="SPOT">SOL/USDT Spot</option>
                                 </optgroup>
-                                <optgroup label="Perpetual Futures (High-Leverage)">
+                                <optgroup label="Perpetual Futures & Indices">
                                     <option value="TVC:GOLD" data-pair="GC" data-type="TRADFI" selected>GC - Gold Perpetual</option>
                                     <option value="TVC:USOIL" data-pair="CL" data-type="TRADFI">CL - Crude Oil Perpetual</option>
-                                    <option value="GLOBALPRIME:NAS100" data-pair="NQ" data-type="TRADFI">NQ - Nasdaq 100 Index</option>
-                                    <option value="GLOBALPRIME:US500" data-pair="ES" data-type="TRADFI">ES - S&P 500 Index</option>
+                                    <option value="CAPITALCOM:US100" data-pair="NAS100" data-type="TRADFI">NQ - Nasdaq 100 Index</option>
+                                    <option value="CAPITALCOM:US500" data-pair="US500" data-type="TRADFI">ES - S&P 500 Index</option>
                                     <option value="BINANCE:BTCUSDT.P" data-pair="BTCUSDT" data-type="CRYPTO_PERP">BTC/USDT Perpetual</option>
                                     <option value="BINANCE:ETHUSDT.P" data-pair="ETHUSDT" data-type="CRYPTO_PERP">ETH/USDT Perpetual</option>
                                     <option value="BINANCE:SOLUSDT.P" data-pair="SOLUSDT" data-type="CRYPTO_PERP">SOL/USDT Perpetual</option>
@@ -712,14 +712,19 @@
                     if (data && data.price) currentLivePrice = parseFloat(data.price);
                 } else {
                     const res = await fetch(`/api/market/price?symbol=${pair}`);
+                    if (!res.ok) return;
                     const data = await res.json();
                     if (data && data.price) currentLivePrice = parseFloat(data.price);
                 }
 
                 const priceInput = document.getElementById('order-price');
-                if (priceInput) priceInput.value = currentLivePrice;
-                calculateMetrics();
-            } catch (err) { console.error("Price feed error:", err); }
+                if (priceInput && currentLivePrice > 0) {
+                    priceInput.value = currentLivePrice;
+                    calculateMetrics();
+                }
+            } catch (err) { 
+                console.warn("Price feed warning for", pair, err); 
+            }
         }
 
         function updateLeverageDisplay(val) {

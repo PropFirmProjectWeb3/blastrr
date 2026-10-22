@@ -15,6 +15,11 @@ let connectedWallet = null;
         let currentLeaderboardMode = 'DAILY';
         let rawLeaderboardData = [];
         let currentUserProfile = null;
+        let walletSessionToken = null;
+        let walletSessionOwner = null;
+        let walletSessionExpiresAt = 0;
+        let walletSessionPromise = null;
+        let walletSessionGeneration = 0;
                 let marketsData = [];
                 const closingTradeIds = new Set();
         
@@ -420,6 +425,13 @@ let connectedWallet = null;
 
         function onWalletSwitched(walletAddress) {
             if (!walletAddress) return;
+            if (connectedWallet?.toLowerCase() !== walletAddress.toLowerCase()) {
+                walletSessionGeneration++;
+                walletSessionToken = null;
+                walletSessionOwner = null;
+                walletSessionExpiresAt = 0;
+                walletSessionPromise = null;
+            }
             connectedWallet = walletAddress;
             checkRole(connectedWallet);
             loadUserAccounts(connectedWallet);
@@ -428,7 +440,7 @@ let connectedWallet = null;
 
         async function silentSyncUserData(wallet) {
             try {
-                const res = await fetch(`/api/accounts?wallet=${wallet}`);
+                const res = await walletFetch(`/api/accounts?wallet=${encodeURIComponent(wallet)}`);
                 const data = await res.json();
                 userAccounts = data.accounts || [];
 
@@ -474,6 +486,11 @@ let connectedWallet = null;
 
         function disconnectWallet() {
             connectedWallet = null;
+            walletSessionGeneration++;
+            walletSessionToken = null;
+            walletSessionOwner = null;
+            walletSessionExpiresAt = 0;
+            walletSessionPromise = null;
             availableWallets = [];
             userAccounts = [];
             selectedAccountId = null;
@@ -530,7 +547,7 @@ let connectedWallet = null;
             if (emptyStateMsg && emptyStateMsg.innerText.includes('No accounts found')) container.innerHTML = '';
 
             for (const acc of userAccounts) {
-                const detailsRes = await fetch(`/api/accounts/details?account_id=${encodeURIComponent(acc.id)}&wallet=${encodeURIComponent(connectedWallet)}`);
+                const detailsRes = await walletFetch(`/api/accounts/details?account_id=${encodeURIComponent(acc.id)}&wallet=${encodeURIComponent(connectedWallet)}`);
                 const details = await detailsRes.json();
                 if (!detailsRes.ok || !details.account) throw new Error(details.error || 'Unable to load account details.');
                 Object.assign(acc, details.account);
@@ -654,7 +671,7 @@ let connectedWallet = null;
 
         async function requestWithdrawal(accountId, maxBalance) {
             try {
-                const detailsRes = await fetch(`/api/accounts/details?account_id=${encodeURIComponent(accountId)}&wallet=${encodeURIComponent(connectedWallet)}`);
+                const detailsRes = await walletFetch(`/api/accounts/details?account_id=${encodeURIComponent(accountId)}&wallet=${encodeURIComponent(connectedWallet)}`);
                 const details = await detailsRes.json();
                 if (!details || !details.account) { alert("Could not fetch account details."); return; }
 
@@ -795,7 +812,7 @@ let connectedWallet = null;
             if (!connectedWallet || !selectedAccountId || !currentLivePrice) return;
             const selectedSymbol = document.getElementById('order-symbol')?.value;
             try {
-                const response = await fetch(`/api/trades/active?account_id=${encodeURIComponent(selectedAccountId)}&wallet=${encodeURIComponent(connectedWallet)}`);
+                const response = await walletFetch(`/api/trades/active?account_id=${encodeURIComponent(selectedAccountId)}&wallet=${encodeURIComponent(connectedWallet)}`);
                 const data = await response.json();
                 for (const trade of data.trades || []) {
                     if (trade.symbol !== selectedSymbol || closingTradeIds.has(trade.id)) continue;
@@ -835,9 +852,55 @@ let connectedWallet = null;
             };
         }
 
+        async function ensureWalletSession() {
+            const owner = connectedWallet?.toLowerCase();
+            if (!owner) throw new Error('Connect a wallet to view private account data.');
+            if (walletSessionToken && walletSessionOwner === owner && walletSessionExpiresAt > Date.now()) {
+                return walletSessionToken;
+            }
+            if (walletSessionPromise && walletSessionOwner === owner) return walletSessionPromise;
+
+            const generation = walletSessionGeneration;
+            const sessionPromise = (async () => {
+                const authorization = await signedTradeAuthorization();
+                if (generation !== walletSessionGeneration || owner !== connectedWallet?.toLowerCase()) {
+                    throw new Error('Wallet changed before authorization completed.');
+                }
+                const response = await fetch('/api/auth/wallet-session', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(authorization)
+                });
+                const data = await response.json();
+                if (!response.ok) throw new Error(data.error || 'Unable to establish a wallet session.');
+                walletSessionToken = data.token;
+                walletSessionOwner = owner;
+                walletSessionExpiresAt = data.expires_at;
+                return walletSessionToken;
+            })();
+            walletSessionOwner = owner;
+            walletSessionPromise = sessionPromise;
+            try {
+                return await sessionPromise;
+            } finally {
+                if (walletSessionPromise === sessionPromise) walletSessionPromise = null;
+            }
+        }
+
+        async function walletFetch(url, options = {}) {
+            const token = await ensureWalletSession();
+            return fetch(url, {
+                ...options,
+                headers: {
+                    ...(options.headers || {}),
+                    Authorization: `Bearer ${token}`
+                }
+            });
+        }
+
         async function loadOpenTrades(accountId) {
             if (!accountId) return;
-            const res = await fetch(`/api/trades/active?account_id=${encodeURIComponent(accountId)}&wallet=${encodeURIComponent(connectedWallet)}`);
+            const res = await walletFetch(`/api/trades/active?account_id=${encodeURIComponent(accountId)}&wallet=${encodeURIComponent(connectedWallet)}`);
             const data = await res.json();
             const tbody = document.getElementById('open-trades-list');
             if (!tbody) return;
@@ -1010,7 +1073,7 @@ let connectedWallet = null;
 
         async function loadUserProfile(wallet) {
             try {
-                const res = await fetch(`/api/user/profile?wallet=${wallet}`);
+                const res = await walletFetch(`/api/user/profile?wallet=${encodeURIComponent(wallet)}`);
                 const data = await res.json();
                 
                 const setupBox = document.getElementById('profile-setup-box');
@@ -1059,7 +1122,7 @@ let connectedWallet = null;
 
         async function loadReferralTransactions(wallet) {
             try {
-                const res = await fetch(`/api/user/referrals?wallet=${wallet}`);
+                const res = await walletFetch(`/api/user/referrals?wallet=${encodeURIComponent(wallet)}`);
                 const data = await res.json();
                 const tbody = document.getElementById('ref-transactions-list');
                 if (!tbody) return;

@@ -103,6 +103,8 @@ test('live market polling uses browser-side provider URLs, not the app proxy', (
 test('landing-page plans are loaded from the shared plans API', () => {
   assert.match(landingHtml, /fetch\("\/api\/plans"\)/);
   assert.doesNotMatch(landingHtml, /\{name:"Micro",capital:/);
+  assert.match(landingHtml, /function renderPlans\(\)\{[\s\S]*?host\.querySelectorAll\("\.reveal"\)\.forEach\(element=>observer\.observe\(element\)\)/);
+  assert.match(landingHtml, /if\(!plans\.length\)\{[\s\S]*?host\.textContent="Plans are temporarily unavailable/);
   const inlineScript = [...landingHtml.matchAll(/<script\b[^>]*>([\s\S]*?)<\/script>/gi)]
     .map(match => match[1])
     .find(script => script.trim());

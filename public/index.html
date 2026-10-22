@@ -218,11 +218,16 @@ footer{border-top:1px solid rgba(173,127,255,.15);padding:35px 0 25px}.footer-to
 
 <script>
 const APP_URL = "app.html";
+const observer=new IntersectionObserver(entries=>entries.forEach(e=>{if(e.isIntersecting){e.target.classList.add("visible");observer.unobserve(e.target);}}),{threshold:.08});
 let plans = [];
 let planLoadAttempts = 0;
 const money = n => "$"+n.toLocaleString("en-US");
 function renderPlans(){
  const host=document.getElementById("planCards");
+ if(!plans.length){
+  host.textContent="Plans are temporarily unavailable. Please refresh the page to try again.";
+  return;
+ }
  host.innerHTML=plans.map(p=>{
   const name=p.name.replace(/\s+\$[\d,]+.*$/,"");
   const featured=name==="Pro";
@@ -237,6 +242,7 @@ function renderPlans(){
    <a class="btn" href="${APP_URL}">Choose ${name} <span>↗</span></a><p class="plan-note">USDT · Supported networks</p>
   </article>`;
  }).join("");
+ host.querySelectorAll(".reveal").forEach(element=>observer.observe(element));
 }
 function renderTable(){
  const table=document.getElementById("comparisonTable");
@@ -305,7 +311,6 @@ const menuToggle=document.getElementById("menuToggle"),nav=document.getElementBy
 menuToggle.addEventListener("click",()=>{const open=nav.classList.toggle("open");menuToggle.setAttribute("aria-expanded",String(open));});
 nav.querySelectorAll("a").forEach(a=>a.addEventListener("click",()=>{nav.classList.remove("open");menuToggle.setAttribute("aria-expanded","false");}));
 document.querySelector(".timer").style.display="none";
-const observer=new IntersectionObserver(entries=>entries.forEach(e=>{if(e.isIntersecting){e.target.classList.add("visible");observer.unobserve(e.target);}}),{threshold:.08});
 document.querySelectorAll(".reveal").forEach(el=>observer.observe(el));
 </script>
 </body>

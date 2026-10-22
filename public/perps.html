@@ -264,7 +264,7 @@
             <span style="display:none;">⚡ BLASTRR</span>
         </a>
 
-        <!-- IN-PAGE TAB SWITCHER (NO PAGE RELOAD / SESSION LOSS) -->
+        <!-- IN-PAGE TAB SWITCHER -->
         <nav id="nav-menu">
             <button class="nav-tab" onclick="switchView('spot')">📈 Spot Terminal</button>
             <button class="nav-tab active" onclick="switchView('perp')">⚡ Perpetual Futures</button>
@@ -342,7 +342,6 @@
                                     <option value="GLOBALPRIME:NAS100" data-pair="NQ" data-type="INDEX">NQ - Nasdaq 100 Index</option>
                                     <option value="GLOBALPRIME:US500" data-pair="ES" data-type="INDEX">ES - S&P 500 Index</option>
                                 </optgroup>
-                                
                                 <optgroup label="Binance Crypto Perps (USDT-M)">
                                     <option value="BINANCE:BTCUSDT.P" data-pair="BTCUSDT" data-type="CRYPTO">BTC/USDT Perpetual</option>
                                     <option value="BINANCE:ETHUSDT.P" data-pair="ETHUSDT" data-type="CRYPTO">ETH/USDT Perpetual</option>
@@ -393,11 +392,39 @@
             </div>
         </section>
 
-        <!-- SPOT TERMINAL VIEW PLACEHOLDER -->
+        <!-- SPOT TERMINAL VIEW -->
         <section id="spotView" class="view-panel">
-            <div class="card">
-                <div class="card-title">📈 Spot Trading Terminal</div>
-                <p style="color: #9ca3af;">Spot trading workspace. Use the top menu to switch back to Perpetual Futures anytime without losing session state.</p>
+            <div class="trade-grid">
+                <div>
+                    <div class="card">
+                        <div class="card-title">
+                            <span>Spot Trading Chart</span>
+                            <div style="display: flex; align-items: center; gap: 8px;">
+                                <label style="font-size: 11px; color: #9ca3af; text-transform: uppercase; font-weight: 700;">Active Account:</label>
+                                <select id="spot-account-select" onchange="switchActiveAccount(this.value)" style="background: #05070b; border: 1px solid rgba(255, 255, 255, 0.1); color: white; padding: 6px 10px; border-radius: 6px; font-size: 13px;">
+                                    <option value="">No Accounts Found</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div id="spot-tradingview-container" style="width: 100%; height: 500px; border-radius: 8px; overflow: hidden;"></div>
+                    </div>
+                </div>
+                <div>
+                    <div class="card" style="border-color: rgba(52, 211, 153, 0.3);">
+                        <div class="card-title" style="color: #34d399;">📈 Spot Execution</div>
+                        <div class="form-group">
+                            <label>Market Pair</label>
+                            <select id="spot-symbol">
+                                <option value="BINANCE:BTCUSDT">BTC/USDT Spot</option>
+                                <option value="BINANCE:ETHUSDT">ETH/USDT Spot</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Available Balance</label>
+                            <input type="text" id="spot-avail-bal" readonly style="color: #34d399; font-weight: bold;">
+                        </div>
+                    </div>
+                </div>
             </div>
         </section>
 
@@ -592,11 +619,15 @@
                 const res = await fetch(`/api/accounts?wallet=${wallet}`);
                 userAccounts = await res.json();
 
-                const select = document.getElementById('active-account-select');
-                select.innerHTML = '';
+                const perpSelect = document.getElementById('active-account-select');
+                const spotSelect = document.getElementById('spot-account-select');
+                
+                if (perpSelect) perpSelect.innerHTML = '';
+                if (spotSelect) spotSelect.innerHTML = '';
 
                 if (!userAccounts || userAccounts.length === 0) {
-                    select.innerHTML = '<option value="">No Accounts Found</option>';
+                    if (perpSelect) perpSelect.innerHTML = '<option value="">No Accounts Found</option>';
+                    if (spotSelect) spotSelect.innerHTML = '<option value="">No Accounts Found</option>';
                     selectedAccountId = null;
                     activeAccount = null;
                     document.getElementById('available-bal-label').innerText = `Available Balance: $0.00`;
@@ -604,7 +635,9 @@
                 }
 
                 userAccounts.forEach(acc => {
-                    select.innerHTML += `<option value="${acc.id}">${acc.plan_type} (#${acc.id}) - Balance: $${parseFloat(acc.current_balance).toLocaleString()}</option>`;
+                    const optHtml = `<option value="${acc.id}">${acc.plan_type} (#${acc.id}) - Balance: $${parseFloat(acc.current_balance).toLocaleString()}</option>`;
+                    if (perpSelect) perpSelect.innerHTML += optHtml;
+                    if (spotSelect) spotSelect.innerHTML += optHtml;
                 });
 
                 switchActiveAccount(userAccounts[0].id);
@@ -617,8 +650,19 @@
             if (!accId) return;
             selectedAccountId = accId;
             activeAccount = userAccounts.find(a => a.id == accId);
+            
+            // Sync both dropdown selectors if present
+            const perpSelect = document.getElementById('active-account-select');
+            const spotSelect = document.getElementById('spot-account-select');
+            if (perpSelect) perpSelect.value = accId;
+            if (spotSelect) spotSelect.value = accId;
+
             if (activeAccount) {
-                document.getElementById('available-bal-label').innerText = `Available Balance: $${parseFloat(activeAccount.current_balance).toLocaleString()}`;
+                const balFormatted = `$${parseFloat(activeAccount.current_balance).toLocaleString()}`;
+                document.getElementById('available-bal-label').innerText = `Available Balance: ${balFormatted}`;
+                const spotBal = document.getElementById('spot-avail-bal');
+                if (spotBal) spotBal.value = balFormatted;
+
                 loadOpenPositions(accId);
             }
         }
@@ -787,6 +831,7 @@
             updateWalletUIState(false);
             document.getElementById('admin-nav-item').style.display = 'none';
             document.getElementById('active-account-select').innerHTML = '<option value="">No Accounts Available</option>';
+            document.getElementById('spot-account-select').innerHTML = '<option value="">No Accounts Available</option>';
             document.getElementById('open-trades-list').innerHTML = '<tr><td colspan="9" style="text-align: center; color: #6b7280; padding: 24px;">Select an account to view open perpetual positions.</td></tr>';
         }
 

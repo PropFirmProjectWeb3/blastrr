@@ -187,7 +187,7 @@ let connectedWallet = null;
             }
 
             select.disabled = false;
-            const defaultMarket = marketsData.find(market => market.symbol === 'TVC:GOLD') || marketsData[0];
+            const defaultMarket = marketsData.find(market => market.pair === 'NDX100USDT') || marketsData[0];
             select.value = defaultMarket.symbol;
             onSymbolChanged(defaultMarket.symbol);
         }
@@ -251,45 +251,23 @@ let connectedWallet = null;
         function startPricePolling(pair, type, source) {
             if (livePriceInterval) clearInterval(livePriceInterval);
             fetchPrice(pair, type, source);
-            const pollingInterval = source === 'NASDAQ_INDEX' ? 5000 : 2000;
-            livePriceInterval = setInterval(() => fetchPrice(pair, type, source), pollingInterval);
+            livePriceInterval = setInterval(() => fetchPrice(pair, type, source), 2000);
         }
 
         async function fetchPrice(pair, type, source) {
             try {
-                if (source === 'BINANCE_PERP' || source === 'BINANCE_SPOT') {
-                    const endpoint = source === 'BINANCE_PERP'
-                        ? `https://fapi.binance.com/fapi/v1/ticker/price?symbol=${encodeURIComponent(pair)}`
-                        : `https://api.binance.com/api/v3/ticker/price?symbol=${encodeURIComponent(pair)}`;
-                    const res = await fetch(endpoint);
-                    if (!res.ok) throw new Error(`Binance price request failed (${res.status}).`);
-                    const data = await res.json();
-                    const price = Number(data?.price);
-                    if (Number.isFinite(price) && price > 0) currentLivePrice = price;
-                } else if (source === 'BYBIT_PERP') {
-                    const endpoint = `https://api.bybit.com/v5/market/tickers?category=linear&symbol=${encodeURIComponent(pair)}`;
-                    const res = await fetch(endpoint);
-                    if (!res.ok) throw new Error(`Bybit price request failed (${res.status}).`);
-                    const data = await res.json();
-                    if (data?.retCode !== 0) throw new Error(`Bybit price request failed (${data?.retMsg || data?.retCode}).`);
-                    const price = Number(data.result?.list?.[0]?.lastPrice);
-                    if (!Number.isFinite(price) || price <= 0) throw new Error('Bybit returned an invalid market price.');
-                    currentLivePrice = price;
-                } else if (source === 'NASDAQ_INDEX') {
-                    const res = await fetch(`/api/market/index-price?symbol=${encodeURIComponent(pair)}`);
-                    if (!res.ok) throw new Error(`Nasdaq index price request failed (${res.status}).`);
-                    const data = await res.json();
-                    const price = Number(data?.price);
-                    if (!data?.success || !Number.isFinite(price) || price <= 0) {
-                        throw new Error(data?.error || 'Nasdaq returned an invalid index price.');
-                    }
-                    currentLivePrice = price;
-                } else if (source === 'SIMULATED') {
-                    const market = marketsData.find(item => item.pair === pair && item.type === type);
-                    if (!market) return;
-                    const wave = Math.sin(Date.now() / 2000) * market.amplitude;
-                    currentLivePrice = Number((market.base + wave).toFixed(2));
+                if (source !== 'BITGET_PERP') throw new Error(`Unsupported market price source: ${source}`);
+                const endpoint = `https://api.bitget.com/api/v2/mix/market/ticker?productType=USDT-FUTURES&symbol=${encodeURIComponent(pair)}`;
+                const res = await fetch(endpoint);
+                if (!res.ok) throw new Error(`Bitget price request failed (${res.status}).`);
+                const data = await res.json();
+                if (data?.code !== '00000') throw new Error(`Bitget price request failed (${data?.msg || data?.code}).`);
+                const ticker = data.data?.[0];
+                const price = Number(ticker?.lastPr);
+                if (ticker?.symbol !== pair || !Number.isFinite(price) || price <= 0) {
+                    throw new Error('Bitget returned an invalid market price.');
                 }
+                currentLivePrice = price;
 
                 const priceInput = document.getElementById('order-price');
                 if (priceInput && currentLivePrice > 0 && !userHasEditedPrice) {

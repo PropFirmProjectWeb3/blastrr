@@ -185,13 +185,30 @@ const tradeChallenges = new Map();
 const walletSessions = new Map();
 const WALLET_SESSION_DURATION_MS = 12 * 60 * 60 * 1000;
 const marketPriceCache = new Map();
+// Resolve retired symbols only for existing open trades; new orders use markets from markets.json.
+const legacyTradeMarkets = new Map([
+  ['BINANCE:BTCUSDT', { source: 'BINANCE_SPOT', pair: 'BTCUSDT' }],
+  ['BINANCE:ETHUSDT', { source: 'BINANCE_SPOT', pair: 'ETHUSDT' }],
+  ['BINANCE:SOLUSDT', { source: 'BINANCE_SPOT', pair: 'SOLUSDT' }],
+  ['BINANCE:BTCUSDT.P', { source: 'BINANCE_PERP', pair: 'BTCUSDT' }],
+  ['BINANCE:ETHUSDT.P', { source: 'BINANCE_PERP', pair: 'ETHUSDT' }],
+  ['BINANCE:SOLUSDT.P', { source: 'BINANCE_PERP', pair: 'SOLUSDT' }],
+  ['BYBIT:XAUUSDT.P', { source: 'BITGET_PERP', pair: 'XAUUSDT' }],
+  ['BYBIT:XAGUSDT.P', { source: 'BITGET_PERP', pair: 'XAGUSDT' }],
+  ['CAPITALCOM:US100', { source: 'BITGET_PERP', pair: 'NDX100USDT' }],
+  ['TVC:USOIL', { source: 'SIMULATED', pair: 'CL', base: 72, amplitude: 0.8 }]
+]);
+
+function getTradeMarket(symbol) {
+  return markets.find(item => item.symbol === symbol) || legacyTradeMarkets.get(symbol);
+}
 
 function getAuthoritativePrice(market) {
   if (market.source === 'SIMULATED') {
     const wave = Math.sin(Date.now() / 2000) * market.amplitude;
     return Promise.resolve(Number((market.base + wave).toFixed(2)));
   }
-  if (!['BINANCE_SPOT', 'BINANCE_PERP', 'BYBIT_PERP', 'NASDAQ_INDEX'].includes(market.source)) {
+  if (!['BINANCE_SPOT', 'BINANCE_PERP', 'BITGET_PERP'].includes(market.source)) {
     return Promise.reject(new Error(`Unsupported market source: ${market.source}`));
   }
 
@@ -205,17 +222,11 @@ function getAuthoritativePrice(market) {
     url = `https://fapi.binance.com/fapi/v1/ticker/price?symbol=${encodeURIComponent(market.pair)}`;
   } else if (market.source === 'BINANCE_SPOT') {
     url = `https://api.binance.com/api/v3/ticker/price?symbol=${encodeURIComponent(market.pair)}`;
-  } else if (market.source === 'BYBIT_PERP') {
-    url = `https://api.bybit.com/v5/market/tickers?category=linear&symbol=${encodeURIComponent(market.pair)}`;
-  } else {
-    if (market.pair !== 'NDX') return Promise.reject(new Error(`Unsupported Nasdaq index symbol: ${market.pair}`));
-    url = `https://api.nasdaq.com/api/quote/ndx/summary?assetclass=index`;
+  } else if (market.source === 'BITGET_PERP') {
+    url = `https://api.bitget.com/api/v2/mix/market/ticker?productType=USDT-FUTURES&symbol=${encodeURIComponent(market.pair)}`;
   }
   const pricePromise = new Promise((resolve, reject) => {
-    const headers = market.source === 'NASDAQ_INDEX'
-      ? { 'User-Agent': 'Mozilla/5.0', Accept: 'application/json' }
-      : undefined;
-    const request = https.get(url, { timeout: 5000, headers }, (response) => {
+    const request = https.get(url, { timeout: 5000 }, (response) => {
       let body = '';
       response.setEncoding('utf8');
       response.on('data', chunk => { body += chunk; });
@@ -224,12 +235,11 @@ function getAuthoritativePrice(market) {
         try {
           const parsed = JSON.parse(body);
           let priceValue;
-          if (market.source === 'BYBIT_PERP') {
-            if (parsed.retCode !== 0) return reject(new Error(`Bybit market provider error: ${parsed.retMsg || parsed.retCode}.`));
-            priceValue = parsed.result?.list?.[0]?.lastPrice;
-          } else if (market.source === 'NASDAQ_INDEX') {
-            if (Number(parsed.status?.rCode) !== 200) return reject(new Error('Nasdaq index provider returned an unsuccessful response.'));
-            priceValue = parsed.data?.summaryData?.CurrentPrice?.value?.replaceAll(',', '');
+          if (market.source === 'BITGET_PERP') {
+            if (parsed.code !== '00000') return reject(new Error(`Bitget market provider error: ${parsed.msg || parsed.code}.`));
+            const ticker = parsed.data?.[0];
+            if (ticker?.symbol !== market.pair) return reject(new Error('Bitget returned an unexpected market symbol.'));
+            priceValue = ticker.lastPr;
           } else {
             priceValue = parsed.price;
           }
@@ -246,8 +256,7 @@ function getAuthoritativePrice(market) {
   });
   marketPriceCache.set(cacheKey, { promise: pricePromise });
   pricePromise.then((price) => {
-    const cacheDuration = market.source === 'NASDAQ_INDEX' ? 5000 : 2000;
-    marketPriceCache.set(cacheKey, { price, expiresAt: Date.now() + cacheDuration });
+    marketPriceCache.set(cacheKey, { price, expiresAt: Date.now() + 2000 });
   }).catch(() => {
     marketPriceCache.delete(cacheKey);
   });
@@ -273,7 +282,7 @@ function loadAccountWithLiveRisk(accountId, callback) {
           const openTrades = trades || [];
           const marketsBySymbol = new Map();
           for (const trade of openTrades) {
-            const market = markets.find(item => item.symbol === trade.symbol);
+            const market = getTradeMarket(trade.symbol);
             if (!market) return callback(new Error(`Open trade market is not configured: ${trade.symbol}`));
             marketsBySymbol.set(trade.symbol, market);
           }
@@ -719,18 +728,6 @@ async function verifyMultiChainPurchase(txHash, chainId, expectedBuyerWallet, ex
 }
 
 // --- API ROUTES ---
-
-app.get('/api/market/index-price', sensitiveLimiter, (req, res) => {
-  const symbol = typeof req.query.symbol === 'string' ? req.query.symbol : '';
-  const market = markets.find(item => item.source === 'NASDAQ_INDEX' && item.pair === symbol);
-  if (!market) return res.status(400).json({ success: false, error: 'Unsupported index symbol.' });
-  getAuthoritativePrice(market)
-    .then(price => res.json({ success: true, price }))
-    .catch(error => {
-      console.error(`Unable to obtain Nasdaq index quote for ${symbol}:`, error.message);
-      res.status(503).json({ success: false, error: 'Unable to obtain a fresh index quote. Please retry.' });
-    });
-});
 
 app.post('/api/auth/trade-challenge', sensitiveLimiter, (req, res) => {
   const wallet = req.body?.wallet_address;
@@ -1862,7 +1859,7 @@ app.post('/api/trades/execute', sensitiveLimiter, requireWalletSession, (req, re
         }
 
         getAuthoritativePrice(market).then((marketPrice) => {
-          const slippage = market.source === 'BYBIT_PERP' ? marketPrice * 0.0005 : 5;
+          const slippage = market.source === 'BITGET_PERP' ? marketPrice * 0.0005 : 5;
           const executionPrice = marketPrice + (side === 'BUY' ? slippage : -slippage);
           if (executionPrice <= 0 ||
               (side === 'BUY' && ((sl && Number(sl) >= executionPrice) || (tp && Number(tp) <= executionPrice))) ||
@@ -1939,7 +1936,7 @@ app.post('/api/trades/close', sensitiveLimiter, requireWalletSession, (req, res)
       };
       unlockExpiredAccount(account, (unlockErr) => {
         if (unlockErr) return res.status(500).json({ error: 'Unable to refresh account lock status.' });
-        const market = markets.find(item => item.symbol === trade.symbol);
+        const market = getTradeMarket(trade.symbol);
         if (!market) return res.status(409).json({ error: 'The trade market is no longer configured.' });
         getAuthoritativePrice(market).then((price) => {
         const priceDiff = trade.side === 'BUY' ? price - trade.entry_price : trade.entry_price - price;

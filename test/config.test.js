@@ -28,19 +28,19 @@ test('plan configuration preserves existing seed limits and valid values', () =>
 });
 
 test('market configuration has unique symbols and supported price sources', () => {
+  assert.equal(markets.length, 4);
   const symbols = new Set();
   for (const market of markets) {
     assert.ok(market.label && market.symbol && market.pair && market.group);
     assert.ok(!symbols.has(market.symbol), `duplicate market symbol: ${market.symbol}`);
     symbols.add(market.symbol);
-    assert.ok(['BINANCE_SPOT', 'BINANCE_PERP', 'BYBIT_PERP', 'NASDAQ_INDEX', 'SIMULATED'].includes(market.source));
-    if (market.source === 'SIMULATED') {
-      assert.ok(Number.isFinite(market.base) && Number.isFinite(market.amplitude));
-    }
+    assert.equal(market.source, 'BITGET_PERP');
+    assert.equal(market.type, 'BITGET_PERP');
   }
-  assert.equal(markets.find(market => market.pair === 'XAUUSDT')?.source, 'BYBIT_PERP');
-  assert.equal(markets.find(market => market.pair === 'XAGUSDT')?.source, 'BYBIT_PERP');
-  assert.equal(markets.find(market => market.pair === 'NDX')?.source, 'NASDAQ_INDEX');
-  assert.ok(markets.some(market => market.symbol === 'BINANCE:BTCUSDT.P' && market.source === 'BINANCE_PERP'));
-  assert.ok(markets.some(market => market.symbol === 'BINANCE:BTCUSDT' && market.source === 'BINANCE_SPOT'));
+  assert.deepEqual(markets.map(({ label, pair }) => ({ label, pair })), [
+    { label: 'NQ - Nasdaq-100 Perpetual', pair: 'NDX100USDT' },
+    { label: 'ES - S&P 500 Perpetual', pair: 'SP500USDT' },
+    { label: 'GC - Gold Perpetual', pair: 'XAUUSDT' },
+    { label: 'AG - Silver Perpetual', pair: 'XAGUSDT' }
+  ]);
 });

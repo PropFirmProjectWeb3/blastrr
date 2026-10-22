@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Blastrr - Perpetual Futures Terminal</title>
+    <title>Blastrr - Trading & Perpetual Terminal</title>
     <link rel="icon" type="image/png" href="favicon.png">
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap');
@@ -52,6 +52,7 @@
             text-shadow: 0 0 20px rgba(168, 85, 247, 0.4);
             flex-shrink: 0;
             text-decoration: none;
+            cursor: pointer;
         }
 
         nav { 
@@ -263,15 +264,15 @@
             <span style="display:none;">⚡ BLASTRR</span>
         </a>
 
-        <!-- UNIFIED NAVIGATION HEADER -->
+        <!-- IN-PAGE TAB SWITCHER (NO PAGE RELOAD / SESSION LOSS) -->
         <nav id="nav-menu">
-            <a href="spot.html" class="nav-tab">📈 Spot Terminal</a>
-            <a href="perps.html" class="nav-tab active">⚡ Perpetual Futures</a>
-            <a href="spot.html#accountsView" class="nav-tab">My Accounts</a>
-            <a href="spot.html#leaderboardView" class="nav-tab">🏆 Leaderboard</a>
-            <a href="spot.html#profileView" class="nav-tab">👤 Profile & Promos</a>
-            <a href="spot.html#buyView" class="nav-tab">Buy Plans</a>
-            <a href="spot.html#adminView" id="admin-nav-item" class="nav-tab admin-tab">🛡️ Admin Control</a>
+            <button class="nav-tab" onclick="switchView('spot')">📈 Spot Terminal</button>
+            <button class="nav-tab active" onclick="switchView('perp')">⚡ Perpetual Futures</button>
+            <button class="nav-tab" onclick="switchView('accounts')">My Accounts</button>
+            <button class="nav-tab" onclick="switchView('leaderboard')">🏆 Leaderboard</button>
+            <button class="nav-tab" onclick="switchView('profile')">👤 Profile & Promos</button>
+            <button class="nav-tab" onclick="switchView('buy')">Buy Plans</button>
+            <button class="nav-tab admin-tab" id="admin-nav-item" onclick="switchView('admin')">🛡️ Admin Control</button>
         </nav>
 
         <div class="header-actions">
@@ -285,6 +286,7 @@
     </header>
 
     <main>
+        <!-- PERPETUAL FUTURES TERMINAL VIEW -->
         <section id="perpView" class="view-panel active">
             <div class="trade-grid">
                 <div>
@@ -390,6 +392,54 @@
                 </div>
             </div>
         </section>
+
+        <!-- SPOT TERMINAL VIEW PLACEHOLDER -->
+        <section id="spotView" class="view-panel">
+            <div class="card">
+                <div class="card-title">📈 Spot Trading Terminal</div>
+                <p style="color: #9ca3af;">Spot trading workspace. Use the top menu to switch back to Perpetual Futures anytime without losing session state.</p>
+            </div>
+        </section>
+
+        <!-- MY ACCOUNTS VIEW -->
+        <section id="accountsView" class="view-panel">
+            <div class="card">
+                <div class="card-title">👤 My Funded & Trading Accounts</div>
+                <div id="accounts-container" style="color: #9ca3af;">Connect your wallet to view and manage your trading accounts.</div>
+            </div>
+        </section>
+
+        <!-- LEADERBOARD VIEW -->
+        <section id="leaderboardView" class="view-panel">
+            <div class="card">
+                <div class="card-title">🏆 Trader Leaderboard</div>
+                <div id="leaderboard-container" style="color: #9ca3af;">Leaderboard standings loading...</div>
+            </div>
+        </section>
+
+        <!-- PROFILE VIEW -->
+        <section id="profileView" class="view-panel">
+            <div class="card">
+                <div class="card-title">👤 Profile & Promo Codes</div>
+                <p style="color: #9ca3af;">Manage your active referral promos and account settings here.</p>
+            </div>
+        </section>
+
+        <!-- BUY PLANS VIEW -->
+        <section id="buyView" class="view-panel">
+            <div class="card">
+                <div class="card-title">💳 Purchase Trading Plans</div>
+                <p style="color: #9ca3af;">Explore evaluation tiers and instant funding packages.</p>
+            </div>
+        </section>
+
+        <!-- ADMIN VIEW -->
+        <section id="adminView" class="view-panel">
+            <div class="card">
+                <div class="card-title">🛡️ Platform Admin Control Center</div>
+                <p style="color: #9ca3af;">Administrative overrides and platform settings.</p>
+            </div>
+        </section>
     </main>
 
     <script type="text/javascript" src="https://s3.tradingview.com/tv.js"></script>
@@ -433,6 +483,17 @@
                 }
             }
         });
+
+        function switchView(viewName) {
+            document.querySelectorAll('.view-panel').forEach(p => p.classList.remove('active'));
+            document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+
+            const targetPanel = document.getElementById(viewName + 'View');
+            if (targetPanel) targetPanel.classList.add('active');
+
+            event?.currentTarget?.classList.add('active');
+            toggleMobileMenu(true);
+        }
 
         function toggleMobileMenu(forceClose = false) {
             const nav = document.getElementById('nav-menu');

@@ -54,7 +54,11 @@
             text-decoration: none;
         }
         
-        .logo img { height: 38px; width: auto; object-fit: contain; }
+        .logo img {
+            height: 38px;
+            width: auto;
+            object-fit: contain;
+        }
         
         nav { 
             display: flex; 
@@ -101,7 +105,12 @@
             line-height: 1;
         }
 
-        .header-actions { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
+        .header-actions { 
+            display: flex; 
+            align-items: center; 
+            gap: 10px; 
+            flex-shrink: 0;
+        }
         
         button { transition: all 0.25s ease; backdrop-filter: blur(8px); }
         button:hover { transform: translateY(-1px); }
@@ -183,7 +192,7 @@
         }
         .status-pill.connected { background: rgba(6, 95, 70, 0.3); color: #34d399; border-color: rgba(52, 211, 153, 0.3); }
 
-        main { padding: 24px; max-width: 1600px; margin: 0 auto; }
+        main { padding: 28px; max-width: 1440px; margin: 0 auto; }
         .view-panel { display: none; }
         .view-panel.active { display: block; animation: fadeIn 0.25s ease-out; }
 
@@ -196,54 +205,47 @@
             background: rgba(13, 17, 23, 0.75); 
             backdrop-filter: blur(16px);
             border: 1px solid rgba(255, 255, 255, 0.06); 
-            border-radius: 14px; 
-            padding: 26px; 
+            border-radius: 12px; 
+            padding: 22px; 
             margin-bottom: 24px; 
-            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.45);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
         }
         .card-title { 
             margin-top: 0; 
-            margin-bottom: 20px; 
-            font-size: 17px; 
+            margin-bottom: 18px; 
+            font-size: 16px; 
             font-weight: 700;
             color: #f3f4f6; 
             display: flex; 
             justify-content: space-between; 
             align-items: center; 
             flex-wrap: wrap;
-            gap: 12px;
+            gap: 10px;
         }
 
-        /* Spacious Trade Grid Layout */
-        .trade-grid { display: grid; grid-template-columns: 1fr 380px; gap: 28px; align-items: start; }
+        .trade-grid { display: grid; grid-template-columns: 3fr 1fr; gap: 24px; }
         .grid-3 { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px; }
         .plans-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(265px, 1fr)); gap: 24px; }
 
-        .form-group { margin-bottom: 18px; }
-        .form-group label { display: block; font-size: 11.5px; color: #9ca3af; margin-bottom: 8px; text-transform: uppercase; font-weight: 700; letter-spacing: 0.6px; }
+        .form-group { margin-bottom: 16px; }
+        .form-group label { display: block; font-size: 11px; color: #9ca3af; margin-bottom: 6px; text-transform: uppercase; font-weight: 700; letter-spacing: 0.5px; }
         .form-group input, .form-group select {
             width: 100%;
-            background: rgba(5, 7, 11, 0.9);
-            border: 1px solid rgba(255, 255, 255, 0.1);
+            background: rgba(5, 7, 11, 0.85);
+            border: 1px solid rgba(255, 255, 255, 0.08);
             color: white;
-            padding: 13px 16px;
-            border-radius: 10px;
-            font-size: 14.5px;
-            transition: all 0.2s ease;
-        }
-        .form-group input:focus, .form-group select:focus {
-            outline: none;
-            border-color: #a855f7;
-            box-shadow: 0 0 0 3px rgba(168, 85, 247, 0.25);
+            padding: 11px 14px;
+            border-radius: 8px;
+            font-size: 14px;
         }
 
-        .btn-buy { width: 100%; background: radial-gradient(circle at center, rgba(5, 150, 105, 0.6) 0%, rgba(4, 120, 87, 0.95) 100%); color: white; border: 1px solid rgba(52, 211, 153, 0.4); padding: 14px; border-radius: 10px; font-weight: 700; cursor: pointer; font-size: 15px; margin-bottom: 12px; box-shadow: 0 4px 15px rgba(5, 150, 105, 0.3); }
-        .btn-sell { width: 100%; background: radial-gradient(circle at center, rgba(220, 38, 38, 0.6) 0%, rgba(153, 27, 27, 0.95) 100%); color: white; border: 1px solid rgba(248, 113, 113, 0.4); padding: 14px; border-radius: 10px; font-weight: 700; cursor: pointer; font-size: 15px; box-shadow: 0 4px 15px rgba(220, 38, 38, 0.3); }
+        .btn-buy { width: 100%; background: radial-gradient(circle at center, rgba(5, 150, 105, 0.5) 0%, rgba(4, 120, 87, 0.9) 100%); color: white; border: 1px solid rgba(52, 211, 153, 0.35); padding: 12px; border-radius: 8px; font-weight: 700; cursor: pointer; font-size: 14px; margin-bottom: 10px; }
+        .btn-sell { width: 100%; background: radial-gradient(circle at center, rgba(220, 38, 38, 0.5) 0%, rgba(153, 27, 27, 0.9) 100%); color: white; border: 1px solid rgba(248, 113, 113, 0.35); padding: 12px; border-radius: 8px; font-weight: 700; cursor: pointer; font-size: 14px; }
 
         .table-responsive { width: 100%; overflow-x: auto; }
         table { width: 100%; border-collapse: collapse; text-align: left; font-size: 13.5px; min-width: 600px; }
-        th { background: rgba(5, 7, 11, 0.9); color: #9ca3af; padding: 13px 16px; font-weight: 600; border-bottom: 1px solid rgba(255, 255, 255, 0.08); text-transform: uppercase; font-size: 11px; letter-spacing: 0.5px; }
-        td { padding: 14px 16px; border-bottom: 1px solid rgba(255, 255, 255, 0.04); color: #e5e7eb; }
+        th { background: rgba(5, 7, 11, 0.9); color: #9ca3af; padding: 12px 14px; font-weight: 600; border-bottom: 1px solid rgba(255, 255, 255, 0.08); text-transform: uppercase; font-size: 11px; }
+        td { padding: 13px 14px; border-bottom: 1px solid rgba(255, 255, 255, 0.04); color: #e5e7eb; }
 
         .logo { display: flex; align-items: center; gap: 10px; text-decoration: none; white-space: nowrap; }
         .logo .brand-mark { display: grid; place-items: center; flex: 0 0 34px; width: 34px; height: 34px; border-radius: 11px; background: linear-gradient(145deg, #bd91ff, #6424e8); color: #fff; box-shadow: 0 0 28px rgba(142,72,255,.35); font-size: 20px; clip-path: polygon(40% 0, 100% 0, 64% 43%, 91% 43%, 23% 100%, 40% 55%, 12% 55%); }
@@ -266,7 +268,6 @@
             nav .nav-tab { width: 100%; text-align: left; padding: 12px 16px; font-size: 15px; }
             .trade-grid { grid-template-columns: 1fr; }
             header { padding: 14px 18px; }
-            main { padding: 16px; }
         }
     </style>
 </head>
@@ -306,15 +307,15 @@
                     <div class="card">
                         <div class="card-title">
                             <span id="chart-title">TradingView Unified Terminal</span>
-                            <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
-                                <button class="btn-wallet" style="padding: 6px 12px; font-size: 11.5px;" onclick="manualRefreshData()">🔄 Refresh</button>
-                                <label style="font-size: 11.5px; color: #9ca3af; text-transform: uppercase; font-weight: 700;">Active Account:</label>
-                                <select id="active-account-select" onchange="switchActiveAccount(this.value)" style="background: #05070b; border: 1px solid rgba(255, 255, 255, 0.1); color: white; padding: 7px 12px; border-radius: 8px; font-size: 13.5px;">
+                            <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                                <button class="btn-wallet" style="padding: 5px 10px; font-size: 11px;" onclick="manualRefreshData()">🔄 Refresh</button>
+                                <label style="font-size: 11px; color: #9ca3af; text-transform: uppercase; font-weight: 700;">Active Account:</label>
+                                <select id="active-account-select" onchange="switchActiveAccount(this.value)" style="background: #05070b; border: 1px solid rgba(255, 255, 255, 0.1); color: white; padding: 6px 10px; border-radius: 6px; font-size: 13px;">
                                     <option value="">No Accounts Found</option>
                                 </select>
                             </div>
                         </div>
-                        <div id="tradingview-widget-container" style="width: 100%; height: 560px; border-radius: 10px; overflow: hidden;"></div>
+                        <div id="tradingview-widget-container" style="width: 100%; height: 500px; border-radius: 8px; overflow: hidden;"></div>
                     </div>
 
                     <div class="card">
@@ -335,7 +336,7 @@
                                     </tr>
                                 </thead>
                                 <tbody id="open-trades-list">
-                                    <tr><td colspan="9" style="text-align: center; color: #6b7280; padding: 28px;">Select an account to view open positions.</td></tr>
+                                    <tr><td colspan="9" style="text-align: center; color: #6b7280; padding: 24px;">Select an account to view open positions.</td></tr>
                                 </tbody>
                             </table>
                         </div>
@@ -343,7 +344,7 @@
                 </div>
 
                 <div>
-                    <div class="card" style="border-color: rgba(168, 85, 247, 0.35);">
+                    <div class="card" style="border-color: rgba(168, 85, 247, 0.3);">
                         <div class="card-title" style="color: #c084fc;">⚡ Order Execution</div>
                         
                         <div class="form-group">
@@ -380,15 +381,15 @@
 
                         <div class="form-group">
                             <label>Live Index Price (USDT)</label>
-                            <input type="number" id="order-price" readonly style="background: rgba(5, 7, 11, 0.95); color: #34d399; font-weight: bold; border-color: rgba(52, 211, 153, 0.25);">
+                            <input type="number" id="order-price" readonly style="background: rgba(5, 7, 11, 0.95); color: #34d399; font-weight: bold; border-color: rgba(52, 211, 153, 0.2);">
                         </div>
 
                         <div class="form-group">
                             <label>Collateral Margin ($ USD)</label>
                             <input type="number" id="order-size-usd" placeholder="500" min="10" oninput="calculateMetrics()">
-                            <small id="notional-exposure-label" style="color: #c084fc; display: block; margin-top: 6px; font-weight: 600;">Total Position Notional: $0.00</small>
-                            <small id="liquidation-price-label" style="color: #ef4444; display: block; margin-top: 3px; font-weight: 600;">Est. Liquidation Price: $0.00</small>
-                            <small id="available-bal-label" style="color: #9ca3af; display: block; margin-top: 8px; font-weight: 500;">Available Balance: $0.00</small>
+                            <small id="notional-exposure-label" style="color: #c084fc; display: block; margin-top: 4px; font-weight: 600;">Total Position Notional: $0.00</small>
+                            <small id="liquidation-price-label" style="color: #ef4444; display: block; margin-top: 2px; font-weight: 600;">Est. Liquidation Price: $0.00</small>
+                            <small id="available-bal-label" style="color: #9ca3af; display: block; margin-top: 6px; font-weight: 500;">Available Balance: $0.00</small>
                         </div>
 
                         <div class="form-group">
@@ -412,7 +413,7 @@
             <div class="card">
                 <div class="card-title">
                     <span>Your Prop Accounts Portfolio</span>
-                    <button class="btn-wallet" style="padding: 6px 14px; font-size: 12px;" onclick="manualRefreshData()">🔄 Refresh Accounts</button>
+                    <button class="btn-wallet" style="padding: 5px 12px; font-size: 11px;" onclick="manualRefreshData()">🔄 Refresh Accounts</button>
                 </div>
                 <div id="accounts-portfolio-container">
                     <p style="text-align: center; color: #6b7280; padding: 30px;">Connect wallet to view your accounts.</p>
@@ -584,21 +585,6 @@
 
     <script type="text/javascript" src="https://s3.tradingview.com/tv.js"></script>
     <script>
-        // Dedicated Leverage Calculation Module logic safely inline
-        function calculatePositionMetrics(marginInput, leverage, currentLivePrice) {
-            const notional = marginInput * leverage;
-            const price = currentLivePrice || 0;
-            let estLiqPrice = 0;
-            if (price > 0 && marginInput > 0 && leverage > 1) {
-                estLiqPrice = price * (1 - (1 / leverage) * 0.9);
-            }
-            return { notional, estLiqPrice, isLeveraged: leverage > 1 };
-        }
-
-        function formatCurrency(amount) {
-            return '$' + parseFloat(amount || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-        }
-
         let connectedWallet = null;
         let availableWallets = [];
         let userAccounts = [];
@@ -750,18 +736,17 @@
         function calculateMetrics() {
             const marginInput = parseFloat(document.getElementById('order-size-usd')?.value) || 0;
             const leverage = parseInt(document.getElementById('order-leverage')?.value) || 1;
-            
-            const metrics = calculatePositionMetrics(marginInput, leverage, currentLivePrice);
+            const notional = marginInput * leverage;
+            const currentPrice = currentLivePrice || 0;
 
             const notionalLabel = document.getElementById('notional-exposure-label');
-            if (notionalLabel) {
-                notionalLabel.innerText = `Total Position Notional: ${formatCurrency(metrics.notional)} (Margin: ${formatCurrency(marginInput)})`;
-            }
+            if (notionalLabel) notionalLabel.innerText = `Total Position Notional: $${notional.toLocaleString()} (Margin: $${marginInput.toLocaleString()})`;
 
             const liqLabel = document.getElementById('liquidation-price-label');
             if (liqLabel) {
-                if (metrics.isLeveraged && metrics.estLiqPrice > 0) {
-                    liqLabel.innerText = `Est. Liquidation Buffer: ~$${metrics.estLiqPrice.toFixed(2)}`;
+                if (currentPrice > 0 && marginInput > 0 && leverage > 1) {
+                    const estLiqPriceLong = currentPrice * (1 - (1 / leverage) * 0.9);
+                    liqLabel.innerText = `Est. Liquidation Buffer: ~$${estLiqPriceLong.toFixed(2)}`;
                 } else {
                     liqLabel.innerText = `Est. Liquidation Price: $0.00 (Spot Mode)`;
                 }
@@ -1044,7 +1029,7 @@
             if (accPort) accPort.innerHTML = '<p style="text-align: center; color: #6b7280; padding: 30px;">Connect wallet to view your accounts.</p>';
             
             const openList = document.getElementById('open-trades-list');
-            if (openList) openList.innerHTML = '<tr><td colspan="9" style="text-align: center; color: #6b7280; padding: 28px;">Select an account to view open positions.</td></tr>';
+            if (openList) openList.innerHTML = '<tr><td colspan="9" style="text-align: center; color: #6b7280; padding: 24px;">Select an account to view open positions.</td></tr>';
             
             const setupBox = document.getElementById('profile-setup-box');
             const dispBox = document.getElementById('profile-display-box');
@@ -1335,7 +1320,7 @@
             tbody.innerHTML = '';
 
             if (!data.trades || data.trades.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="9" style="text-align: center; color: #6b7280; padding: 28px;">No open positions for this account.</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="9" style="text-align: center; color: #6b7280; padding: 24px;">No open positions for this account.</td></tr>';
                 return;
             }
 

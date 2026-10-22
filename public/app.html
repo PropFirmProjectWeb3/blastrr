@@ -380,8 +380,8 @@
                         </div>
 
                         <div class="form-group">
-                            <label>Live Index Price (USDT)</label>
-                            <input type="number" id="order-price" readonly style="background: rgba(5, 7, 11, 0.95); color: #34d399; font-weight: bold; border-color: rgba(52, 211, 153, 0.2);">
+                            <label>Execution Price / Limit (USDT)</label>
+                            <input type="number" id="order-price" oninput="onPriceInputChanged()" style="background: rgba(5, 7, 11, 0.95); color: #34d399; font-weight: bold; border-color: rgba(52, 211, 153, 0.2);">
                         </div>
 
                         <div class="form-group">
@@ -596,6 +596,7 @@
         let livePriceInterval = null;
         let autoSyncInterval = null;
         let currentLivePrice = 0;
+        let userHasEditedPrice = false;
         let availableCommissionBalance = 0;
         let currentLeaderboardMode = 'DAILY';
         let rawLeaderboardData = [];
@@ -684,6 +685,7 @@
         }
 
         function onSymbolChanged(tvSymbol) {
+            userHasEditedPrice = false;
             updateTradingViewSymbol(tvSymbol);
             const select = document.getElementById('order-symbol');
             if (!select) return;
@@ -718,13 +720,18 @@
                 }
 
                 const priceInput = document.getElementById('order-price');
-                if (priceInput && currentLivePrice > 0) {
+                if (priceInput && currentLivePrice > 0 && !userHasEditedPrice) {
                     priceInput.value = currentLivePrice;
                     calculateMetrics();
                 }
             } catch (err) { 
                 console.warn("Price feed warning for", pair, err); 
             }
+        }
+
+        function onPriceInputChanged() {
+            userHasEditedPrice = true;
+            calculateMetrics();
         }
 
         function updateLeverageDisplay(val) {
@@ -737,15 +744,15 @@
             const marginInput = parseFloat(document.getElementById('order-size-usd')?.value) || 0;
             const leverage = parseInt(document.getElementById('order-leverage')?.value) || 1;
             const notional = marginInput * leverage;
-            const currentPrice = currentLivePrice || 0;
+            const priceInputVal = parseFloat(document.getElementById('order-price')?.value) || currentLivePrice || 0;
 
             const notionalLabel = document.getElementById('notional-exposure-label');
             if (notionalLabel) notionalLabel.innerText = `Total Position Notional: $${notional.toLocaleString()} (Margin: $${marginInput.toLocaleString()})`;
 
             const liqLabel = document.getElementById('liquidation-price-label');
             if (liqLabel) {
-                if (currentPrice > 0 && marginInput > 0 && leverage > 1) {
-                    const estLiqPriceLong = currentPrice * (1 - (1 / leverage) * 0.9);
+                if (priceInputVal > 0 && marginInput > 0 && leverage > 1) {
+                    const estLiqPriceLong = priceInputVal * (1 - (1 / leverage) * 0.9);
                     liqLabel.innerText = `Est. Liquidation Buffer: ~$${estLiqPriceLong.toFixed(2)}`;
                 } else {
                     liqLabel.innerText = `Est. Liquidation Price: $0.00 (Spot Mode)`;
@@ -1350,7 +1357,7 @@
         async function executeTrade(side) {
             if (!selectedAccountId || !activeAccount) { alert("Please select or purchase an active trading account first!"); return; }
             const symbol = document.getElementById('order-symbol').value;
-            const price = currentLivePrice || parseFloat(document.getElementById('order-price').value);
+            const price = parseFloat(document.getElementById('order-price').value) || currentLivePrice;
             const sizeUsd = parseFloat(document.getElementById('order-size-usd').value);
             const leverage = parseInt(document.getElementById('order-leverage').value) || 1;
             const sl = parseFloat(document.getElementById('order-sl').value) || null;

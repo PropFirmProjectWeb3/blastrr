@@ -173,8 +173,8 @@ footer{border-top:1px solid rgba(173,127,255,.15);padding:35px 0 25px}.footer-to
     <article class="feature reveal"><div class="feature-icon">◇</div><h3>Wallet-first access</h3><p>Connect a compatible Web3 wallet to access the app. Any identity or eligibility checks required by law or platform policy still apply.</p></article>
    </div>
    <div class="rules-panel reveal" id="rules"><span class="eyebrow">Know the rules</span><h3>Trade the plan.<br><span class="gradient-text">Protect the downside.</span></h3><p>Know your limits before the first position.</p>
-    <details class="rule" open><summary>Daily loss limit — 5%</summary><p>The daily loss limit is 5% of the plan's stated simulated capital: $250 on Micro, up to $12,500 on Whale. Confirm the app's reset time, equity/balance calculation and treatment of floating P&amp;L before trading.</p></details>
-    <details class="rule"><summary>Maximum drawdown — 10% static</summary><p>The stated maximum drawdown is 10% of the plan's simulated capital and is described as static. Check the official rules for how breaches are measured and when an account is closed.</p></details>
+    <details class="rule" open><summary>Daily loss limit — 5%</summary><p>The daily loss limit is 5% of the plan's daily starting equity. A breach locks the account for 24 hours; when the lock expires, the daily starting equity resets to the then-current equity.</p></details>
+    <details class="rule"><summary>Maximum drawdown — 10% static</summary><p>The maximum loss limit is 10% of the plan's initial simulated balance and does not trail profits. Breaching it permanently locks the account.</p></details>
     <details class="rule"><summary>Profit target</summary><p>Each plan has a stated target equal to 20% of simulated capital. Reaching a target does not by itself guarantee a payout or funded/live brokerage account; eligibility and review conditions apply.</p></details>
     <details class="rule"><summary>News trading</summary><p>News trading is prohibited under the stated rules. Review the complete policy for restricted events, time windows, open positions and enforcement.</p></details>
     <details class="rule"><summary>Spot vs Perpetual Futures</summary><p>Blastrr offers separate spot and perpetual futures environments. Spot mode operates with zero leverage, while Perpetual Futures allows optional leverage up to 50x.</p></details>
@@ -212,45 +212,56 @@ footer{border-top:1px solid rgba(173,127,255,.15);padding:35px 0 25px}.footer-to
 
 <script>
 const APP_URL = "spot.html";
-const plans = [
- {name:"Micro",capital:5000,price:500,featured:false},
- {name:"Starter",capital:10000,price:1000,featured:false},
- {name:"Trader",capital:20000,price:2000,featured:false},
- {name:"Pro",capital:50000,price:5000,featured:true},
- {name:"Elite",capital:100000,price:10000,featured:false},
- {name:"Whale",capital:250000,price:25000,featured:false}
-];
+let plans = [];
+let planLoadAttempts = 0;
 const money = n => "$"+n.toLocaleString("en-US");
-const launchPrice = p => p*.1;
 function renderPlans(){
  const host=document.getElementById("planCards");
  host.innerHTML=plans.map(p=>{
-  const target=p.capital*.2, daily=p.capital*.05, draw=p.capital*.1;
-  return `<article class="plan ${p.featured?"featured":""} reveal">
-   <div class="plan-top"><span class="plan-name">${p.name.toUpperCase()}</span>${p.featured?'<span class="tag">POPULAR</span>':''}</div>
-   <div class="capital">${money(p.capital)}</div><div class="tiny-label">SIMULATED CAPITAL</div>
-   <div class="code-applied"><span>✓</span> CODE <span class="code-token">BLAST90</span> APPLIED</div><div class="price-line"><span><span class="price">${money(launchPrice(p.price))} USDT</span><small class="price-caption">Your discounted price</small></span><span class="old-price">${money(p.price)}</span><span class="save">−90%</span></div>
+  const name=p.name.replace(/\s+\$[\d,]+.*$/,"");
+  const featured=name==="Pro";
+  return `<article class="plan ${featured?"featured":""} reveal">
+   <div class="plan-top"><span class="plan-name">${name.toUpperCase()}</span>${featured?'<span class="tag">POPULAR</span>':''}</div>
+   <div class="capital">${money(p.simulated_capital)}</div><div class="tiny-label">SIMULATED CAPITAL</div>
+   <div class="code-applied"><span>✓</span> CODE <span class="code-token">BLAST90</span> APPLIED</div><div class="price-line"><span><span class="price">${money(p.price_usdt)} USDT</span><small class="price-caption">Your discounted price</small></span><span class="old-price">${money(p.base_price_usdt)}</span><span class="save">−${Math.round((1-p.price_usdt/p.base_price_usdt)*100)}%</span></div>
    <div class="plan-divider"></div>
-   <div class="metric"><span>Profit target</span><strong>${money(target)}</strong></div>
-   <div class="metric"><span>Daily loss limit (5%)</span><strong>${money(daily)}</strong></div>
-   <div class="metric"><span>Max drawdown (10%)</span><strong>${money(draw)}</strong></div>
-   <a class="btn" href="${APP_URL}">Choose ${p.name} <span>↗</span></a><p class="plan-note">USDT · Supported networks</p>
+   <div class="metric"><span>Profit target</span><strong>${money(p.profit_target)}</strong></div>
+   <div class="metric"><span>Daily loss limit (${p.daily_loss_pct}%)</span><strong>${money(p.simulated_capital*p.daily_loss_pct/100)}</strong></div>
+   <div class="metric"><span>Max drawdown (${p.max_drawdown_pct}%)</span><strong>${money(p.simulated_capital*p.max_drawdown_pct/100)}</strong></div>
+   <a class="btn" href="${APP_URL}">Choose ${name} <span>↗</span></a><p class="plan-note">USDT · Supported networks</p>
   </article>`;
  }).join("");
 }
 function renderTable(){
  const table=document.getElementById("comparisonTable");
- table.querySelector("thead").innerHTML=`<tr><th>Plan details</th>${plans.map(p=>`<th>${p.name}<br><span style="font-weight:500;color:#a78bfa">${money(p.capital)}</span></th>`).join("")}</tr>`;
+ table.querySelector("thead").innerHTML=`<tr><th>Plan details</th>${plans.map(p=>`<th>${p.name}<br><span style="font-weight:500;color:#a78bfa">${money(p.simulated_capital)}</span></th>`).join("")}</tr>`;
  const rows=[
-  ["Launch purchase price",p=>`<strong>${money(launchPrice(p.price))}</strong> <span style="display:block;color:#7f7898;text-decoration:line-through;font-size:10px">${money(p.price)}</span>`],
-  ["Simulated capital",p=>`<strong>${money(p.capital)}</strong>`],
-  ["Profit target",p=>money(p.capital*.2)],
-  ["Daily loss limit (5%)",p=>money(p.capital*.05)],
-  ["Max drawdown (10%)",p=>money(p.capital*.1)]
+  ["Launch purchase price",p=>`<strong>${money(p.price_usdt)}</strong> <span style="display:block;color:#7f7898;text-decoration:line-through;font-size:10px">${money(p.base_price_usdt)}</span>`],
+  ["Simulated capital",p=>`<strong>${money(p.simulated_capital)}</strong>`],
+  ["Profit target",p=>money(p.profit_target)],
+  ["Daily loss limit",p=>`${money(p.simulated_capital*p.daily_loss_pct/100)} (${p.daily_loss_pct}%)`],
+  ["Max drawdown",p=>`${money(p.simulated_capital*p.max_drawdown_pct/100)} (${p.max_drawdown_pct}%)`]
  ];
  table.querySelector("tbody").innerHTML=rows.map(([label,fn])=>`<tr><td>${label}</td>${plans.map(p=>`<td>${fn(p)}</td>`).join("")}</tr>`).join("");
 }
-renderPlans();renderTable();
+async function loadPlans(){
+ try{
+  const response=await fetch("/api/plans");
+  if(!response.ok) throw new Error(`Plan request failed (${response.status})`);
+  const data=await response.json();
+  plans=Array.isArray(data.plans)?data.plans:[];
+  if(!plans.length&&planLoadAttempts<5){
+   planLoadAttempts++;
+   setTimeout(loadPlans,400);
+   return;
+  }
+  renderPlans();renderTable();
+ }catch(error){
+  console.error("Unable to load plan configuration:",error);
+  document.getElementById("planCards").textContent="Plans are temporarily unavailable.";
+ }
+}
+loadPlans();
 document.getElementById("year").textContent=new Date().getFullYear();
 const menuToggle=document.getElementById("menuToggle"),nav=document.getElementById("navlinks");
 menuToggle.addEventListener("click",()=>{const open=nav.classList.toggle("open");menuToggle.setAttribute("aria-expanded",String(open));});

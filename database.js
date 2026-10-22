@@ -1,7 +1,9 @@
 const sqlite3 = require('sqlite3').verbose();
 const path = require('path');
 
-const dbPath = path.resolve(__dirname, 'blastrr.db');
+const dbPath = process.env.DATABASE_PATH
+  ? path.resolve(process.env.DATABASE_PATH)
+  : path.resolve(__dirname, 'blastrr.db');
 const db = new sqlite3.Database(dbPath, (err) => {
   if (err) {
     console.error('Error opening database', err.message);
@@ -31,12 +33,21 @@ function initTables() {
       profit_target REAL NOT NULL,
       max_drawdown_pct REAL NOT NULL,
       daily_loss_pct REAL NOT NULL,
-      max_single_day_profit_pct REAL DEFAULT 40.0
+      max_single_day_profit_pct REAL DEFAULT 40.0,
+      active INTEGER DEFAULT 1
     )`);
 
     db.run(`CREATE TABLE IF NOT EXISTS admins (
       wallet_address TEXT PRIMARY KEY,
       role TEXT DEFAULT 'SUPER_ADMIN',
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    )`);
+
+    db.run(`CREATE TABLE IF NOT EXISTS purchases (
+      tx_hash TEXT PRIMARY KEY,
+      chain_id INTEGER NOT NULL,
+      wallet_address TEXT NOT NULL,
+      account_id TEXT NOT NULL,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     )`);
 
@@ -50,6 +61,9 @@ function initTables() {
       high_water_mark REAL,
       daily_starting_balance REAL,
       status TEXT DEFAULT 'ACTIVE',
+      lock_reason TEXT,
+      locked_until TEXT,
+      permanent_lock INTEGER DEFAULT 0,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY(wallet_address) REFERENCES users(wallet_address),
       FOREIGN KEY(plan_id) REFERENCES plans(id)
@@ -69,6 +83,7 @@ function initTables() {
       status TEXT DEFAULT 'OPEN',
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       closed_at DATETIME,
+      leverage INTEGER DEFAULT 1,
       FOREIGN KEY(account_id) REFERENCES accounts(id)
     )`);
 
@@ -78,6 +93,9 @@ function initTables() {
       wallet_address TEXT,
       amount REAL,
       status TEXT DEFAULT 'PENDING',
+      type TEXT DEFAULT 'PROFIT_SPLIT',
+      plan_name TEXT,
+      user_ip TEXT,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY(account_id) REFERENCES accounts(id)
     )`);
@@ -99,6 +117,66 @@ function initTables() {
       commission_earned REAL,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     )`);
+
+    db.all("PRAGMA table_info(accounts)", (err, columns) => {
+      if (err) {
+        console.error('Unable to inspect accounts schema', err.message);
+        return;
+      }
+      const existing = new Set(columns.map(column => column.name));
+      const additions = [
+        ['lock_reason', 'TEXT'],
+        ['locked_until', 'TEXT'],
+        ['permanent_lock', 'INTEGER DEFAULT 0']
+      ].filter(([name]) => !existing.has(name));
+      for (const [name, type] of additions) {
+        db.run(`ALTER TABLE accounts ADD COLUMN ${name} ${type}`, (alterErr) => {
+          if (alterErr) console.error(`Unable to add accounts.${name}`, alterErr.message);
+        });
+      }
+    });
+
+    db.all("PRAGMA table_info(plans)", (err, columns) => {
+      if (err) {
+        console.error('Unable to inspect plans schema', err.message);
+        return;
+      }
+      if (!columns.some(column => column.name === 'active')) {
+        db.run("ALTER TABLE plans ADD COLUMN active INTEGER DEFAULT 1", (alterErr) => {
+          if (alterErr) console.error('Unable to add plans.active', alterErr.message);
+        });
+      }
+    });
+
+    db.all("PRAGMA table_info(trades)", (err, columns) => {
+      if (err) {
+        console.error('Unable to inspect trades schema', err.message);
+        return;
+      }
+      if (!columns.some(column => column.name === 'leverage')) {
+        db.run("ALTER TABLE trades ADD COLUMN leverage INTEGER DEFAULT 1", (alterErr) => {
+          if (alterErr) console.error('Unable to add trades.leverage', alterErr.message);
+        });
+      }
+    });
+
+    db.all("PRAGMA table_info(withdrawals)", (err, columns) => {
+      if (err) {
+        console.error('Unable to inspect withdrawals schema', err.message);
+        return;
+      }
+      const existing = new Set(columns.map(column => column.name));
+      const additions = [
+        ['type', "TEXT DEFAULT 'PROFIT_SPLIT'"],
+        ['plan_name', 'TEXT'],
+        ['user_ip', 'TEXT']
+      ].filter(([name]) => !existing.has(name));
+      for (const [name, type] of additions) {
+        db.run(`ALTER TABLE withdrawals ADD COLUMN ${name} ${type}`, (alterErr) => {
+          if (alterErr) console.error(`Unable to add withdrawals.${name}`, alterErr.message);
+        });
+      }
+    });
   });
 }
 

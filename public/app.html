@@ -54,11 +54,7 @@
             text-decoration: none;
         }
         
-        .logo img {
-            height: 38px;
-            width: auto;
-            object-fit: contain;
-        }
+        .logo img { height: 38px; width: auto; object-fit: contain; }
         
         nav { 
             display: flex; 
@@ -105,12 +101,7 @@
             line-height: 1;
         }
 
-        .header-actions { 
-            display: flex; 
-            align-items: center; 
-            gap: 10px; 
-            flex-shrink: 0;
-        }
+        .header-actions { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
         
         button { transition: all 0.25s ease; backdrop-filter: blur(8px); }
         button:hover { transform: translateY(-1px); }
@@ -192,7 +183,7 @@
         }
         .status-pill.connected { background: rgba(6, 95, 70, 0.3); color: #34d399; border-color: rgba(52, 211, 153, 0.3); }
 
-        main { padding: 28px; max-width: 1440px; margin: 0 auto; }
+        main { padding: 24px; max-width: 1600px; margin: 0 auto; }
         .view-panel { display: none; }
         .view-panel.active { display: block; animation: fadeIn 0.25s ease-out; }
 
@@ -205,47 +196,54 @@
             background: rgba(13, 17, 23, 0.75); 
             backdrop-filter: blur(16px);
             border: 1px solid rgba(255, 255, 255, 0.06); 
-            border-radius: 12px; 
-            padding: 22px; 
+            border-radius: 14px; 
+            padding: 26px; 
             margin-bottom: 24px; 
-            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.45);
         }
         .card-title { 
             margin-top: 0; 
-            margin-bottom: 18px; 
-            font-size: 16px; 
+            margin-bottom: 20px; 
+            font-size: 17px; 
             font-weight: 700;
             color: #f3f4f6; 
             display: flex; 
             justify-content: space-between; 
             align-items: center; 
             flex-wrap: wrap;
-            gap: 10px;
+            gap: 12px;
         }
 
-        .trade-grid { display: grid; grid-template-columns: 3fr 1fr; gap: 24px; }
+        /* Spacious Trade Grid Layout */
+        .trade-grid { display: grid; grid-template-columns: 1fr 380px; gap: 28px; align-items: start; }
         .grid-3 { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px; }
         .plans-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(265px, 1fr)); gap: 24px; }
 
-        .form-group { margin-bottom: 16px; }
-        .form-group label { display: block; font-size: 11px; color: #9ca3af; margin-bottom: 6px; text-transform: uppercase; font-weight: 700; letter-spacing: 0.5px; }
+        .form-group { margin-bottom: 18px; }
+        .form-group label { display: block; font-size: 11.5px; color: #9ca3af; margin-bottom: 8px; text-transform: uppercase; font-weight: 700; letter-spacing: 0.6px; }
         .form-group input, .form-group select {
             width: 100%;
-            background: rgba(5, 7, 11, 0.85);
-            border: 1px solid rgba(255, 255, 255, 0.08);
+            background: rgba(5, 7, 11, 0.9);
+            border: 1px solid rgba(255, 255, 255, 0.1);
             color: white;
-            padding: 11px 14px;
-            border-radius: 8px;
-            font-size: 14px;
+            padding: 13px 16px;
+            border-radius: 10px;
+            font-size: 14.5px;
+            transition: all 0.2s ease;
+        }
+        .form-group input:focus, .form-group select:focus {
+            outline: none;
+            border-color: #a855f7;
+            box-shadow: 0 0 0 3px rgba(168, 85, 247, 0.25);
         }
 
-        .btn-buy { width: 100%; background: radial-gradient(circle at center, rgba(5, 150, 105, 0.5) 0%, rgba(4, 120, 87, 0.9) 100%); color: white; border: 1px solid rgba(52, 211, 153, 0.35); padding: 12px; border-radius: 8px; font-weight: 700; cursor: pointer; font-size: 14px; margin-bottom: 10px; }
-        .btn-sell { width: 100%; background: radial-gradient(circle at center, rgba(220, 38, 38, 0.5) 0%, rgba(153, 27, 27, 0.9) 100%); color: white; border: 1px solid rgba(248, 113, 113, 0.35); padding: 12px; border-radius: 8px; font-weight: 700; cursor: pointer; font-size: 14px; }
+        .btn-buy { width: 100%; background: radial-gradient(circle at center, rgba(5, 150, 105, 0.6) 0%, rgba(4, 120, 87, 0.95) 100%); color: white; border: 1px solid rgba(52, 211, 153, 0.4); padding: 14px; border-radius: 10px; font-weight: 700; cursor: pointer; font-size: 15px; margin-bottom: 12px; box-shadow: 0 4px 15px rgba(5, 150, 105, 0.3); }
+        .btn-sell { width: 100%; background: radial-gradient(circle at center, rgba(220, 38, 38, 0.6) 0%, rgba(153, 27, 27, 0.95) 100%); color: white; border: 1px solid rgba(248, 113, 113, 0.4); padding: 14px; border-radius: 10px; font-weight: 700; cursor: pointer; font-size: 15px; box-shadow: 0 4px 15px rgba(220, 38, 38, 0.3); }
 
         .table-responsive { width: 100%; overflow-x: auto; }
         table { width: 100%; border-collapse: collapse; text-align: left; font-size: 13.5px; min-width: 600px; }
-        th { background: rgba(5, 7, 11, 0.9); color: #9ca3af; padding: 12px 14px; font-weight: 600; border-bottom: 1px solid rgba(255, 255, 255, 0.08); text-transform: uppercase; font-size: 11px; }
-        td { padding: 13px 14px; border-bottom: 1px solid rgba(255, 255, 255, 0.04); color: #e5e7eb; }
+        th { background: rgba(5, 7, 11, 0.9); color: #9ca3af; padding: 13px 16px; font-weight: 600; border-bottom: 1px solid rgba(255, 255, 255, 0.08); text-transform: uppercase; font-size: 11px; letter-spacing: 0.5px; }
+        td { padding: 14px 16px; border-bottom: 1px solid rgba(255, 255, 255, 0.04); color: #e5e7eb; }
 
         .logo { display: flex; align-items: center; gap: 10px; text-decoration: none; white-space: nowrap; }
         .logo .brand-mark { display: grid; place-items: center; flex: 0 0 34px; width: 34px; height: 34px; border-radius: 11px; background: linear-gradient(145deg, #bd91ff, #6424e8); color: #fff; box-shadow: 0 0 28px rgba(142,72,255,.35); font-size: 20px; clip-path: polygon(40% 0, 100% 0, 64% 43%, 91% 43%, 23% 100%, 40% 55%, 12% 55%); }
@@ -268,6 +266,7 @@
             nav .nav-tab { width: 100%; text-align: left; padding: 12px 16px; font-size: 15px; }
             .trade-grid { grid-template-columns: 1fr; }
             header { padding: 14px 18px; }
+            main { padding: 16px; }
         }
     </style>
 </head>
@@ -307,15 +306,15 @@
                     <div class="card">
                         <div class="card-title">
                             <span id="chart-title">TradingView Unified Terminal</span>
-                            <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
-                                <button class="btn-wallet" style="padding: 5px 10px; font-size: 11px;" onclick="manualRefreshData()">🔄 Refresh</button>
-                                <label style="font-size: 11px; color: #9ca3af; text-transform: uppercase; font-weight: 700;">Active Account:</label>
-                                <select id="active-account-select" onchange="switchActiveAccount(this.value)" style="background: #05070b; border: 1px solid rgba(255, 255, 255, 0.1); color: white; padding: 6px 10px; border-radius: 6px; font-size: 13px;">
+                            <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+                                <button class="btn-wallet" style="padding: 6px 12px; font-size: 11.5px;" onclick="manualRefreshData()">🔄 Refresh</button>
+                                <label style="font-size: 11.5px; color: #9ca3af; text-transform: uppercase; font-weight: 700;">Active Account:</label>
+                                <select id="active-account-select" onchange="switchActiveAccount(this.value)" style="background: #05070b; border: 1px solid rgba(255, 255, 255, 0.1); color: white; padding: 7px 12px; border-radius: 8px; font-size: 13.5px;">
                                     <option value="">No Accounts Found</option>
                                 </select>
                             </div>
                         </div>
-                        <div id="tradingview-widget-container" style="width: 100%; height: 500px; border-radius: 8px; overflow: hidden;"></div>
+                        <div id="tradingview-widget-container" style="width: 100%; height: 560px; border-radius: 10px; overflow: hidden;"></div>
                     </div>
 
                     <div class="card">
@@ -336,7 +335,7 @@
                                     </tr>
                                 </thead>
                                 <tbody id="open-trades-list">
-                                    <tr><td colspan="9" style="text-align: center; color: #6b7280; padding: 24px;">Select an account to view open positions.</td></tr>
+                                    <tr><td colspan="9" style="text-align: center; color: #6b7280; padding: 28px;">Select an account to view open positions.</td></tr>
                                 </tbody>
                             </table>
                         </div>
@@ -344,7 +343,7 @@
                 </div>
 
                 <div>
-                    <div class="card" style="border-color: rgba(168, 85, 247, 0.3);">
+                    <div class="card" style="border-color: rgba(168, 85, 247, 0.35);">
                         <div class="card-title" style="color: #c084fc;">⚡ Order Execution</div>
                         
                         <div class="form-group">
@@ -381,15 +380,15 @@
 
                         <div class="form-group">
                             <label>Live Index Price (USDT)</label>
-                            <input type="number" id="order-price" readonly style="background: rgba(5, 7, 11, 0.95); color: #34d399; font-weight: bold; border-color: rgba(52, 211, 153, 0.2);">
+                            <input type="number" id="order-price" readonly style="background: rgba(5, 7, 11, 0.95); color: #34d399; font-weight: bold; border-color: rgba(52, 211, 153, 0.25);">
                         </div>
 
                         <div class="form-group">
                             <label>Collateral Margin ($ USD)</label>
                             <input type="number" id="order-size-usd" placeholder="500" min="10" oninput="calculateMetrics()">
-                            <small id="notional-exposure-label" style="color: #c084fc; display: block; margin-top: 4px; font-weight: 600;">Total Position Notional: $0.00</small>
-                            <small id="liquidation-price-label" style="color: #ef4444; display: block; margin-top: 2px; font-weight: 600;">Est. Liquidation Price: $0.00</small>
-                            <small id="available-bal-label" style="color: #9ca3af; display: block; margin-top: 6px; font-weight: 500;">Available Balance: $0.00</small>
+                            <small id="notional-exposure-label" style="color: #c084fc; display: block; margin-top: 6px; font-weight: 600;">Total Position Notional: $0.00</small>
+                            <small id="liquidation-price-label" style="color: #ef4444; display: block; margin-top: 3px; font-weight: 600;">Est. Liquidation Price: $0.00</small>
+                            <small id="available-bal-label" style="color: #9ca3af; display: block; margin-top: 8px; font-weight: 500;">Available Balance: $0.00</small>
                         </div>
 
                         <div class="form-group">
@@ -413,7 +412,7 @@
             <div class="card">
                 <div class="card-title">
                     <span>Your Prop Accounts Portfolio</span>
-                    <button class="btn-wallet" style="padding: 5px 12px; font-size: 11px;" onclick="manualRefreshData()">🔄 Refresh Accounts</button>
+                    <button class="btn-wallet" style="padding: 6px 14px; font-size: 12px;" onclick="manualRefreshData()">🔄 Refresh Accounts</button>
                 </div>
                 <div id="accounts-portfolio-container">
                     <p style="text-align: center; color: #6b7280; padding: 30px;">Connect wallet to view your accounts.</p>
@@ -584,22 +583,24 @@
     </main>
 
     <script type="text/javascript" src="https://s3.tradingview.com/tv.js"></script>
-    <script>
-        let connectedWallet = null;
-        let availableWallets = [];
-        let userAccounts = [];
-        let selectedAccountId = null;
-        let activeAccount = null;
-        let tvWidget = null;
-        let activePromoCode = null;
-        let plansData = [];
-        let livePriceInterval = null;
-        let autoSyncInterval = null;
-        let currentLivePrice = 0;
-        let availableCommissionBalance = 0;
-        let currentLeaderboardMode = 'DAILY';
-        let rawLeaderboardData = [];
-        let currentUserProfile = null;
+    <script type="module">
+        import { calculatePositionMetrics, formatCurrency } from './leverageUtils.js';
+
+        window.connectedWallet = null;
+        window.availableWallets = [];
+        window.userAccounts = [];
+        window.selectedAccountId = null;
+        window.activeAccount = null;
+        window.tvWidget = null;
+        window.activePromoCode = null;
+        window.plansData = [];
+        window.livePriceInterval = null;
+        window.autoSyncInterval = null;
+        window.currentLivePrice = 0;
+        window.availableCommissionBalance = 0;
+        window.currentLeaderboardMode = 'DAILY';
+        window.rawLeaderboardData = [];
+        window.currentUserProfile = null;
         
         const TREASURY_WALLET = "0x8632fa855d5dc6b59a3cf892d72cf4a94f182aae";
 
@@ -614,11 +615,11 @@
         window.addEventListener('DOMContentLoaded', () => {
             initTradingViewWidget("TVC:GOLD");
             loadPlans();
-            loadLeaderboard(currentLeaderboardMode);
+            loadLeaderboard(window.currentLeaderboardMode);
             onSymbolChanged("TVC:GOLD");
 
-            autoSyncInterval = setInterval(() => {
-                if (connectedWallet) silentSyncUserData(connectedWallet);
+            window.autoSyncInterval = setInterval(() => {
+                if (window.connectedWallet) silentSyncUserData(window.connectedWallet);
             }, 5000);
 
             const urlParams = new URLSearchParams(window.location.search);
@@ -635,7 +636,7 @@
             if (provider?.on) {
                 provider.on('accountsChanged', (accounts) => {
                     if (accounts && accounts.length > 0) {
-                        availableWallets = accounts;
+                        window.availableWallets = accounts;
                         updateWalletDropdown();
                         onWalletSwitched(accounts[0]);
                     } else {
@@ -645,7 +646,7 @@
             }
         });
 
-        function toggleMobileMenu(forceClose = false) {
+        window.toggleMobileMenu = function(forceClose = false) {
             const nav = document.getElementById('nav-menu');
             const hamburger = document.getElementById('hamburger-icon');
             if (!nav) return;
@@ -656,13 +657,13 @@
             }
             nav.classList.toggle('mobile-open');
             if (hamburger) hamburger.innerText = nav.classList.contains('mobile-open') ? '✕' : '☰';
-        }
+        };
 
         function initTradingViewWidget(symbol) {
             const container = document.getElementById('tradingview-widget-container');
             if (!container) return;
             container.innerHTML = '';
-            tvWidget = new TradingView.widget({
+            window.tvWidget = new TradingView.widget({
                 "autosize": true,
                 "symbol": symbol,
                 "interval": "D",
@@ -676,14 +677,14 @@
         }
 
         function updateTradingViewSymbol(symbol) {
-            if (tvWidget && tvWidget.chart) {
-                try { tvWidget.chart().setSymbol(symbol); } catch(e) { initTradingViewWidget(symbol); }
+            if (window.tvWidget && window.tvWidget.chart) {
+                try { window.tvWidget.chart().setSymbol(symbol); } catch(e) { initTradingViewWidget(symbol); }
             } else {
                 initTradingViewWidget(symbol);
             }
         }
 
-        function onSymbolChanged(tvSymbol) {
+        window.onSymbolChanged = function(tvSymbol) {
             updateTradingViewSymbol(tvSymbol);
             const select = document.getElementById('order-symbol');
             if (!select) return;
@@ -693,12 +694,12 @@
                 const type = opt.getAttribute('data-type');
                 startPricePolling(pair, type);
             }
-        }
+        };
 
         function startPricePolling(pair, type) {
-            if (livePriceInterval) clearInterval(livePriceInterval);
+            if (window.livePriceInterval) clearInterval(window.livePriceInterval);
             fetchPrice(pair, type);
-            livePriceInterval = setInterval(() => fetchPrice(pair, type), 2000);
+            window.livePriceInterval = setInterval(() => fetchPrice(pair, type), 2000);
         }
 
         async function fetchPrice(pair, type) {
@@ -709,51 +710,53 @@
                         : `https://api.binance.com/api/v3/ticker/price?symbol=${pair}`;
                     const res = await fetch(endpoint);
                     const data = await res.json();
-                    if (data && data.price) currentLivePrice = parseFloat(data.price);
+                    if (data && data.price) window.currentLivePrice = parseFloat(data.price);
                 } else {
                     const res = await fetch(`/api/market/price?symbol=${pair}`);
                     if (!res.ok) return;
                     const data = await res.json();
-                    if (data && data.price) currentLivePrice = parseFloat(data.price);
+                    if (data && data.price) window.currentLivePrice = parseFloat(data.price);
                 }
 
                 const priceInput = document.getElementById('order-price');
-                if (priceInput && currentLivePrice > 0) {
-                    priceInput.value = currentLivePrice;
-                    calculateMetrics();
+                if (priceInput && window.currentLivePrice > 0) {
+                    priceInput.value = window.currentLivePrice;
+                    window.calculateMetrics();
                 }
             } catch (err) { 
                 console.warn("Price feed warning for", pair, err); 
             }
         }
 
-        function updateLeverageDisplay(val) {
+        window.updateLeverageDisplay = function(val) {
             const lbl = document.getElementById('leverage-label');
             if (lbl) lbl.innerText = val == "1" ? "1x Spot Mode" : `${val}x Risk Mode`;
-            calculateMetrics();
-        }
+            window.calculateMetrics();
+        };
 
-        function calculateMetrics() {
+        window.calculateMetrics = function() {
             const marginInput = parseFloat(document.getElementById('order-size-usd')?.value) || 0;
             const leverage = parseInt(document.getElementById('order-leverage')?.value) || 1;
-            const notional = marginInput * leverage;
-            const currentPrice = currentLivePrice || 0;
+            
+            // Utilize imported dedicated leverage calculation module
+            const metrics = calculatePositionMetrics(marginInput, leverage, window.currentLivePrice);
 
             const notionalLabel = document.getElementById('notional-exposure-label');
-            if (notionalLabel) notionalLabel.innerText = `Total Position Notional: $${notional.toLocaleString()} (Margin: $${marginInput.toLocaleString()})`;
+            if (notionalLabel) {
+                notionalLabel.innerText = `Total Position Notional: ${formatCurrency(metrics.notional)} (Margin: ${formatCurrency(marginInput)})`;
+            }
 
             const liqLabel = document.getElementById('liquidation-price-label');
             if (liqLabel) {
-                if (currentPrice > 0 && marginInput > 0 && leverage > 1) {
-                    const estLiqPriceLong = currentPrice * (1 - (1 / leverage) * 0.9);
-                    liqLabel.innerText = `Est. Liquidation Buffer: ~$${estLiqPriceLong.toFixed(2)}`;
+                if (metrics.isLeveraged && metrics.estLiqPrice > 0) {
+                    liqLabel.innerText = `Est. Liquidation Buffer: ~$${metrics.estLiqPrice.toFixed(2)}`;
                 } else {
                     liqLabel.innerText = `Est. Liquidation Price: $0.00 (Spot Mode)`;
                 }
             }
-        }
+        };
 
-        function switchView(viewId) {
+        window.switchView = function(viewId) {
             document.querySelectorAll('.view-panel').forEach(panel => panel.classList.remove('active'));
             document.querySelectorAll('.nav-tab').forEach(tab => tab.classList.remove('active'));
             
@@ -763,15 +766,15 @@
             const activeTab = Array.from(document.querySelectorAll('.nav-tab')).find(t => t.getAttribute('onclick')?.includes(viewId));
             if (activeTab) activeTab.classList.add('active');
 
-            toggleMobileMenu(true);
+            window.toggleMobileMenu(true);
 
             if (viewId === 'adminView') loadAdminWithdrawals();
-            else if (viewId === 'leaderboardView') loadLeaderboard(currentLeaderboardMode);
-            else if (viewId === 'accountsView' && connectedWallet) loadUserAccounts(connectedWallet);
-        }
+            else if (viewId === 'leaderboardView') loadLeaderboard(window.currentLeaderboardMode);
+            else if (viewId === 'accountsView' && window.connectedWallet) loadUserAccounts(window.connectedWallet);
+        };
 
-        function switchLeaderboardMode(mode) {
-            currentLeaderboardMode = mode;
+        window.switchLeaderboardMode = function(mode) {
+            window.currentLeaderboardMode = mode;
             ['lb-btn-daily', 'lb-btn-monthly', 'lb-btn-payouts'].forEach(id => {
                 const el = document.getElementById(id);
                 if (el) el.classList.remove('active');
@@ -795,14 +798,14 @@
             }
 
             loadLeaderboard(mode);
-        }
+        };
 
         async function loadLeaderboard(mode = 'DAILY') {
             try {
                 const res = await fetch(`/api/leaderboard?mode=${mode}`);
                 const data = await res.json();
-                rawLeaderboardData = data.leaderboard || [];
-                renderLeaderboardTable(rawLeaderboardData);
+                window.rawLeaderboardData = data.leaderboard || [];
+                renderLeaderboardTable(window.rawLeaderboardData);
             } catch (err) { console.error(err); }
         }
 
@@ -821,12 +824,12 @@
             let userFoundRank = null;
 
             dataRows.forEach((row, index) => {
-                const isUser = currentUserProfile && row.wallet_address && row.wallet_address.toLowerCase() === currentUserProfile.wallet_address.toLowerCase();
+                const isUser = window.currentUserProfile && row.wallet_address && row.wallet_address.toLowerCase() === window.currentUserProfile.wallet_address.toLowerCase();
                 if (isUser) userFoundRank = index + 1;
 
                 const metricColor = row.metric_value >= 0 ? '#34d399' : '#ef4444';
                 const rankDisplay = `#${index + 1}`;
-                const badgeText = currentLeaderboardMode === 'PAYOUTS' ? 'PAID' : 'PnL';
+                const badgeText = window.currentLeaderboardMode === 'PAYOUTS' ? 'PAID' : 'PnL';
 
                 tbody.innerHTML += `
                     <tr>
@@ -853,62 +856,62 @@
             }
         }
 
-        function filterLeaderboardTable() {
+        window.filterLeaderboardTable = function() {
             const query = document.getElementById('lb-search-input')?.value.toLowerCase().trim() || '';
             if (!query) {
-                renderLeaderboardTable(rawLeaderboardData);
+                renderLeaderboardTable(window.rawLeaderboardData);
                 return;
             }
-            const filtered = rawLeaderboardData.filter(row => 
+            const filtered = window.rawLeaderboardData.filter(row => 
                 row.username.toLowerCase().includes(query) || row.discount_code.toLowerCase().includes(query)
             );
             renderLeaderboardTable(filtered);
-        }
+        };
 
-        function shareRankOnX(rank, username, metricValue) {
-            const modeText = currentLeaderboardMode === 'DAILY' ? 'Daily Profit' : (currentLeaderboardMode === 'MONTHLY' ? 'Monthly Profit' : 'Lifetime Payouts');
-            const text = `I'm ranked #${rank} on @BlastrrProp for ${modeText} with $${metricValue.toFixed(2)} USDT! 🚀\n\nTrade live crypto prop accounts with 90% OFF using my code: ${currentUserProfile?.discount_code || 'BLASTRR'}\n\nhttps://blastrr.com/?ref=${currentUserProfile?.discount_code || ''}`;
+        window.shareRankOnX = function(rank, username, metricValue) {
+            const modeText = window.currentLeaderboardMode === 'DAILY' ? 'Daily Profit' : (window.currentLeaderboardMode === 'MONTHLY' ? 'Monthly Profit' : 'Lifetime Payouts');
+            const text = `I'm ranked #${rank} on @BlastrrProp for ${modeText} with $${metricValue.toFixed(2)} USDT! 🚀\n\nTrade live crypto prop accounts with 90% OFF using my code: ${window.currentUserProfile?.discount_code || 'BLASTRR'}\n\nhttps://blastrr.com/?ref=${window.currentUserProfile?.discount_code || ''}`;
             window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}`, '_blank');
-        }
+        };
 
-        function shareTradeOnX(tradeId, symbol, side, pnl, entryPrice) {
+        window.shareTradeOnX = function(tradeId, symbol, side, pnl, entryPrice) {
             const emoji = pnl >= 0 ? '🟢' : '🔴';
             const text = `${emoji} Just closed a ${side} trade on ${symbol} via @BlastrrProp!\nEntry: $${entryPrice.toFixed(2)} | Realized PnL: $${pnl.toFixed(2)} USDT 📈\n\nTrade direct-to-live crypto prop accounts on Blastrr: https://blastrr.com`;
             window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}`, '_blank');
-        }
+        };
 
-        function shareCreatorCodeOnX() {
-            if (!currentUserProfile) return;
-            const text = `Get 90% OFF your @BlastrrProp evaluation trading accounts using my promo code: ${currentUserProfile.discount_code} 🔥\n\nDirect-to-live crypto prop trading terminal with instant executions:\nhttps://blastrr.com/?ref=${currentUserProfile.discount_code}`;
+        window.shareCreatorCodeOnX = function() {
+            if (!window.currentUserProfile) return;
+            const text = `Get 90% OFF your @BlastrrProp evaluation trading accounts using my promo code: ${window.currentUserProfile.discount_code} 🔥\n\nDirect-to-live crypto prop trading terminal with instant executions:\nhttps://blastrr.com/?ref=${window.currentUserProfile.discount_code}`;
             window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}`, '_blank');
-        }
+        };
 
-        function usePromoCode(code) {
+        window.usePromoCode = function(code) {
             const promoInput = document.getElementById('applied-promo');
             if (promoInput) promoInput.value = code;
             switchView('buyView');
             applyPromo();
-        }
+        };
 
         function getProvider() {
             return window.ethereum?.providers ? window.ethereum.providers.find(p => p.isMetaMask) || window.ethereum.providers[0] : window.ethereum;
         }
 
-        async function connectWallet() {
+        window.connectWallet = async function() {
             const provider = getProvider();
             if (!provider) { alert("No Web3 wallet found!"); return; }
             try {
                 const accounts = await provider.request({ method: 'eth_requestAccounts' });
                 if (!accounts || accounts.length === 0) return;
-                availableWallets = accounts;
-                connectedWallet = accounts[0];
+                window.availableWallets = accounts;
+                window.connectedWallet = accounts[0];
                 updateWalletUIState(true);
                 updateWalletDropdown();
-                onWalletSwitched(connectedWallet);
+                onWalletSwitched(window.connectedWallet);
             } catch (err) { console.error("Wallet Connection Error:", err); }
-        }
+        };
 
-        async function connectNewWallet() {
+        window.connectNewWallet = async function() {
             const provider = getProvider();
             if (!provider) { alert("No Web3 wallet found!"); return; }
             try {
@@ -917,23 +920,23 @@
                 if (accountsPermission) {
                     const accounts = await provider.request({ method: 'eth_accounts' });
                     if (accounts && accounts.length > 0) {
-                        availableWallets = accounts;
-                        connectedWallet = accounts[0];
+                        window.availableWallets = accounts;
+                        window.connectedWallet = accounts[0];
                         updateWalletUIState(true);
                         updateWalletDropdown();
-                        onWalletSwitched(connectedWallet);
+                        onWalletSwitched(window.connectedWallet);
                     }
                 }
             } catch (err) { console.error(err); }
-        }
+        };
 
         function updateWalletDropdown() {
             const walletSelect = document.getElementById('wallet-select');
             if (!walletSelect) return;
             walletSelect.innerHTML = '';
-            availableWallets.forEach(acc => {
+            window.availableWallets.forEach(acc => {
                 const shortAddr = acc.substring(0, 6) + '...' + acc.slice(-4);
-                walletSelect.innerHTML += `<option value="${acc}" ${acc.toLowerCase() === connectedWallet?.toLowerCase() ? 'selected' : ''}>${shortAddr}</option>`;
+                walletSelect.innerHTML += `<option value="${acc}" ${acc.toLowerCase() === window.connectedWallet?.toLowerCase() ? 'selected' : ''}>${shortAddr}</option>`;
             });
         }
 
@@ -955,67 +958,67 @@
             }
         }
 
-        function onWalletSwitched(walletAddress) {
+        window.onWalletSwitched = function(walletAddress) {
             if (!walletAddress) return;
-            connectedWallet = walletAddress;
-            checkRole(connectedWallet);
-            loadUserAccounts(connectedWallet);
-            loadUserProfile(connectedWallet);
-        }
+            window.connectedWallet = walletAddress;
+            checkRole(window.connectedWallet);
+            loadUserAccounts(window.connectedWallet);
+            loadUserProfile(window.connectedWallet);
+        };
 
         async function silentSyncUserData(wallet) {
             try {
                 const res = await fetch(`/api/accounts?wallet=${wallet}`);
                 const data = await res.json();
-                userAccounts = data.accounts || [];
+                window.userAccounts = data.accounts || [];
 
                 const selectElem = document.getElementById('active-account-select');
                 if (!selectElem) return;
                 const currentSelected = selectElem.value;
 
-                if (userAccounts.length === 0) {
+                if (window.userAccounts.length === 0) {
                     selectElem.innerHTML = '<option value="">No Accounts Available</option>';
-                    selectedAccountId = null;
-                    activeAccount = null;
+                    window.selectedAccountId = null;
+                    window.activeAccount = null;
                 } else {
                     let selectHtml = '';
-                    userAccounts.forEach((acc) => {
-                        if (!selectedAccountId) selectedAccountId = acc.id;
-                        if (acc.id === selectedAccountId) activeAccount = acc;
-                        selectHtml += `<option value="${acc.id}" ${acc.id === selectedAccountId ? 'selected' : ''}>${acc.plan_name} (${acc.id}) - Bal: $${acc.current_balance.toLocaleString()}</option>`;
+                    window.userAccounts.forEach((acc) => {
+                        if (!window.selectedAccountId) window.selectedAccountId = acc.id;
+                        if (acc.id === window.selectedAccountId) window.activeAccount = acc;
+                        selectHtml += `<option value="${acc.id}" ${acc.id === window.selectedAccountId ? 'selected' : ''}>${acc.plan_name} (${acc.id}) - Bal: $${acc.current_balance.toLocaleString()}</option>`;
                     });
                     if (selectElem.innerHTML !== selectHtml) selectElem.innerHTML = selectHtml;
 
-                    if (currentSelected && userAccounts.some(a => a.id === currentSelected)) {
+                    if (currentSelected && window.userAccounts.some(a => a.id === currentSelected)) {
                         selectElem.value = currentSelected;
-                        selectedAccountId = currentSelected;
-                        activeAccount = userAccounts.find(a => a.id === currentSelected);
+                        window.selectedAccountId = currentSelected;
+                        window.activeAccount = window.userAccounts.find(a => a.id === currentSelected);
                     }
                 }
 
-                if (selectedAccountId) {
+                if (window.selectedAccountId) {
                     updateAvailableBalanceLabel();
-                    loadOpenTrades(selectedAccountId);
+                    loadOpenTrades(window.selectedAccountId);
                 }
 
                 if (document.getElementById('accountsView')?.classList.contains('active')) renderAccountsPortfolioFlickerFree();
             } catch (err) { console.error("Auto-sync error:", err); }
         }
 
-        function manualRefreshData() {
-            if (!connectedWallet) { alert("Connect wallet first!"); return; }
-            silentSyncUserData(connectedWallet);
-            loadLeaderboard(currentLeaderboardMode);
+        window.manualRefreshData = function() {
+            if (!window.connectedWallet) { alert("Connect wallet first!"); return; }
+            silentSyncUserData(window.connectedWallet);
+            loadLeaderboard(window.currentLeaderboardMode);
             alert("Data refreshed successfully!");
-        }
+        };
 
-        function disconnectWallet() {
-            connectedWallet = null;
-            availableWallets = [];
-            userAccounts = [];
-            selectedAccountId = null;
-            activeAccount = null;
-            currentUserProfile = null;
+        window.disconnectWallet = function() {
+            window.connectedWallet = null;
+            window.availableWallets = [];
+            window.userAccounts = [];
+            window.selectedAccountId = null;
+            window.activeAccount = null;
+            window.currentUserProfile = null;
 
             updateWalletUIState(false);
             const adminNav = document.getElementById('admin-nav-item');
@@ -1029,7 +1032,7 @@
             if (accPort) accPort.innerHTML = '<p style="text-align: center; color: #6b7280; padding: 30px;">Connect wallet to view your accounts.</p>';
             
             const openList = document.getElementById('open-trades-list');
-            if (openList) openList.innerHTML = '<tr><td colspan="9" style="text-align: center; color: #6b7280; padding: 24px;">Select an account to view open positions.</td></tr>';
+            if (openList) openList.innerHTML = '<tr><td colspan="9" style="text-align: center; color: #6b7280; padding: 28px;">Select an account to view open positions.</td></tr>';
             
             const setupBox = document.getElementById('profile-setup-box');
             const dispBox = document.getElementById('profile-display-box');
@@ -1038,8 +1041,8 @@
             if (dispBox) dispBox.style.display = 'none';
             if (editBtn) editBtn.style.display = 'none';
 
-            loadLeaderboard(currentLeaderboardMode);
-        }
+            loadLeaderboard(window.currentLeaderboardMode);
+        };
 
         async function checkRole(wallet) {
             try {
@@ -1058,7 +1061,7 @@
         async function renderAccountsPortfolioFlickerFree() {
             const container = document.getElementById('accounts-portfolio-container');
             if (!container) return;
-            if (userAccounts.length === 0) {
+            if (window.userAccounts.length === 0) {
                 container.innerHTML = '<p style="text-align: center; color: #6b7280; padding: 30px;">No accounts found. Purchase a plan in the marketplace!</p>';
                 return;
             }
@@ -1066,7 +1069,7 @@
             const emptyStateMsg = container.querySelector('p');
             if (emptyStateMsg && emptyStateMsg.innerText.includes('No accounts found')) container.innerHTML = '';
 
-            for (const acc of userAccounts) {
+            for (const acc of window.userAccounts) {
                 const detailsRes = await fetch(`/api/accounts/details?account_id=${acc.id}`);
                 const details = await detailsRes.json();
                 const m = details.metrics;
@@ -1180,7 +1183,7 @@
             }
         }
 
-        async function requestWithdrawal(accountId, maxBalance) {
+        window.requestWithdrawal = async function(accountId, maxBalance) {
             try {
                 const detailsRes = await fetch(`/api/accounts/details?account_id=${accountId}`);
                 const details = await detailsRes.json();
@@ -1212,31 +1215,31 @@
                 const res = await fetch('/api/withdrawals/request', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ account_id: accountId, wallet_address: connectedWallet, amount })
+                    body: JSON.stringify({ account_id: accountId, wallet_address: window.connectedWallet, amount })
                 });
                 const data = await res.json();
-                if (data.success) { alert("Withdrawal requested!"); loadUserAccounts(connectedWallet); }
+                if (data.success) { alert("Withdrawal requested!"); loadUserAccounts(window.connectedWallet); }
                 else alert("Error: " + data.error);
             } catch (err) { console.error(err); }
-        }
+        };
 
-        async function requestCommissionWithdrawal() {
-            const amountInput = prompt(`Enter commission USDT amount (Available: $${availableCommissionBalance.toFixed(2)}):`);
+        window.requestCommissionWithdrawal = async function() {
+            const amountInput = prompt(`Enter commission USDT amount (Available: $${window.availableCommissionBalance.toFixed(2)}):`);
             if (!amountInput) return;
             const amount = parseFloat(amountInput);
-            if (isNaN(amount) || amount <= 0 || amount > availableCommissionBalance) { alert("Invalid amount."); return; }
+            if (isNaN(amount) || amount <= 0 || amount > window.availableCommissionBalance) { alert("Invalid amount."); return; }
 
             try {
                 const res = await fetch('/api/referrals/withdraw', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ wallet_address: connectedWallet, amount })
+                    body: JSON.stringify({ wallet_address: window.connectedWallet, amount })
                 });
                 const data = await res.json();
-                if (data.success) { alert("Commission withdrawal submitted!"); loadUserProfile(connectedWallet); }
+                if (data.success) { alert("Commission withdrawal submitted!"); loadUserProfile(window.connectedWallet); }
                 else alert("Error: " + data.error);
             } catch (err) { console.error(err); }
-        }
+        };
 
         async function loadAdminWithdrawals() {
             try {
@@ -1273,7 +1276,7 @@
             } catch (err) { console.error(err); }
         }
 
-        async function processWithdrawal(withdrawalId, action, type) {
+        window.processWithdrawal = async function(withdrawalId, action, type) {
             if (!confirm(`Are you sure you want to mark this withdrawal as ${action}?`)) return;
             try {
                 const res = await fetch('/api/admin/withdrawals/action', {
@@ -1285,29 +1288,29 @@
                 if (data.success) { alert(data.message); loadAdminWithdrawals(); }
                 else alert("Error: " + data.error);
             } catch (err) { console.error(err); }
-        }
+        };
 
-        function switchActiveAccount(accId) {
-            selectedAccountId = accId;
-            activeAccount = userAccounts.find(a => a.id === accId);
+        window.switchActiveAccount = function(accId) {
+            window.selectedAccountId = accId;
+            window.activeAccount = window.userAccounts.find(a => a.id === accId);
             updateAvailableBalanceLabel();
             loadOpenTrades(accId);
-        }
+        };
 
-        function selectAccountAndTrade(accId) {
-            selectedAccountId = accId;
-            activeAccount = userAccounts.find(a => a.id === accId);
+        window.selectAccountAndTrade = function(accId) {
+            window.selectedAccountId = accId;
+            window.activeAccount = window.userAccounts.find(a => a.id === accId);
             const selectElem = document.getElementById('active-account-select');
             if (selectElem) selectElem.value = accId;
             updateAvailableBalanceLabel();
             switchView('tradeView');
             loadOpenTrades(accId);
-        }
+        };
 
         function updateAvailableBalanceLabel() {
             const balLabel = document.getElementById('available-bal-label');
             if (balLabel) {
-                balLabel.innerText = activeAccount ? `Available Balance: $${activeAccount.current_balance.toLocaleString()}` : `Available Balance: $0.00`;
+                balLabel.innerText = window.activeAccount ? `Available Balance: $${window.activeAccount.current_balance.toLocaleString()}` : `Available Balance: $0.00`;
             }
         }
 
@@ -1320,12 +1323,12 @@
             tbody.innerHTML = '';
 
             if (!data.trades || data.trades.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="9" style="text-align: center; color: #6b7280; padding: 24px;">No open positions for this account.</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="9" style="text-align: center; color: #6b7280; padding: 28px;">No open positions for this account.</td></tr>';
                 return;
             }
 
             data.trades.forEach(trd => {
-                const currentPrice = currentLivePrice || trd.entry_price;
+                const currentPrice = window.currentLivePrice || trd.entry_price;
                 const priceDiff = trd.side === 'BUY' ? (currentPrice - trd.entry_price) : (trd.entry_price - currentPrice);
                 const pnl = priceDiff * trd.units;
                 const pnlColor = pnl >= 0 ? '#34d399' : '#ef4444';
@@ -1347,16 +1350,16 @@
             });
         }
 
-        async function executeTrade(side) {
-            if (!selectedAccountId || !activeAccount) { alert("Please select or purchase an active trading account first!"); return; }
+        window.executeTrade = async function(side) {
+            if (!window.selectedAccountId || !window.activeAccount) { alert("Please select or purchase an active trading account first!"); return; }
             const symbol = document.getElementById('order-symbol').value;
-            const price = currentLivePrice || parseFloat(document.getElementById('order-price').value);
+            const price = window.currentLivePrice || parseFloat(document.getElementById('order-price').value);
             const sizeUsd = parseFloat(document.getElementById('order-size-usd').value);
             const leverage = parseInt(document.getElementById('order-leverage').value) || 1;
             const sl = parseFloat(document.getElementById('order-sl').value) || null;
             const tp = parseFloat(document.getElementById('order-tp').value) || null;
 
-            if (!sizeUsd || sizeUsd <= 0 || sizeUsd > activeAccount.current_balance) {
+            if (!sizeUsd || sizeUsd <= 0 || sizeUsd > window.activeAccount.current_balance) {
                 alert("Please check position size and balance.");
                 return;
             }
@@ -1368,7 +1371,7 @@
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ 
-                        account_id: selectedAccountId, 
+                        account_id: window.selectedAccountId, 
                         symbol, 
                         side, 
                         price, 
@@ -1381,12 +1384,12 @@
                     })
                 });
                 const data = await res.json();
-                if (data.success) { alert(`Order executed at $${data.execution_price.toFixed(2)} (${leverage}x mode)!`); loadUserAccounts(connectedWallet); }
+                if (data.success) { alert(`Order executed at $${data.execution_price.toFixed(2)} (${leverage}x mode)!`); loadUserAccounts(window.connectedWallet); }
                 else alert("Error: " + data.error);
             } catch (err) { console.error(err); }
-        }
+        };
 
-        async function closeTrade(tradeId, currentPrice) {
+        window.closeTrade = async function(tradeId, currentPrice) {
             if (!confirm("Are you sure you want to close this position early?")) return;
             try {
                 const res = await fetch('/api/trades/close', {
@@ -1395,16 +1398,16 @@
                     body: JSON.stringify({ trade_id: tradeId, current_market_price: currentPrice })
                 });
                 const data = await res.json();
-                if (data.success) { alert(`Position closed. Realized PnL: $${data.pnl.toFixed(2)}`); loadUserAccounts(connectedWallet); loadLeaderboard(currentLeaderboardMode); }
+                if (data.success) { alert(`Position closed. Realized PnL: $${data.pnl.toFixed(2)}`); loadUserAccounts(window.connectedWallet); loadLeaderboard(window.currentLeaderboardMode); }
                 else alert("Error: " + data.error);
             } catch (err) { console.error(err); }
-        }
+        };
 
         async function loadPlans() {
             try {
                 const res = await fetch('/api/plans');
                 const data = await res.json();
-                plansData = data.plans || [];
+                window.plansData = data.plans || [];
                 renderPlans();
             } catch(e) { console.error("Plans load error:", e); }
         }
@@ -1414,11 +1417,11 @@
             if (!container) return;
             container.innerHTML = '';
 
-            plansData.forEach(plan => {
+            window.plansData.forEach(plan => {
                 let displayPrice = plan.base_price_usdt;
                 let priceHtml = `$${plan.base_price_usdt.toLocaleString()} USDT`;
 
-                if (activePromoCode) {
+                if (window.activePromoCode) {
                     displayPrice = plan.price_usdt;
                     priceHtml = `<span style="text-decoration: line-through; color: #6b7280; font-size: 15px;">$${plan.base_price_usdt.toLocaleString()}</span> <span style="color: #34d399;">$${plan.price_usdt.toLocaleString()} USDT</span>`;
                 }
@@ -1439,7 +1442,7 @@
             });
         }
 
-        async function applyPromo() {
+        window.applyPromo = async function() {
             const code = document.getElementById('applied-promo')?.value.trim();
             if (!code) return;
 
@@ -1452,15 +1455,15 @@
 
             const feedback = document.getElementById('promo-feedback');
             if (data.valid) {
-                activePromoCode = code.toUpperCase();
-                if (feedback) feedback.innerText = `✓ Code '${activePromoCode}' applied! Discount active.`;
+                window.activePromoCode = code.toUpperCase();
+                if (feedback) feedback.innerText = `✓ Code '${window.activePromoCode}' applied! Discount active.`;
                 renderPlans();
             } else {
-                activePromoCode = null;
+                window.activePromoCode = null;
                 if (feedback) feedback.innerText = `✕ Invalid promo code.`;
                 renderPlans();
             }
-        }
+        };
 
         async function loadUserProfile(wallet) {
             try {
@@ -1472,7 +1475,7 @@
                 const editBtn = document.getElementById('btn-toggle-edit');
 
                 if (data.user) {
-                    currentUserProfile = data.user;
+                    window.currentUserProfile = data.user;
                     if (setupBox) setupBox.style.display = 'none';
                     if (dispBox) dispBox.style.display = 'block';
                     if (editBtn) editBtn.style.display = 'inline-block';
@@ -1492,24 +1495,24 @@
                     const refCount = document.getElementById('stat-ref-count');
                     const refEarn = document.getElementById('stat-ref-earnings');
                     if (refCount) refCount.innerText = data.stats.total_referrals || 0;
-                    availableCommissionBalance = data.stats.available_commission || 0;
-                    if (refEarn) refEarn.innerText = `$${availableCommissionBalance.toFixed(2)} USDT`;
+                    window.availableCommissionBalance = data.stats.available_commission || 0;
+                    if (refEarn) refEarn.innerText = `$${window.availableCommissionBalance.toFixed(2)} USDT`;
 
                     loadReferralTransactions(wallet);
                 } else {
-                    currentUserProfile = null;
+                    window.currentUserProfile = null;
                     if (setupBox) setupBox.style.display = 'block';
                     if (dispBox) dispBox.style.display = 'none';
                     if (editBtn) editBtn.style.display = 'none';
                 }
-                loadLeaderboard(currentLeaderboardMode);
+                loadLeaderboard(window.currentLeaderboardMode);
             } catch (err) { console.error(err); }
         }
 
-        function toggleEditProfile() {
+        window.toggleEditProfile = function() {
             const setupBox = document.getElementById('profile-setup-box');
             if (setupBox) setupBox.style.display = setupBox.style.display === 'none' ? 'block' : 'none';
-        }
+        };
 
         async function loadReferralTransactions(wallet) {
             try {
@@ -1539,8 +1542,8 @@
             } catch (err) { console.error(err); }
         }
 
-        async function saveProfile() {
-            if (!connectedWallet) { alert("Connect wallet first!"); return; }
+        window.saveProfile = async function() {
+            if (!window.connectedWallet) { alert("Connect wallet first!"); return; }
             const username = document.getElementById('prof-username')?.value.trim();
             const discount_code = document.getElementById('prof-code')?.value.trim();
 
@@ -1552,20 +1555,20 @@
             const res = await fetch('/api/user/profile', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ wallet_address: connectedWallet, username, discount_code })
+                body: JSON.stringify({ wallet_address: window.connectedWallet, username, discount_code })
             });
             const data = await res.json();
 
             if (data.success) {
                 alert("Profile saved successfully!");
-                loadUserProfile(connectedWallet);
+                loadUserProfile(window.connectedWallet);
             } else {
                 alert("Error: " + data.error);
             }
-        }
+        };
 
-        async function buyPlan(planId, priceUsdt) {
-            if (!connectedWallet) { alert("Connect wallet first!"); return; }
+        window.buyPlan = async function(planId, priceUsdt) {
+            if (!window.connectedWallet) { alert("Connect wallet first!"); return; }
             
             const selectedChainId = parseInt(document.getElementById('payment-chain-select')?.value || '1');
             const chainConfig = SUPPORTED_EVM_CHAINS[selectedChainId];
@@ -1599,7 +1602,7 @@
                 const txHash = await provider.request({
                     method: 'eth_sendTransaction',
                     params: [{
-                        from: connectedWallet,
+                        from: window.connectedWallet,
                         to: chainConfig.usdtAddress,
                         data: calldata
                     }]
@@ -1611,18 +1614,18 @@
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ 
-                        wallet_address: connectedWallet, 
+                        wallet_address: window.connectedWallet, 
                         plan_id: planId, 
                         tx_hash: txHash, 
                         chain_id: selectedChainId,
-                        promo_code: activePromoCode 
+                        promo_code: window.activePromoCode 
                     })
                 });
                 const data = await res.json();
 
                 if (data.success) {
                     alert("Payment verified on-chain! Account provisioned successfully.");
-                    loadUserAccounts(connectedWallet);
+                    loadUserAccounts(window.connectedWallet);
                     switchView('tradeView');
                 } else {
                     alert("Verification Error: " + data.error);
@@ -1631,7 +1634,7 @@
                 console.error("Purchase Error:", err);
                 alert("Transaction failed or was rejected.");
             }
-        }
+        };
     </script>
 </body>
 </html>

@@ -15,7 +15,7 @@ let connectedWallet = null;
         let currentLeaderboardMode = 'DAILY';
         let rawLeaderboardData = [];
         let currentUserProfile = null;
-        let showActiveAccountsOnly = true;
+        let hidePermanentlyLockedAccounts = true;
         let walletSessionToken = null;
         let walletSessionOwner = null;
         let walletSessionExpiresAt = 0;
@@ -646,8 +646,8 @@ let connectedWallet = null;
             renderAccountsPortfolioFlickerFree();
         }
 
-        function toggleActiveAccountsOnly(checked) {
-            showActiveAccountsOnly = checked;
+        function togglePermanentlyLockedAccounts(checked) {
+            hidePermanentlyLockedAccounts = checked;
             renderAccountsPortfolioFlickerFree();
         }
 
@@ -672,12 +672,10 @@ let connectedWallet = null;
                 Object.assign(acc, details.account);
                 const m = details.metrics;
                 const trades = details.trades;
-                const isActive = acc.status === 'ACTIVE' &&
-                    !acc.lock_reason &&
-                    Number(acc.permanent_lock) !== 1 &&
-                    Number(acc.admin_frozen) !== 1 &&
-                    !m.withdrawalPending;
-                if (showActiveAccountsOnly && !isActive) {
+                const isPermanentlyLocked = acc.lock_reason === 'MLL' ||
+                    Number(acc.permanent_lock) === 1 ||
+                    acc.status === 'PERMANENTLY_LOCKED';
+                if (hidePermanentlyLockedAccounts && isPermanentlyLocked) {
                     document.getElementById(`acc-card-${acc.id}`)?.remove();
                     continue;
                 }
@@ -811,8 +809,8 @@ let connectedWallet = null;
             if (!container.querySelector('[id^="acc-card-"]')) {
                 const emptyMessage = document.createElement('p');
                 emptyMessage.className = 'account-chart-empty';
-                emptyMessage.textContent = showActiveAccountsOnly
-                    ? 'No active accounts. Turn off “Show active accounts only” to review breached or frozen accounts.'
+                emptyMessage.textContent = hidePermanentlyLockedAccounts
+                    ? 'No accounts to show. Turn off “Hide permanently locked accounts” to review permanently locked accounts.'
                     : 'No accounts found.';
                 container.replaceChildren(emptyMessage);
             }

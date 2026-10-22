@@ -126,12 +126,16 @@ test('account cards expose expandable trade history and daily profit charts', ()
   assert.match(appCss, /\.account-risk-item \{ display: grid; grid-template-rows: 18px 7px 14px;/);
 });
 
-test('accounts view hides locked accounts by default and can reveal them with its active-only switch', () => {
-  assert.match(appHtml, /id="accounts-active-only" type="checkbox" checked/);
-  assert.match(appHtml, /Show active accounts only/);
-  assert.match(appJs, /function toggleActiveAccountsOnly\(checked\)/);
-  assert.match(appJs, /!acc\.lock_reason/);
-  assert.match(appJs, /showActiveAccountsOnly && !isActive/);
+test('accounts view keeps temporary DLL locks visible and can hide permanent MLL locks', () => {
+  assert.match(appHtml, /id="accounts-hide-permanent" type="checkbox" checked/);
+  assert.match(appHtml, /Hide permanently locked accounts/);
+  assert.match(appJs, /function togglePermanentlyLockedAccounts\(checked\)/);
+  assert.match(appJs, /acc\.lock_reason === 'MLL'/);
+  assert.match(appJs, /hidePermanentlyLockedAccounts && isPermanentlyLocked/);
+  assert.doesNotMatch(appJs, /isActive = acc\.status === 'ACTIVE'[\s\S]*?hidePermanentlyLockedAccounts/);
+  assert.match(appJs, /No accounts to show\. Turn off “Hide permanently locked accounts”/);
+  assert.match(appJs, /account\?\.lock_reason === 'DLL'/);
+  assert.match(appJs, /account\?\.lock_reason === 'MLL'/);
 });
 
 test('payout UI shows the 90/10 split, admin trade review, and account freeze controls', () => {

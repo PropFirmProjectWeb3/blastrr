@@ -267,6 +267,58 @@
                     </div>
                 </div>
             </div>
+            <div class="card support-card">
+                <div class="card-title">Account support tickets</div>
+                <p class="support-note">Describe the issue in text and attach it to the account where possible. Do not include passwords, seed phrases, or private keys. File uploads are not supported.</p>
+                <form id="support-ticket-form">
+                    <div class="form-group">
+                        <label for="ticket-account-select">Account</label>
+                        <select id="ticket-account-select" name="account_id">
+                            <option value="">General support (no account)</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="ticket-subject">Subject</label>
+                        <input id="ticket-subject" name="subject" type="text" minlength="5" maxlength="120" required placeholder="Briefly summarize the issue">
+                    </div>
+                    <div class="form-group">
+                        <label for="ticket-message">Issue details</label>
+                        <textarea id="ticket-message" name="message" rows="8" minlength="10" maxlength="5000" required placeholder="Explain what happened, what you expected, and any relevant dates or trade IDs."></textarea>
+                        <small class="support-note">10–5,000 characters. Text only; no images or file attachments.</small>
+                    </div>
+                    <button class="btn-wallet" type="submit">Create support ticket</button>
+                    <p id="ticket-form-feedback" class="support-feedback" role="status" aria-live="polite"></p>
+                </form>
+                <div id="user-ticket-list" class="support-card-list">
+                    <p class="account-chart-empty">Connect your wallet to view tickets.</p>
+                </div>
+            </div>
+            <div class="card review-card">
+                <div class="card-title">Share a review</div>
+                <p class="support-note">Your review is private until the admin team approves it for display on the homepage. Editing a published review sends it for approval again.</p>
+                <form id="user-review-form">
+                    <div class="form-group">
+                        <label for="review-username">Reviewing as</label>
+                        <input id="review-username" type="text" readonly placeholder="Set up your profile username first">
+                    </div>
+                    <div class="form-group">
+                        <label for="review-rating">Rating</label>
+                        <select id="review-rating" required>
+                            <option value="5">5 stars — Excellent</option>
+                            <option value="4">4 stars — Very good</option>
+                            <option value="3">3 stars — Good</option>
+                            <option value="2">2 stars — Fair</option>
+                            <option value="1">1 star — Poor</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="review-comment">Your review</label>
+                        <textarea id="review-comment" rows="5" minlength="10" maxlength="1500" required placeholder="Share your experience (10–1,500 characters)."></textarea>
+                    </div>
+                    <button class="btn-wallet" type="submit">Submit review for approval</button>
+                    <p id="review-form-feedback" class="support-feedback" role="status" aria-live="polite"></p>
+                </form>
+            </div>
         </section>
 
         <!-- 5. BUY PLANS VIEW -->
@@ -327,6 +379,19 @@
                 <p class="admin-account-note">A pending withdrawal automatically pauses new trades. Resolving the final pending request releases that automatic pause; manual administrator freezes remain separate from DLL/MLL risk locks.</p>
                 <div id="admin-account-list" class="admin-account-list">
                     <p class="account-chart-empty">Loading accounts...</p>
+                </div>
+            </div>
+            <div class="card admin-support-review">
+                <div class="card-title">Support ticket queue</div>
+                <div id="admin-ticket-list" class="support-card-list">
+                    <p class="account-chart-empty">Loading support tickets...</p>
+                </div>
+            </div>
+            <div class="card admin-review-management">
+                <div class="card-title">Customer review moderation</div>
+                <p class="support-note">Publish a review to show it on the public homepage. Hide it to remove it from public display.</p>
+                <div id="admin-review-list" class="support-card-list">
+                    <p class="account-chart-empty">Loading reviews...</p>
                 </div>
             </div>
         </section>

@@ -23,6 +23,7 @@ section{padding:78px 0}.section-head{display:flex;justify-content:space-between;
 .feature-layout{display:grid;grid-template-columns:1fr 1fr;gap:25px;align-items:stretch}.feature-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px}.feature{padding:19px;border:1px solid rgba(173,127,255,.16);border-radius:16px;background:linear-gradient(140deg,rgba(25,22,40,.82),rgba(10,10,17,.8))}.feature-icon{display:grid;place-items:center;width:37px;height:37px;border-radius:11px;background:rgba(141,77,255,.15);border:1px solid rgba(170,125,255,.25);font-size:17px}.feature h3{font-size:14px;margin:13px 0 5px}.feature p{font-size:12px;color:var(--muted);margin:0}.rules-panel{padding:25px;border:1px solid rgba(173,127,255,.2);border-radius:19px;background:rgba(15,14,25,.72)}.rules-panel h3{font-size:20px;margin:0 0 5px}.rules-panel>p{font-size:12px;color:var(--muted);margin:0 0 16px}.rule{border-top:1px solid rgba(174,131,255,.13)}.rule summary{list-style:none;cursor:pointer;padding:13px 0;display:flex;align-items:center;justify-content:space-between;gap:12px;font-size:12px;font-weight:750}.rule summary::-webkit-details-marker{display:none}.rule summary:after{content:"+";color:#b58aff;font-size:19px;font-weight:400}.rule[open] summary:after{content:"−"}.rule p{font-size:12px;color:#aaa4c1;margin:0;padding:0 18px 14px 0}
 .cta-band{padding:36px;border-radius:24px;border:1px solid rgba(182,137,255,.3);background:radial-gradient(ellipse at 80% 0%,rgba(138,68,255,.25),transparent 40%),linear-gradient(115deg,#171025,#0c0b16 75%);display:flex;align-items:center;justify-content:space-between;gap:25px;overflow:hidden;position:relative}.cta-band:after{content:"✦";position:absolute;right:28%;top:-55px;font-size:230px;line-height:1;color:rgba(166,112,255,.055);pointer-events:none}.cta-band h2{font-size:clamp(28px,4vw,42px);letter-spacing:-.05em;line-height:1.05;margin:12px 0}.cta-band p{color:var(--muted);max-width:570px;margin:0}.cta-actions{display:flex;gap:10px;flex-wrap:wrap;position:relative;z-index:1;flex-shrink:0}
 footer{border-top:1px solid rgba(173,127,255,.15);padding:35px 0 25px}.footer-top{display:flex;justify-content:space-between;gap:25px;align-items:flex-start}.footer-brand p{max-width:320px;color:#8f89a6;font-size:12px}.footer-links{display:flex;gap:20px;flex-wrap:wrap;color:#b8b0cc;font-size:12px}.disclaimer{border-top:1px solid rgba(173,127,255,.12);margin-top:24px;padding-top:18px;color:#77718c;font-size:10px;line-height:1.7}.disclaimer strong{color:#aaa2c3}
+.review-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:14px}.public-review-card{padding:20px;border:1px solid rgba(173,127,255,.2);border-radius:16px;background:linear-gradient(145deg,rgba(25,23,41,.8),rgba(10,10,18,.9))}.public-review-head{display:flex;justify-content:space-between;align-items:center;gap:12px}.public-review-name{font-weight:800;color:#eee8ff}.public-review-stars{color:#fbbf24;letter-spacing:2px;white-space:nowrap}.public-review-text{margin:13px 0 0;color:#c7c0d9;font-size:13px;line-height:1.65;white-space:pre-wrap;overflow-wrap:anywhere}
 .reveal{opacity:0;transform:translateY(16px);transition:opacity .6s ease,transform .6s ease}.reveal.visible{opacity:1;transform:none}
 @media(max-width:1000px){.navlinks{gap:15px}.chain-pill{display:none}.hero-grid{grid-template-columns:1fr 1fr;gap:20px}.hero h1{font-size:54px}.plans{grid-template-columns:repeat(2,1fr)}.steps{grid-template-columns:repeat(2,1fr)}.step:nth-child(2):after{display:none}.network-panel{grid-template-columns:1fr}.feature-layout{grid-template-columns:1fr}}
 @media(max-width:720px){.wrap{width:min(100% - 28px,var(--max))}header{height:67px}.navlinks{display:none;position:absolute;top:66px;left:0;right:0;padding:18px;background:rgba(9,8,17,.97);border-bottom:1px solid var(--line);flex-direction:column;align-items:stretch;gap:0}.navlinks.open{display:flex}.navlinks a{padding:12px 8px}.menu-toggle{display:block}.navright .btn{display:none}.brand{font-size:17px}.hero{padding:40px 0 28px}.hero-grid{grid-template-columns:1fr}.hero h1{font-size:clamp(44px,13vw,65px)}.hero p{font-size:15px}.visual{min-height:390px}.chart-svg{height:185px}.floating-stat{top:84px;right:12px;padding:10px}.floating-stat b{font-size:16px}.ticker-inner{justify-content:flex-start;gap:13px}.ticker-item{width:calc(50% - 8px);font-size:11px}.section-head{display:block}.section-head .btn{margin-top:18px}.section-head h2{font-size:32px}.launch-strip{align-items:flex-start;flex-direction:column}.promo-code{margin:8px 0 0 0}.timer{width:100%}.timebox{flex:1}.plans{grid-template-columns:1fr}.plan{padding:21px}.plan .btn{margin-top:12px}.networks{grid-template-columns:repeat(3,1fr)}.network:last-child{grid-column:2}.steps{grid-template-columns:1fr}.step:not(:last-child):after{content:"↓";right:20px;top:auto;bottom:-19px}.feature-grid{grid-template-columns:1fr 1fr}.cta-band{padding:25px;display:block}.cta-actions{margin-top:22px}.footer-top{display:block}.footer-links{margin-top:22px}.footer-links a{padding:5px 0}}
@@ -183,6 +184,13 @@ footer{border-top:1px solid rgba(173,127,255,.15);padding:35px 0 25px}.footer-to
  </div>
 </section>
 
+<section id="reviews-section" style="display:none">
+ <div class="wrap">
+  <div class="section-head reveal"><div><span class="eyebrow">From our traders</span><h2>Customer <span class="gradient-text">reviews.</span></h2><p>Experiences shared by Blastrr users.</p></div></div>
+  <div id="public-review-list" class="review-grid"></div>
+ </div>
+</section>
+
 <section id="faq" style="padding-top:12px">
  <div class="wrap">
   <div class="section-head reveal"><div><span class="eyebrow">Straight answers</span><h2>Questions before <span class="gradient-text">you launch?</span></h2><p>Review the basics here, then check the complete rules in the app before purchasing a plan.</p></div></div>
@@ -260,6 +268,38 @@ async function loadPlans(){
  }
 }
 loadPlans();
+async function loadPublishedReviews(){
+ try{
+  const response=await fetch("/api/reviews");
+  if(!response.ok) throw new Error(`Review request failed (${response.status})`);
+  const data=await response.json();
+  if(!Array.isArray(data.reviews)||!data.reviews.length) return;
+  const host=document.getElementById("public-review-list");
+  const section=document.getElementById("reviews-section");
+  for(const review of data.reviews){
+   const card=document.createElement("article");
+   card.className="public-review-card";
+   const head=document.createElement("div");
+   head.className="public-review-head";
+   const username=document.createElement("strong");
+   username.className="public-review-name";
+   username.textContent=`@${review.username}`;
+   const stars=document.createElement("span");
+   stars.className="public-review-stars";
+   stars.setAttribute("aria-label",`${review.rating} out of 5 stars`);
+   stars.textContent=`${"★".repeat(review.rating)}${"☆".repeat(5-review.rating)}`;
+   const comment=document.createElement("p");
+   comment.className="public-review-text";
+   comment.textContent=review.comment;
+   head.append(username,stars);
+   card.append(head,comment);
+   host.append(card);
+  }
+  section.style.display="";
+  section.querySelectorAll(".reveal").forEach(element=>observer.observe(element));
+ }catch(error){console.error("Unable to load customer reviews:",error);}
+}
+loadPublishedReviews();
 document.getElementById("year").textContent=new Date().getFullYear();
 const menuToggle=document.getElementById("menuToggle"),nav=document.getElementById("navlinks");
 menuToggle.addEventListener("click",()=>{const open=nav.classList.toggle("open");menuToggle.setAttribute("aria-expanded",String(open));});

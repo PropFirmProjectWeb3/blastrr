@@ -328,6 +328,8 @@ let connectedWallet = null;
             if (viewId === 'adminView') {
                 loadAdminWithdrawals();
                 loadAdminAccounts();
+                loadAdminTickets();
+                loadAdminReviews();
             }
             else if (viewId === 'leaderboardView') loadLeaderboard(currentLeaderboardMode);
             else if (viewId === 'accountsView' && connectedWallet) loadUserAccounts(connectedWallet);
@@ -531,6 +533,7 @@ let connectedWallet = null;
             checkRole(connectedWallet);
             loadUserAccounts(connectedWallet);
             loadUserProfile(connectedWallet);
+            loadUserTickets(connectedWallet);
         }
 
         function isRiskLockedAccount(account) {
@@ -547,11 +550,21 @@ let connectedWallet = null;
                 Number(account.pending_withdrawal_amount || 0) <= 0;
         }
 
+        function populateTicketAccountOptions() {
+            const select = document.getElementById('ticket-account-select');
+            if (!select) return;
+            const selected = select.value;
+            select.innerHTML = '<option value="">General support (no account)</option>' +
+                userAccounts.map(account => `<option value="${escapeHTML(account.id)}">${escapeHTML(account.plan_name)} (${escapeHTML(account.id)})</option>`).join('');
+            if (userAccounts.some(account => account.id === selected)) select.value = selected;
+        }
+
         async function silentSyncUserData(wallet) {
             try {
                 const res = await walletFetch(`/api/accounts?wallet=${encodeURIComponent(wallet)}`);
                 const data = await res.json();
                 userAccounts = data.accounts || [];
+                populateTicketAccountOptions();
 
                 const selectElem = document.getElementById('active-account-select');
                 if (!selectElem) return;
@@ -621,6 +634,18 @@ let connectedWallet = null;
             
             const openList = document.getElementById('open-trades-list');
             if (openList) openList.innerHTML = '<tr><td colspan="9" style="text-align: center; color: #6b7280; padding: 24px;">Select an account to view open positions.</td></tr>';
+            const ticketList = document.getElementById('user-ticket-list');
+            if (ticketList) ticketList.innerHTML = '<p class="account-chart-empty">Connect your wallet to view tickets.</p>';
+            const ticketAccount = document.getElementById('ticket-account-select');
+            if (ticketAccount) ticketAccount.innerHTML = '<option value="">General support (no account)</option>';
+            const reviewUsername = document.getElementById('review-username');
+            if (reviewUsername) reviewUsername.value = '';
+            const reviewSubmit = document.querySelector('#user-review-form button[type="submit"]');
+            if (reviewSubmit) reviewSubmit.disabled = true;
+            const reviewComment = document.getElementById('review-comment');
+            if (reviewComment) reviewComment.value = '';
+            const reviewFeedback = document.getElementById('review-form-feedback');
+            if (reviewFeedback) reviewFeedback.textContent = 'Connect your wallet and set up a profile username to submit a review.';
             
             const setupBox = document.getElementById('profile-setup-box');
             const dispBox = document.getElementById('profile-display-box');
@@ -1058,6 +1083,140 @@ let connectedWallet = null;
             }
         }
 
+        async function loadAdminTickets() {
+            const container = document.getElementById('admin-ticket-list');
+            if (!container) return;
+            try {
+                const authorization = await signedTradeAuthorization();
+                const response = await fetch('/api/admin/tickets', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(authorization)
+                });
+                const data = await readAdminApiResponse(response, '/api/admin/tickets');
+                if (!response.ok) throw new Error(data.error || 'Unable to load support tickets.');
+                if (!data.tickets?.length) {
+                    container.innerHTML = '<p class="account-chart-empty">No support tickets.</p>';
+                    return;
+                }
+                container.innerHTML = data.tickets.map(ticket => `
+                    <article class="support-ticket-card" data-admin-ticket-id="${escapeHTML(ticket.id)}">
+                        <div class="support-ticket-heading">
+                            <h3>${escapeHTML(ticket.subject)}</h3>
+                            <span class="support-status ${supportStatusClass(ticket.status)}">${supportStatusLabel(ticket.status)}</span>
+                        </div>
+                        <p class="support-ticket-meta">
+                            ${escapeHTML(ticket.username || 'Trader')} · <code>${escapeHTML(ticket.wallet_address)}</code><br>
+                            ${ticket.account_id ? `${escapeHTML(ticket.plan_name || 'Account')} · ${escapeHTML(ticket.account_id)}` : 'General support'} · Created ${escapeHTML(new Date(ticket.created_at).toLocaleString())}
+                        </p>
+                        ${renderSupportMessages(ticket.messages || [])}
+                        ${ticket.status !== 'CLOSED' ? `
+                            <div class="support-ticket-actions">
+                                <label for="admin-ticket-reply-${escapeHTML(ticket.id)}">Reply (sending a reply marks “Needs your info”)</label>
+                                <textarea id="admin-ticket-reply-${escapeHTML(ticket.id)}" maxlength="5000" rows="4" placeholder="Write a clear response or request the details needed to resolve this issue."></textarea>
+                                <div class="support-ticket-buttons">
+                                    <button class="btn-wallet" data-admin-ticket-action="REPLY">Send reply</button>
+                                    <button class="btn-sell" data-admin-ticket-action="CLOSE">Close ticket</button>
+                                </div>
+                            </div>
+                        ` : ''}
+                    </article>
+                `).join('');
+                container.onclick = event => {
+                    const button = event.target.closest('[data-admin-ticket-action]');
+                    const card = button?.closest('[data-admin-ticket-id]');
+                    if (button && card) processAdminTicket(card.dataset.adminTicketId, button.dataset.adminTicketAction, card);
+                };
+            } catch (err) {
+                console.error(err);
+                container.innerHTML = `<p class="support-feedback">${escapeHTML(err.message)}</p>`;
+            }
+        }
+
+        async function processAdminTicket(ticketId, action, card) {
+            const message = card.querySelector('textarea')?.value.trim() || '';
+            if (action === 'REPLY' && !message) {
+                alert('Write a reply before sending it.');
+                return;
+            }
+            if (action === 'CLOSE' && !confirm('Close this support ticket?')) return;
+            try {
+                const authorization = await signedTradeAuthorization();
+                const response = await fetch('/api/admin/tickets/action', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ ...authorization, ticket_id: ticketId, action, message })
+                });
+                const data = await readAdminApiResponse(response, '/api/admin/tickets/action');
+                if (!response.ok) throw new Error(data.error || 'Unable to update support ticket.');
+                await loadAdminTickets();
+            } catch (err) {
+                console.error(err);
+                alert(err.message);
+            }
+        }
+
+        function renderStarRating(rating) {
+            const value = Math.max(0, Math.min(5, Number(rating) || 0));
+            return `<span class="support-stars" aria-label="${value} out of 5 stars">${'★'.repeat(value)}${'☆'.repeat(5 - value)}</span>`;
+        }
+
+        async function loadAdminReviews() {
+            const container = document.getElementById('admin-review-list');
+            if (!container) return;
+            try {
+                const authorization = await signedTradeAuthorization();
+                const response = await fetch('/api/admin/reviews', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(authorization)
+                });
+                const data = await readAdminApiResponse(response, '/api/admin/reviews');
+                if (!response.ok) throw new Error(data.error || 'Unable to load reviews.');
+                if (!data.reviews?.length) {
+                    container.innerHTML = '<p class="account-chart-empty">No customer reviews submitted.</p>';
+                    return;
+                }
+                container.innerHTML = data.reviews.map(review => `
+                    <article class="support-review-card">
+                        <div class="support-review-heading">
+                            <div><h3>${escapeHTML(review.username)}</h3>${renderStarRating(review.rating)}</div>
+                            <div class="admin-review-actions">
+                                <span class="support-status ${Number(review.published) ? 'support-status-open' : 'support-status-needs-info'}">${Number(review.published) ? 'Published' : 'Awaiting approval'}</span>
+                                <button class="${Number(review.published) ? 'btn-sell' : 'btn-wallet'}" data-review-wallet="${escapeHTML(review.wallet_address)}" data-review-action="${Number(review.published) ? 'HIDE' : 'PUBLISH'}">${Number(review.published) ? 'Hide from homepage' : 'Publish to homepage'}</button>
+                            </div>
+                        </div>
+                        <p class="support-review-meta"><code>${escapeHTML(review.wallet_address)}</code> · Updated ${escapeHTML(new Date(review.updated_at).toLocaleString())}</p>
+                        <p class="support-review-comment">${escapeHTML(review.comment)}</p>
+                    </article>
+                `).join('');
+                container.onclick = event => {
+                    const button = event.target.closest('[data-review-action]');
+                    if (button) processAdminReview(button.dataset.reviewWallet, button.dataset.reviewAction);
+                };
+            } catch (err) {
+                console.error(err);
+                container.innerHTML = `<p class="support-feedback">${escapeHTML(err.message)}</p>`;
+            }
+        }
+
+        async function processAdminReview(wallet, action) {
+            try {
+                const authorization = await signedTradeAuthorization();
+                const response = await fetch('/api/admin/reviews/action', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ ...authorization, review_wallet: wallet, action })
+                });
+                const data = await readAdminApiResponse(response, '/api/admin/reviews/action');
+                if (!response.ok) throw new Error(data.error || 'Unable to update review publication.');
+                await loadAdminReviews();
+            } catch (err) {
+                console.error(err);
+                alert(err.message);
+            }
+        }
+
         async function adminAccountAction(accountId, action) {
             const reason = action === 'FREEZE' ? prompt('Why is this account being frozen?')?.trim() : '';
             if (action === 'FREEZE' && !reason) return;
@@ -1442,8 +1601,173 @@ let connectedWallet = null;
                     if (dispBox) dispBox.style.display = 'none';
                     if (editBtn) editBtn.style.display = 'none';
                 }
+                const reviewUsername = document.getElementById('review-username');
+                if (reviewUsername) reviewUsername.value = currentUserProfile?.username || '';
+                await loadUserReview(wallet);
                 loadLeaderboard(currentLeaderboardMode);
             } catch (err) { console.error(err); }
+        }
+
+        function supportStatusLabel(status) {
+            if (status === 'NEEDS_INFO') return 'Needs your info';
+            if (status === 'CLOSED') return 'Closed';
+            return 'Open';
+        }
+
+        function supportStatusClass(status) {
+            if (status === 'NEEDS_INFO') return 'support-status-needs-info';
+            if (status === 'CLOSED') return 'support-status-closed';
+            return 'support-status-open';
+        }
+
+        function renderSupportMessages(messages) {
+            return `<div class="support-message-list">${messages.map(message => `
+                <article class="support-message ${message.author_role === 'ADMIN' ? 'support-message-admin' : 'support-message-user'}">
+                    <div class="support-message-header"><strong>${escapeHTML(message.author_name)}</strong><time>${escapeHTML(new Date(message.created_at).toLocaleString())}</time></div>
+                    <p>${escapeHTML(message.body)}</p>
+                </article>
+            `).join('')}</div>`;
+        }
+
+        async function loadUserTickets(wallet) {
+            const container = document.getElementById('user-ticket-list');
+            if (!container || !wallet) return;
+            populateTicketAccountOptions();
+            try {
+                const response = await walletFetch(`/api/user/tickets?wallet=${encodeURIComponent(wallet)}`);
+                const data = await response.json();
+                if (!response.ok) throw new Error(data.error || 'Unable to load support tickets.');
+                if (!data.tickets?.length) {
+                    container.innerHTML = '<p class="account-chart-empty">No support tickets yet. Create one above if you need help.</p>';
+                    return;
+                }
+                container.innerHTML = data.tickets.map(ticket => `
+                    <article class="support-ticket-card" data-ticket-id="${escapeHTML(ticket.id)}">
+                        <div class="support-ticket-heading">
+                            <h3>${escapeHTML(ticket.subject)}</h3>
+                            <span class="support-status ${supportStatusClass(ticket.status)}">${supportStatusLabel(ticket.status)}</span>
+                        </div>
+                        <p class="support-ticket-meta">${ticket.account_id ? `${escapeHTML(ticket.plan_name || 'Account')} · ${escapeHTML(ticket.account_id)}` : 'General support'} · Updated ${escapeHTML(new Date(ticket.updated_at).toLocaleString())}</p>
+                        ${renderSupportMessages(ticket.messages || [])}
+                        ${ticket.status !== 'CLOSED' ? `<div class="support-ticket-actions"><label for="user-ticket-reply-${escapeHTML(ticket.id)}">Reply to this ticket</label><textarea id="user-ticket-reply-${escapeHTML(ticket.id)}" maxlength="5000" rows="4" placeholder="Add details or answer the support team (up to 5,000 characters)."></textarea><button class="btn-wallet" data-user-ticket-reply="${escapeHTML(ticket.id)}">Send reply</button></div>` : ''}
+                    </article>
+                `).join('');
+            } catch (err) {
+                console.error(err);
+                container.innerHTML = `<p class="support-feedback">${escapeHTML(err.message)}</p>`;
+            }
+        }
+
+        async function submitUserTicketReply(ticketId, card) {
+            const textarea = card.querySelector('textarea');
+            const button = card.querySelector('[data-user-ticket-reply]');
+            const message = textarea?.value.trim();
+            if (!message) return;
+            if (button) button.disabled = true;
+            try {
+                const response = await walletFetch(`/api/user/tickets/${encodeURIComponent(ticketId)}/reply`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ message })
+                });
+                const data = await response.json();
+                if (!response.ok) throw new Error(data.error || 'Unable to send ticket reply.');
+                await loadUserTickets(connectedWallet);
+            } catch (err) {
+                console.error(err);
+                alert(err.message);
+            } finally {
+                if (button) button.disabled = false;
+            }
+        }
+
+        async function loadUserReview(wallet) {
+            const form = document.getElementById('user-review-form');
+            if (!form || !wallet) return;
+            const feedback = document.getElementById('review-form-feedback');
+            const submit = form.querySelector('button[type="submit"]');
+            const usernameField = document.getElementById('review-username');
+            if (usernameField) usernameField.value = currentUserProfile?.username || '';
+            if (submit) submit.disabled = !currentUserProfile?.username;
+            document.getElementById('review-comment').value = '';
+            document.getElementById('review-rating').value = '5';
+            if (feedback) feedback.textContent = 'Loading your review…';
+            try {
+                const response = await walletFetch(`/api/user/review?wallet=${encodeURIComponent(wallet)}`);
+                const data = await response.json();
+                if (!response.ok) throw new Error(data.error || 'Unable to load your review.');
+                if (data.review) {
+                    document.getElementById('review-rating').value = String(data.review.rating);
+                    document.getElementById('review-comment').value = data.review.comment;
+                    if (feedback) feedback.textContent = data.review.published
+                        ? 'Your review is published. Saving changes will send it for approval again.'
+                        : 'Your review is awaiting admin approval.';
+                } else if (feedback) {
+                    feedback.textContent = currentUserProfile?.username
+                        ? 'Reviews are reviewed by an admin before appearing on the homepage.'
+                        : 'Set up your profile username before submitting a review.';
+                }
+            } catch (err) {
+                console.error(err);
+                if (feedback) feedback.textContent = err.message;
+            }
+        }
+
+        async function submitUserReview(event) {
+            event.preventDefault();
+            const feedback = document.getElementById('review-form-feedback');
+            if (!connectedWallet || !currentUserProfile?.username) {
+                if (feedback) feedback.textContent = 'Set up your profile username before submitting a review.';
+                return;
+            }
+            try {
+                const response = await walletFetch('/api/user/reviews', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        rating: Number(document.getElementById('review-rating').value),
+                        comment: document.getElementById('review-comment').value
+                    })
+                });
+                const data = await response.json();
+                if (!response.ok) throw new Error(data.error || 'Unable to submit review.');
+                if (feedback) feedback.textContent = data.message;
+                await loadUserReview(connectedWallet);
+            } catch (err) {
+                console.error(err);
+                if (feedback) feedback.textContent = err.message;
+            }
+        }
+
+        async function submitSupportTicket(event) {
+            event.preventDefault();
+            if (!connectedWallet) return;
+            const form = event.currentTarget;
+            const feedback = document.getElementById('ticket-form-feedback');
+            const submit = form.querySelector('button[type="submit"]');
+            if (submit) submit.disabled = true;
+            try {
+                const response = await walletFetch('/api/user/tickets', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        account_id: document.getElementById('ticket-account-select').value || null,
+                        subject: document.getElementById('ticket-subject').value,
+                        message: document.getElementById('ticket-message').value
+                    })
+                });
+                const data = await response.json();
+                if (!response.ok) throw new Error(data.error || 'Unable to create support ticket.');
+                form.reset();
+                populateTicketAccountOptions();
+                if (feedback) feedback.textContent = 'Ticket created. The support team will respond here.';
+                await loadUserTickets(connectedWallet);
+            } catch (err) {
+                console.error(err);
+                if (feedback) feedback.textContent = err.message;
+            } finally {
+                if (submit) submit.disabled = false;
+            }
         }
 
         function toggleEditProfile() {
@@ -1567,3 +1891,11 @@ let connectedWallet = null;
                 alert("Transaction failed or was rejected.");
             }
         }
+
+        document.getElementById('support-ticket-form')?.addEventListener('submit', submitSupportTicket);
+        document.getElementById('user-review-form')?.addEventListener('submit', submitUserReview);
+        document.getElementById('user-ticket-list')?.addEventListener('click', event => {
+            const button = event.target.closest('[data-user-ticket-reply]');
+            const card = button?.closest('[data-ticket-id]');
+            if (button && card) submitUserTicketReply(button.dataset.userTicketReply, card);
+        });

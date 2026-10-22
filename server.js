@@ -154,7 +154,7 @@ function seedPlans() {
            profit_target = ?, max_drawdown_pct = ?, daily_loss_pct = ?, max_single_day_profit_pct = ?, active = 1
            WHERE id = ?`,
           [...values, existing.id],
-          (updateErr) => {
+          function(updateErr) {
             if (updateErr) return console.error(`Unable to sync plan ${plan.name}`, updateErr.message);
             syncNextPlan(index + 1);
           }
@@ -429,7 +429,7 @@ function refreshRiskBaselines(accountId, callback) {
             `UPDATE accounts SET risk_day = ?, daily_starting_balance = ?, high_water_mark = ?
              WHERE id = ?`,
             [baselines.risk_day, baselines.daily_starting_balance, baselines.high_water_mark, accountId],
-            (updateErr) => {
+            function(updateErr) {
               if (updateErr) return rollback(updateErr);
               Object.assign(account, baselines);
               const breach = getRiskBreach(account, account);
@@ -872,6 +872,297 @@ app.post('/api/user/profile', sensitiveLimiter, requireTradeSignature, (req, res
           res.json({ success: true, message: "Profile updated successfully." });
         }
       );
+    }
+  );
+});
+
+function attachTicketMessages(tickets, callback) {
+  if (!tickets.length) return callback(null, tickets);
+  const ids = tickets.map(ticket => ticket.id);
+  const placeholders = ids.map(() => '?').join(',');
+  db.all(
+    `SELECT id, ticket_id, author_role, author_name, body, created_at
+     FROM support_ticket_messages WHERE ticket_id IN (${placeholders})
+     ORDER BY created_at, id`,
+    ids,
+    (err, messages) => {
+      if (err) return callback(err);
+      const grouped = new Map(tickets.map(ticket => [ticket.id, []]));
+      for (const message of messages || []) grouped.get(message.ticket_id)?.push(message);
+      for (const ticket of tickets) ticket.messages = grouped.get(ticket.id) || [];
+      callback(null, tickets);
+    }
+  );
+}
+
+app.get('/api/user/tickets', requireWalletSession, (req, res) => {
+  const wallet = req.query.wallet;
+  if (typeof wallet !== 'string' || !ethers.isAddress(wallet) || wallet.toLowerCase() !== req.walletAddress) {
+    return res.status(403).json({ error: 'Wallet session does not match the requested support tickets.' });
+  }
+  db.all(
+    `SELECT t.*, p.name AS plan_name
+     FROM support_tickets t
+     LEFT JOIN accounts a ON a.id = t.account_id
+     LEFT JOIN plans p ON p.id = a.plan_id
+     WHERE LOWER(t.wallet_address) = LOWER(?)
+     ORDER BY t.updated_at DESC, t.created_at DESC LIMIT 100`,
+    [wallet],
+    (err, tickets) => {
+      if (err) return res.status(500).json({ error: 'Unable to load support tickets.' });
+      attachTicketMessages(tickets || [], (messagesErr, results) => {
+        if (messagesErr) return res.status(500).json({ error: 'Unable to load ticket replies.' });
+        res.json({ tickets: results });
+      });
+    }
+  );
+});
+
+app.post('/api/user/tickets', sensitiveLimiter, requireWalletSession, (req, res) => {
+  const accountId = typeof req.body?.account_id === 'string' && req.body.account_id ? req.body.account_id : null;
+  const subject = typeof req.body?.subject === 'string' ? req.body.subject.trim() : '';
+  const message = typeof req.body?.message === 'string' ? req.body.message.trim() : '';
+  if (subject.length < 5 || subject.length > 120 || message.length < 10 || message.length > 5000) {
+    return res.status(400).json({ error: 'Enter a subject (5–120 characters) and issue details (10–5,000 characters).' });
+  }
+
+  const createTicket = (username) => {
+    const ticketId = `ticket_${crypto.randomBytes(8).toString('hex')}`;
+    db.serialize(() => {
+      db.run('BEGIN IMMEDIATE', (beginErr) => {
+        if (beginErr) return res.status(500).json({ error: 'Unable to start support ticket.' });
+        const rollback = (error) => db.run('ROLLBACK', () => res.status(500).json({ error }));
+        db.run(
+          `INSERT INTO support_tickets (id, wallet_address, account_id, subject, status)
+           VALUES (?, ?, ?, ?, 'OPEN')`,
+          [ticketId, req.walletAddress, accountId, subject],
+          (ticketErr) => {
+            if (ticketErr) return rollback('Unable to create support ticket.');
+            db.run(
+              `INSERT INTO support_ticket_messages (ticket_id, author_role, author_name, body)
+               VALUES (?, 'USER', ?, ?)`,
+              [ticketId, username || `${req.walletAddress.slice(0, 6)}…${req.walletAddress.slice(-4)}`, message],
+              (messageErr) => {
+                if (messageErr) return rollback('Unable to save the initial ticket message.');
+                db.run('COMMIT', (commitErr) => {
+                  if (commitErr) return rollback('Unable to commit support ticket.');
+                  res.status(201).json({ success: true, ticket_id: ticketId });
+                });
+              }
+            );
+          }
+        );
+      });
+    });
+  };
+
+  const verifyAccount = (done) => {
+    if (!accountId) return done(null, null);
+    db.get(
+      `SELECT id FROM accounts WHERE id = ? AND LOWER(wallet_address) = LOWER(?)`,
+      [accountId, req.walletAddress],
+      (err, account) => {
+        if (err) return res.status(500).json({ error: 'Unable to verify the selected account.' });
+        if (!account) return res.status(403).json({ error: 'The selected account does not belong to this wallet.' });
+        done(null, account);
+      }
+    );
+  };
+  verifyAccount(() => {
+    db.get('SELECT username FROM users WHERE LOWER(wallet_address) = LOWER(?)', [req.walletAddress], (userErr, user) => {
+      if (userErr) return res.status(500).json({ error: 'Unable to load profile for support ticket.' });
+      createTicket(user?.username);
+    });
+  });
+});
+
+app.post('/api/user/tickets/:ticketId/reply', sensitiveLimiter, requireWalletSession, (req, res) => {
+  const message = typeof req.body?.message === 'string' ? req.body.message.trim() : '';
+  if (message.length < 1 || message.length > 5000) {
+    return res.status(400).json({ error: 'Ticket replies must be between 1 and 5,000 characters.' });
+  }
+  db.get(
+    `SELECT t.id, t.status, u.username FROM support_tickets t
+     LEFT JOIN users u ON LOWER(u.wallet_address) = LOWER(t.wallet_address)
+     WHERE t.id = ? AND LOWER(t.wallet_address) = LOWER(?)`,
+    [req.params.ticketId, req.walletAddress],
+    (err, ticket) => {
+      if (err) return res.status(500).json({ error: 'Unable to load support ticket.' });
+      if (!ticket) return res.status(404).json({ error: 'Support ticket not found.' });
+      if (ticket.status === 'CLOSED') return res.status(409).json({ error: 'Closed tickets cannot be replied to.' });
+      db.serialize(() => {
+        db.run('BEGIN IMMEDIATE', (beginErr) => {
+          if (beginErr) return res.status(500).json({ error: 'Unable to start ticket reply.' });
+          const rollback = (error) => db.run('ROLLBACK', () => res.status(500).json({ error }));
+          db.run(
+            `INSERT INTO support_ticket_messages (ticket_id, author_role, author_name, body)
+             VALUES (?, 'USER', ?, ?)`,
+            [ticket.id, ticket.username || `${req.walletAddress.slice(0, 6)}…${req.walletAddress.slice(-4)}`, message],
+            (insertErr) => {
+              if (insertErr) return rollback('Unable to save ticket reply.');
+              db.run(
+                `UPDATE support_tickets SET status = 'OPEN', updated_at = CURRENT_TIMESTAMP
+                 WHERE id = ? AND status != 'CLOSED'`,
+                [ticket.id],
+                function(updateErr) {
+                  if (updateErr) return rollback('Unable to update ticket status.');
+                  if (this.changes !== 1) {
+                    return db.run('ROLLBACK', () => res.status(409).json({ error: 'Closed tickets cannot be replied to.' }));
+                  }
+                  db.run('COMMIT', (commitErr) => {
+                    if (commitErr) return rollback('Unable to commit ticket reply.');
+                    res.json({ success: true, status: 'OPEN' });
+                  });
+                }
+              );
+            }
+          );
+        });
+      });
+    }
+  );
+});
+
+app.get('/api/user/review', requireWalletSession, (req, res) => {
+  const wallet = req.query.wallet;
+  if (typeof wallet !== 'string' || !ethers.isAddress(wallet) || wallet.toLowerCase() !== req.walletAddress) {
+    return res.status(403).json({ error: 'Wallet session does not match the requested review.' });
+  }
+  db.get(
+    'SELECT username, rating, comment, published, created_at, updated_at FROM user_reviews WHERE LOWER(wallet_address) = LOWER(?)',
+    [wallet],
+    (err, review) => {
+      if (err) return res.status(500).json({ error: 'Unable to load your review.' });
+      res.json({ review: review || null });
+    }
+  );
+});
+
+app.post('/api/user/reviews', sensitiveLimiter, requireWalletSession, (req, res) => {
+  const rating = Number(req.body?.rating);
+  const comment = typeof req.body?.comment === 'string' ? req.body.comment.trim() : '';
+  if (!Number.isInteger(rating) || rating < 1 || rating > 5 || comment.length < 10 || comment.length > 1500) {
+    return res.status(400).json({ error: 'Choose 1–5 stars and enter a review between 10 and 1,500 characters.' });
+  }
+  db.get('SELECT username FROM users WHERE LOWER(wallet_address) = LOWER(?)', [req.walletAddress], (err, user) => {
+    if (err) return res.status(500).json({ error: 'Unable to load your profile.' });
+    if (!user?.username) return res.status(400).json({ error: 'Create a profile username before submitting a review.' });
+    db.run(
+      `INSERT INTO user_reviews (wallet_address, username, rating, comment, published)
+       VALUES (?, ?, ?, ?, 0)
+       ON CONFLICT(wallet_address) DO UPDATE SET username = excluded.username,
+         rating = excluded.rating, comment = excluded.comment, published = 0,
+         updated_at = CURRENT_TIMESTAMP`,
+      [req.walletAddress, user.username, rating, comment],
+      (saveErr) => {
+        if (saveErr) return res.status(500).json({ error: 'Unable to save your review.' });
+        res.json({ success: true, message: 'Review saved and sent to the admin team for review.' });
+      }
+    );
+  });
+});
+
+app.get('/api/reviews', (req, res) => {
+  db.all(
+    `SELECT username, rating, comment, updated_at
+     FROM user_reviews WHERE published = 1
+     ORDER BY updated_at DESC LIMIT 12`,
+    [],
+    (err, reviews) => {
+      if (err) return res.status(500).json({ error: 'Unable to load published reviews.' });
+      res.json({ reviews: reviews || [] });
+    }
+  );
+});
+
+app.post('/api/admin/tickets', sensitiveLimiter, requireTradeSignature, requireAdminWallet, (req, res) => {
+  db.all(
+    `SELECT t.*, u.username, a.plan_id, p.name AS plan_name
+     FROM support_tickets t
+     LEFT JOIN users u ON LOWER(u.wallet_address) = LOWER(t.wallet_address)
+     LEFT JOIN accounts a ON a.id = t.account_id
+     LEFT JOIN plans p ON p.id = a.plan_id
+     ORDER BY CASE t.status WHEN 'OPEN' THEN 0 WHEN 'NEEDS_INFO' THEN 1 ELSE 2 END,
+       t.updated_at DESC LIMIT 250`,
+    [],
+    (err, tickets) => {
+      if (err) return res.status(500).json({ error: 'Unable to load support tickets.' });
+      attachTicketMessages(tickets || [], (messagesErr, results) => {
+        if (messagesErr) return res.status(500).json({ error: 'Unable to load ticket replies.' });
+        res.json({ tickets: results });
+      });
+    }
+  );
+});
+
+app.post('/api/admin/tickets/action', sensitiveLimiter, requireTradeSignature, requireAdminWallet, (req, res) => {
+  const ticketId = typeof req.body?.ticket_id === 'string' ? req.body.ticket_id : '';
+  const action = req.body?.action;
+  const message = typeof req.body?.message === 'string' ? req.body.message.trim() : '';
+  if (!ticketId || !['REPLY', 'CLOSE'].includes(action) ||
+      (action === 'REPLY' && (message.length < 1 || message.length > 5000)) ||
+      (action === 'CLOSE' && message.length > 5000)) {
+    return res.status(400).json({ error: 'A ticket, valid action, and reply within 5,000 characters are required.' });
+  }
+  db.get('SELECT id, status FROM support_tickets WHERE id = ?', [ticketId], (err, ticket) => {
+    if (err) return res.status(500).json({ error: 'Unable to load support ticket.' });
+    if (!ticket) return res.status(404).json({ error: 'Support ticket not found.' });
+    if (ticket.status === 'CLOSED') return res.status(409).json({ error: 'This ticket is already closed.' });
+    db.serialize(() => {
+      db.run('BEGIN IMMEDIATE', (beginErr) => {
+        if (beginErr) return res.status(500).json({ error: 'Unable to start ticket update.' });
+        const rollback = (error) => db.run('ROLLBACK', () => res.status(500).json({ error }));
+        const updateStatus = () => db.run(
+          `UPDATE support_tickets SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ? AND status != 'CLOSED'`,
+          [action === 'CLOSE' ? 'CLOSED' : 'NEEDS_INFO', ticket.id],
+          function(updateErr) {
+            if (updateErr) return rollback('Unable to update ticket status.');
+            if (this.changes !== 1) {
+              return db.run('ROLLBACK', () => res.status(409).json({ error: 'This ticket is already closed.' }));
+            }
+            db.run('COMMIT', (commitErr) => {
+              if (commitErr) return rollback('Unable to commit ticket update.');
+              res.json({ success: true, status: action === 'CLOSE' ? 'CLOSED' : 'NEEDS_INFO' });
+            });
+          }
+        );
+        if (!message) return updateStatus();
+        db.run(
+          `INSERT INTO support_ticket_messages (ticket_id, author_role, author_name, body)
+           VALUES (?, 'ADMIN', 'Blastrr Support', ?)`,
+          [ticket.id, message],
+          (insertErr) => insertErr ? rollback('Unable to save admin reply.') : updateStatus()
+        );
+      });
+    });
+  });
+});
+
+app.post('/api/admin/reviews', sensitiveLimiter, requireTradeSignature, requireAdminWallet, (req, res) => {
+  db.all(
+    `SELECT wallet_address, username, rating, comment, published, created_at, updated_at
+     FROM user_reviews ORDER BY published ASC, updated_at DESC LIMIT 300`,
+    [],
+    (err, reviews) => {
+      if (err) return res.status(500).json({ error: 'Unable to load user reviews.' });
+      res.json({ reviews: reviews || [] });
+    }
+  );
+});
+
+app.post('/api/admin/reviews/action', sensitiveLimiter, requireTradeSignature, requireAdminWallet, (req, res) => {
+  const wallet = req.body?.review_wallet;
+  const action = req.body?.action;
+  if (typeof wallet !== 'string' || !ethers.isAddress(wallet) || !['PUBLISH', 'HIDE'].includes(action)) {
+    return res.status(400).json({ error: 'A valid review wallet and publish or hide action are required.' });
+  }
+  db.run(
+    'UPDATE user_reviews SET published = ?, updated_at = CURRENT_TIMESTAMP WHERE LOWER(wallet_address) = LOWER(?)',
+    [action === 'PUBLISH' ? 1 : 0, wallet],
+    function(updateErr) {
+      if (updateErr) return res.status(500).json({ error: 'Unable to update review publication.' });
+      if (this.changes !== 1) return res.status(404).json({ error: 'Review not found.' });
+      res.json({ success: true, published: action === 'PUBLISH' });
     }
   );
 });

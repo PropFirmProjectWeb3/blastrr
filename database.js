@@ -134,6 +134,42 @@ function initTables() {
       FOREIGN KEY(account_id) REFERENCES accounts(id)
     )`);
 
+    db.run(`CREATE TABLE IF NOT EXISTS support_tickets (
+      id TEXT PRIMARY KEY,
+      wallet_address TEXT NOT NULL,
+      account_id TEXT,
+      subject TEXT NOT NULL,
+      status TEXT NOT NULL DEFAULT 'OPEN',
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY(account_id) REFERENCES accounts(id)
+    )`);
+
+    db.run(`CREATE TABLE IF NOT EXISTS support_ticket_messages (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      ticket_id TEXT NOT NULL,
+      author_role TEXT NOT NULL CHECK(author_role IN ('USER', 'ADMIN')),
+      author_name TEXT NOT NULL,
+      body TEXT NOT NULL,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY(ticket_id) REFERENCES support_tickets(id)
+    )`);
+
+    db.run(`CREATE TABLE IF NOT EXISTS user_reviews (
+      wallet_address TEXT PRIMARY KEY,
+      username TEXT NOT NULL,
+      rating INTEGER NOT NULL CHECK(rating BETWEEN 1 AND 5),
+      comment TEXT NOT NULL,
+      published INTEGER NOT NULL DEFAULT 0,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    )`);
+
+    db.run('CREATE INDEX IF NOT EXISTS idx_support_tickets_wallet_updated ON support_tickets(wallet_address, updated_at DESC)');
+    db.run('CREATE INDEX IF NOT EXISTS idx_support_tickets_status_updated ON support_tickets(status, updated_at DESC)');
+    db.run('CREATE INDEX IF NOT EXISTS idx_support_ticket_messages_ticket ON support_ticket_messages(ticket_id, created_at)');
+    db.run('CREATE INDEX IF NOT EXISTS idx_user_reviews_published_updated ON user_reviews(published, updated_at DESC)');
+
     db.all("PRAGMA table_info(accounts)", (err, columns) => {
       if (err) {
         console.error('Unable to inspect accounts schema', err.message);

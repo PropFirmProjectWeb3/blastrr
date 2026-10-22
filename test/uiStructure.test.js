@@ -49,10 +49,20 @@ test('mobile navigation has readable, touch-sized links and accessible expanded 
 });
 
 test('NullNet checkout uses the correct chain ID and matching wallet and verification RPC settings', () => {
-  assert.match(appJs, /448000:\s*\{[\s\S]*?chainIdHex: "0x6d600"[\s\S]*?rpcUrl: "https:\/\/rpc\.lunul\.org"[\s\S]*?nativeCurrency: \{ name: "LUN", symbol: "LUN", decimals: 18 \}/);
-  assert.match(serverJs, /448000:\s*\{[\s\S]*?chainIdHex: "0x6d600"[\s\S]*?rpcUrl: "https:\/\/rpc\.lunul\.org"/);
+  assert.match(appJs, /448000:\s*\{[\s\S]*?chainIdHex: "0x6d600"[\s\S]*?rpcUrl: "https:\/\/rpc\.lunul\.org"[\s\S]*?nativeCurrency: \{ name: "LUN", symbol: "LUN", decimals: 18 \}[\s\S]*?usdtAddress: "0x7ec3659A8225ED474D7c662126616aE08545C29b",[\s\S]*?decimals: 18/);
+  assert.match(serverJs, /448000:\s*\{[\s\S]*?chainIdHex: "0x6d600"[\s\S]*?rpcUrl: "https:\/\/rpc\.lunul\.org"[\s\S]*?decimals: 18/);
+  assert.match(appJs, /const rawAmount = toTokenUnits\(priceUsdt, chainConfig\.decimals\)/);
+  assert.match(serverJs, /rawValue >= expectedRawValue/);
   assert.match(appJs, /method: 'wallet_addEthereumChain'/);
   assert.match(appJs, /const activeChainId = BigInt\(await provider\.request\(\{ method: 'eth_chainId' \}\)\)/);
+});
+
+test('purchase calldata encodes USDT amounts using each token decimal precision', () => {
+  const helper = appJs.match(/function toTokenUnits\(amount, decimals\) \{[\s\S]*?\n        \}/);
+  assert.ok(helper);
+  const toUnits = new vm.Script(`${helper[0]}\ntoTokenUnits`).runInNewContext();
+  assert.equal(toUnits('12.34', 18).toString(), '12340000000000000000');
+  assert.equal(toUnits('12.34', 6).toString(), '12340000');
 });
 
 test('live market PnL feeds server-side risk checks and active trade responses', () => {

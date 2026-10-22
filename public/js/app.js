@@ -54,18 +54,29 @@ let connectedWallet = null;
         }
 
         const SUPPORTED_EVM_CHAINS = {
-            1: { name: "Ethereum Mainnet", chainIdHex: "0x1", usdtAddress: "0xdac17f958d2ee523a2206206994597c13d831ec7" },
-            8453: { name: "Base", chainIdHex: "0x2105", usdtAddress: "0xfde4c96c8593536e31f229ea8f37b2ada2699bb2" },
-            137: { name: "Polygon PoS", chainIdHex: "0x89", usdtAddress: "0xc2132d05d31c914a87c6611c10748aeb04b58e8f" },
-            43114: { name: "Avalanche C-Chain", chainIdHex: "0xa86a", usdtAddress: "0x9702230a8ea53601f5cd2dc00fdbc13d4df4a8c7" },
+            1: { name: "Ethereum Mainnet", chainIdHex: "0x1", usdtAddress: "0xdac17f958d2ee523a2206206994597c13d831ec7", decimals: 6 },
+            8453: { name: "Base", chainIdHex: "0x2105", usdtAddress: "0xfde4c96c8593536e31f229ea8f37b2ada2699bb2", decimals: 6 },
+            137: { name: "Polygon PoS", chainIdHex: "0x89", usdtAddress: "0xc2132d05d31c914a87c6611c10748aeb04b58e8f", decimals: 6 },
+            43114: { name: "Avalanche C-Chain", chainIdHex: "0xa86a", usdtAddress: "0x9702230a8ea53601f5cd2dc00fdbc13d4df4a8c7", decimals: 6 },
             448000: {
                 name: "NullNet Private EVM",
                 chainIdHex: "0x6d600",
                 rpcUrl: "https://rpc.lunul.org",
                 nativeCurrency: { name: "LUN", symbol: "LUN", decimals: 18 },
-                usdtAddress: "0x7ec3659A8225ED474D7c662126616aE08545C29b"
+                usdtAddress: "0x7ec3659A8225ED474D7c662126616aE08545C29b",
+                decimals: 18
             }
         };
+
+        function toTokenUnits(amount, decimals) {
+            const match = String(amount).match(/^(\d+)(?:\.(\d+))?$/);
+            if (!match || (match[2]?.length || 0) > decimals) {
+                throw new Error('Invalid payment amount for token precision.');
+            }
+            const whole = BigInt(match[1]) * (10n ** BigInt(decimals));
+            const fraction = BigInt((match[2] || '').padEnd(decimals, '0') || '0');
+            return whole + fraction;
+        }
 
         async function ensurePaymentNetwork(provider, chainConfig) {
             const targetChainId = BigInt(chainConfig.chainIdHex);
@@ -1516,7 +1527,7 @@ let connectedWallet = null;
 
             try {
                 const paddedRecipient = TREASURY_WALLET.toLowerCase().replace('0x', '').padStart(64, '0');
-                const rawAmount = BigInt(Math.round(priceUsdt * 1e6));
+                const rawAmount = toTokenUnits(priceUsdt, chainConfig.decimals);
                 const amountHex = rawAmount.toString(16).padStart(64, '0');
                 const calldata = '0xa9059cbb' + paddedRecipient + amountHex;
 

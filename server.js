@@ -58,7 +58,7 @@ const SUPPORTED_EVM_CHAINS = {
         chainIdHex: "0x6d600",
         rpcUrl: "https://rpc.lunul.org",
         usdtAddress: "0x7ec3659A8225ED474D7c662126616aE08545C29b", // Your deployed contract address
-        decimals: 6
+        decimals: 18
     }
 };
 
@@ -647,9 +647,9 @@ async function verifyMultiChainPurchase(txHash, chainId, expectedBuyerWallet, ex
             if (log.address.toLowerCase() === chainConfig.usdtAddress.toLowerCase() && log.topics[0] === transferTopic) {
                 const recipient = ethers.getAddress('0x' + log.topics[2].slice(26));
                 const rawValue = BigInt(log.data);
-                const tokenValue = Number(rawValue) / Math.pow(10, chainConfig.decimals);
+                const expectedRawValue = ethers.parseUnits(Number(expectedAmountUsdt).toFixed(2), chainConfig.decimals);
 
-                if (recipient.toLowerCase() === treasuryWallet.toLowerCase() && tokenValue >= expectedAmountUsdt) {
+                if (recipient.toLowerCase() === treasuryWallet.toLowerCase() && rawValue >= expectedRawValue) {
                     validTransfer = true;
                     break;
                 }

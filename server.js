@@ -144,7 +144,7 @@ setTimeout(seedPlans, 1000);
 
 const tradeChallenges = new Map();
 const walletSessions = new Map();
-const WALLET_SESSION_DURATION_MS = 15 * 60 * 1000;
+const WALLET_SESSION_DURATION_MS = 12 * 60 * 60 * 1000;
 
 function getAuthoritativePrice(market) {
   if (market.source === 'SIMULATED') {
@@ -212,6 +212,14 @@ function requireWalletSession(req, res, next) {
   if (!session || session.expiresAt <= Date.now()) {
     if (match) walletSessions.delete(match[1]);
     return res.status(401).json({ error: 'A valid wallet session is required.' });
+  }
+  const requestedWallet = req.body?.wallet_address || req.query.wallet;
+  if (requestedWallet && (
+    typeof requestedWallet !== 'string' ||
+    !ethers.isAddress(requestedWallet) ||
+    requestedWallet.toLowerCase() !== session.walletAddress
+  )) {
+    return res.status(403).json({ error: 'Wallet session does not match the requested wallet.' });
   }
   req.walletAddress = session.walletAddress;
   next();
@@ -1188,7 +1196,7 @@ app.post('/api/admin/withdrawals/action', sensitiveLimiter, requireTradeSignatur
   });
 });
 
-app.post('/api/trades/execute', sensitiveLimiter, requireTradeSignature, (req, res) => {
+app.post('/api/trades/execute', sensitiveLimiter, requireWalletSession, (req, res) => {
   const { account_id, symbol, side, price, size_usd, margin_used, leverage, sl, tp, wallet_address } = req.body;
   const market = markets.find(item => item.symbol === symbol);
   const numericFields = [price, size_usd, margin_used, leverage];
@@ -1212,7 +1220,7 @@ app.post('/api/trades/execute', sensitiveLimiter, requireTradeSignature, (req, r
     (err, account) => {
       if (err) return res.status(500).json({ error: 'Unable to load account.' });
       if (!account) return res.status(404).json({ error: 'Account not found.' });
-      if (account.wallet_address.toLowerCase() !== wallet_address.toLowerCase()) {
+      if (account.wallet_address.toLowerCase() !== req.walletAddress) {
         return res.status(403).json({ error: 'Wallet does not own this account.' });
       }
 
@@ -1303,7 +1311,7 @@ app.post('/api/trades/execute', sensitiveLimiter, requireTradeSignature, (req, r
   );
 });
 
-app.post('/api/trades/close', sensitiveLimiter, requireTradeSignature, (req, res) => {
+app.post('/api/trades/close', sensitiveLimiter, requireWalletSession, (req, res) => {
   const { trade_id, wallet_address } = req.body;
   if (!trade_id) return res.status(400).json({ error: 'Trade ID is required.' });
 
@@ -1316,7 +1324,7 @@ app.post('/api/trades/close', sensitiveLimiter, requireTradeSignature, (req, res
     (err, trade) => {
       if (err) return res.status(500).json({ error: 'Unable to load trade.' });
       if (!trade) return res.status(404).json({ error: 'Open trade not found.' });
-      if (trade.wallet_address.toLowerCase() !== wallet_address.toLowerCase()) {
+      if (trade.wallet_address.toLowerCase() !== req.walletAddress) {
         return res.status(403).json({ error: 'Wallet does not own this trade.' });
       }
 

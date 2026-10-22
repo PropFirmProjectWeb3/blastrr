@@ -36,6 +36,11 @@ let connectedWallet = null;
             })[character]);
         }
 
+        function setTradeFeedback(message) {
+            const feedback = document.getElementById('trade-feedback');
+            if (feedback) feedback.textContent = message || '';
+        }
+
         async function readAdminApiResponse(response, endpoint) {
             const body = await response.text();
             try {
@@ -1166,7 +1171,7 @@ let connectedWallet = null;
         }
 
         async function executeTrade(side) {
-            if (!selectedAccountId || !activeAccount) { alert("Please select or purchase an active trading account first!"); return; }
+            if (!selectedAccountId || !activeAccount) { setTradeFeedback('Select or purchase an active trading account first.'); return; }
             const symbol = document.getElementById('order-symbol').value;
             const price = parseFloat(document.getElementById('order-price').value) || currentLivePrice;
             const sizeUsd = parseFloat(document.getElementById('order-size-usd').value);
@@ -1175,19 +1180,23 @@ let connectedWallet = null;
             const tp = parseFloat(document.getElementById('order-tp').value) || null;
 
             if (!sizeUsd || sizeUsd <= 0 || sizeUsd > activeAccount.current_balance) {
-                alert("Please check position size and balance.");
+                setTradeFeedback('Please check position size and available balance.');
                 return;
             }
 
             const totalNotional = sizeUsd * leverage;
+            const buyButton = document.querySelector('.btn-buy[onclick*="executeTrade"]');
+            const sellButton = document.querySelector('.btn-sell[onclick*="executeTrade"]');
+            setTradeFeedback('');
+            if (buyButton) buyButton.disabled = true;
+            if (sellButton) sellButton.disabled = true;
 
             try {
-                const authorization = await signedTradeAuthorization();
-                const res = await fetch('/api/trades/execute', {
+                const res = await walletFetch('/api/trades/execute', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ 
-                        ...authorization,
+                        wallet_address: connectedWallet,
                         account_id: selectedAccountId, 
                         symbol, 
                         side, 
@@ -1201,34 +1210,35 @@ let connectedWallet = null;
                     })
                 });
                 const data = await res.json();
-                if (data.success) { alert(`Order executed at $${data.execution_price.toFixed(2)} (${leverage}x mode)!`); loadUserAccounts(connectedWallet); }
-                else alert("Error: " + data.error);
-            } catch (err) { alert(err.message || 'Unable to execute trade.'); }
+                if (data.success) {
+                    await loadUserAccounts(connectedWallet);
+                    await loadOpenTrades(selectedAccountId);
+                } else setTradeFeedback(data.error || 'Unable to execute trade.');
+            } catch (err) {
+                console.error('Unable to execute trade:', err);
+                setTradeFeedback(err.message || 'Unable to execute trade.');
+            } finally {
+                if (buyButton) buyButton.disabled = false;
+                if (sellButton) sellButton.disabled = false;
+            }
         }
 
         async function closeTrade(tradeId, currentPrice, automatic = false) {
             if (!automatic && !confirm("Are you sure you want to close this position early?")) return;
             try {
-                const authorization = await signedTradeAuthorization();
-                const res = await fetch('/api/trades/close', {
+                const res = await walletFetch('/api/trades/close', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ ...authorization, trade_id: tradeId, current_market_price: currentPrice })
+                    body: JSON.stringify({ wallet_address: connectedWallet, trade_id: tradeId, current_market_price: currentPrice })
                 });
                 const data = await res.json();
                 if (data.success) {
-                    const lockMessage = data.lock?.reason === 'MLL'
-                        ? '\n\nThis account has been permanently locked for breaching MLL.'
-                        : data.lock?.reason === 'DLL'
-                            ? `\n\nThis account is locked until ${data.lock.lockedUntil} for breaching DLL.`
-                            : '';
-                    alert(`Position closed. Realized PnL: $${data.pnl.toFixed(2)}${lockMessage}`);
                     loadUserAccounts(connectedWallet);
                     loadLeaderboard(currentLeaderboardMode);
-                }
-                else alert("Error: " + data.error);
+                } else if (!automatic) setTradeFeedback(data.error || 'Unable to close position.');
             } catch (err) {
-                alert(err.message || 'Unable to close trade.');
+                console.error('Unable to close trade:', err);
+                if (!automatic) setTradeFeedback(err.message || 'Unable to close trade.');
             } finally {
                 closingTradeIds.delete(tradeId);
             }

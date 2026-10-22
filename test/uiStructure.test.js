@@ -6,6 +6,7 @@ const vm = require('node:vm');
 const appHtml = fs.readFileSync('public/app.html', 'utf8');
 const appJs = fs.readFileSync('public/js/app.js', 'utf8');
 const landingHtml = fs.readFileSync('public/index.html', 'utf8');
+const serverJs = fs.readFileSync('server.js', 'utf8');
 
 test('trading terminal HTML loads its external stylesheet and application script', () => {
   assert.match(appHtml, /href="\/css\/app\.css"/);
@@ -30,6 +31,12 @@ test('landing-page plans are loaded from the shared plans API', () => {
     .find(script => script.trim());
   assert.ok(inlineScript);
   assert.doesNotThrow(() => new vm.Script(inlineScript));
+});
+
+test('landing navigation links to the unified terminal instead of legacy spot and futures pages', () => {
+  assert.match(landingHtml, /const APP_URL = "app\.html"/);
+  assert.match(landingHtml, /href="app\.html">Trade Terminal/);
+  assert.doesNotMatch(landingHtml, /href="(?:spot|perps)\.html"/);
 });
 
 test('account cards expose expandable trade history and daily profit charts', () => {
@@ -60,6 +67,15 @@ test('admin UI reports non-JSON API responses with a server deployment hint', ()
   assert.match(appJs, /readAdminApiResponse/);
   assert.match(appJs, /HTML page instead of API JSON/);
   assert.match(appJs, /Restart\/deploy the latest server code/);
+});
+
+test('trade actions reuse the signed wallet session and do not show modal success notifications', () => {
+  assert.match(appJs, /walletFetch\('\/api\/trades\/execute'/);
+  assert.match(appJs, /walletFetch\('\/api\/trades\/close'/);
+  assert.doesNotMatch(appJs, /alert\(`Order executed at/);
+  assert.doesNotMatch(appJs, /alert\(`Position closed/);
+  assert.ok(serverJs.includes("app.post('/api/trades/execute', sensitiveLimiter, requireWalletSession"));
+  assert.ok(serverJs.includes("app.post('/api/trades/close', sensitiveLimiter, requireWalletSession"));
 });
 
 test('browser application files contain no copied provider credentials', () => {

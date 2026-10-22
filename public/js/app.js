@@ -58,8 +58,50 @@ let connectedWallet = null;
             8453: { name: "Base", chainIdHex: "0x2105", usdtAddress: "0xfde4c96c8593536e31f229ea8f37b2ada2699bb2" },
             137: { name: "Polygon PoS", chainIdHex: "0x89", usdtAddress: "0xc2132d05d31c914a87c6611c10748aeb04b58e8f" },
             43114: { name: "Avalanche C-Chain", chainIdHex: "0xa86a", usdtAddress: "0x9702230a8ea53601f5cd2dc00fdbc13d4df4a8c7" },
-            448000: { name: "NullNet Private EVM", chainIdHex: "0x6d5e0", usdtAddress: "0x7ec3659A8225ED474D7c662126616aE08545C29b" }
+            448000: {
+                name: "NullNet Private EVM",
+                chainIdHex: "0x6d600",
+                rpcUrl: "https://rpc.lunul.org",
+                nativeCurrency: { name: "LUN", symbol: "LUN", decimals: 18 },
+                usdtAddress: "0x7ec3659A8225ED474D7c662126616aE08545C29b"
+            }
         };
+
+        async function ensurePaymentNetwork(provider, chainConfig) {
+            const targetChainId = BigInt(chainConfig.chainIdHex);
+            const currentChainId = BigInt(await provider.request({ method: 'eth_chainId' }));
+
+            if (currentChainId !== targetChainId) {
+                try {
+                    await provider.request({
+                        method: 'wallet_switchEthereumChain',
+                        params: [{ chainId: chainConfig.chainIdHex }]
+                    });
+                } catch (switchError) {
+                    if (switchError.code !== 4902 || !chainConfig.rpcUrl || !chainConfig.nativeCurrency) {
+                        throw switchError;
+                    }
+                    await provider.request({
+                        method: 'wallet_addEthereumChain',
+                        params: [{
+                            chainId: chainConfig.chainIdHex,
+                            chainName: chainConfig.name,
+                            rpcUrls: [chainConfig.rpcUrl],
+                            nativeCurrency: chainConfig.nativeCurrency
+                        }]
+                    });
+                    await provider.request({
+                        method: 'wallet_switchEthereumChain',
+                        params: [{ chainId: chainConfig.chainIdHex }]
+                    });
+                }
+            }
+
+            const activeChainId = BigInt(await provider.request({ method: 'eth_chainId' }));
+            if (activeChainId !== targetChainId) {
+                throw new Error(`Wallet is connected to chain ${activeChainId.toString()}, not ${targetChainId.toString()}.`);
+            }
+        }
 
         window.addEventListener('DOMContentLoaded', async () => {
             try {
@@ -1437,16 +1479,10 @@ let connectedWallet = null;
             if (!provider) return;
 
             try {
-                await provider.request({
-                    method: 'wallet_switchEthereumChain',
-                    params: [{ chainId: chainConfig.chainIdHex }],
-                });
-            } catch (switchErr) {
-                if (switchErr.code === 4902) {
-                    alert(`Please add ${chainConfig.name} to your wallet first.`);
-                } else {
-                    console.error("Network switch error:", switchErr);
-                }
+                await ensurePaymentNetwork(provider, chainConfig);
+            } catch (networkErr) {
+                console.error("Payment network switch error:", networkErr);
+                alert(networkErr.message || `Unable to connect to ${chainConfig.name}. Please check your wallet network.`);
                 return;
             }
 

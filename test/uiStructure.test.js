@@ -37,6 +37,13 @@ test('mobile navigation has readable, touch-sized links and accessible expanded 
   assert.match(appCss, /max-height: calc\(100vh - 76px\)/);
 });
 
+test('NullNet checkout uses the correct chain ID and matching wallet and verification RPC settings', () => {
+  assert.match(appJs, /448000:\s*\{[\s\S]*?chainIdHex: "0x6d600"[\s\S]*?rpcUrl: "https:\/\/rpc\.lunul\.org"[\s\S]*?nativeCurrency: \{ name: "LUN", symbol: "LUN", decimals: 18 \}/);
+  assert.match(serverJs, /448000:\s*\{[\s\S]*?chainIdHex: "0x6d600"[\s\S]*?rpcUrl: "https:\/\/rpc\.lunul\.org"/);
+  assert.match(appJs, /method: 'wallet_addEthereumChain'/);
+  assert.match(appJs, /const activeChainId = BigInt\(await provider\.request\(\{ method: 'eth_chainId' \}\)\)/);
+});
+
 test('live market polling uses browser-side provider URLs, not the app proxy', () => {
   assert.match(appJs, /https:\/\/api\.binance\.com\/api\/v3\/ticker\/price/);
   assert.match(appJs, /https:\/\/fapi\.binance\.com\/fapi\/v1\/ticker\/price/);

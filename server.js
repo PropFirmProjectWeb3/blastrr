@@ -46,8 +46,8 @@ const SUPPORTED_EVM_CHAINS = {
     },
     448000: {
         name: "NullNet Private EVM",
-        chainIdHex: "0x6d5e0", // Hex for 448000
-        rpcUrl: "https://terminull.lunul.org", // Update with your actual Geth RPC endpoint/proxy
+        chainIdHex: "0x6d600",
+        rpcUrl: "https://rpc.lunul.org",
         usdtAddress: "0x7ec3659A8225ED474D7c662126616aE08545C29b", // Your deployed contract address
         decimals: 6
     }

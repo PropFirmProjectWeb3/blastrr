@@ -60,6 +60,7 @@ function initTables() {
       current_equity REAL,
       high_water_mark REAL,
       daily_starting_balance REAL,
+      risk_day TEXT,
       status TEXT DEFAULT 'ACTIVE',
       lock_reason TEXT,
       locked_until TEXT,
@@ -118,6 +119,16 @@ function initTables() {
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     )`);
 
+    db.run(`CREATE TABLE IF NOT EXISTS daily_account_summaries (
+      account_id TEXT NOT NULL,
+      day TEXT NOT NULL,
+      opening_balance REAL NOT NULL,
+      closing_balance REAL NOT NULL,
+      profit REAL NOT NULL,
+      PRIMARY KEY (account_id, day),
+      FOREIGN KEY(account_id) REFERENCES accounts(id)
+    )`);
+
     db.all("PRAGMA table_info(accounts)", (err, columns) => {
       if (err) {
         console.error('Unable to inspect accounts schema', err.message);
@@ -127,7 +138,8 @@ function initTables() {
       const additions = [
         ['lock_reason', 'TEXT'],
         ['locked_until', 'TEXT'],
-        ['permanent_lock', 'INTEGER DEFAULT 0']
+        ['permanent_lock', 'INTEGER DEFAULT 0'],
+        ['risk_day', 'TEXT']
       ].filter(([name]) => !existing.has(name));
       for (const [name, type] of additions) {
         db.run(`ALTER TABLE accounts ADD COLUMN ${name} ${type}`, (alterErr) => {

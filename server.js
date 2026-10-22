@@ -6,7 +6,7 @@ const { ethers } = require('ethers');
 const db = require('./database');
 const defaultPlans = require('./config/plans.json');
 const markets = require('./public/config/markets.json');
-const { getActiveLock, getRiskBreach } = require('./riskRules');
+const { advanceRiskBaselines, getActiveLock, getMllFloor, getRiskBreach } = require('./riskRules');
 
 const app = express();
 const PORT = process.env.PORT || 4480;
@@ -226,6 +226,121 @@ function lockAccount(accountId, breach, callback) {
   );
 }
 
+function refreshRiskBaselines(accountId, callback) {
+  const today = new Date().toISOString().slice(0, 10);
+  const selectAccount = (done) => db.get(
+    `SELECT a.*, p.name AS plan_name, p.profit_target, p.simulated_capital,
+     p.max_drawdown_pct, p.daily_loss_pct
+     FROM accounts a JOIN plans p ON a.plan_id = p.id WHERE a.id = ?`,
+    [accountId],
+    done
+  );
+  selectAccount((initialErr, initialAccount) => {
+    if (initialErr) return callback(initialErr);
+    if (!initialAccount) return callback(new Error('Account not found.'));
+    if (initialAccount.risk_day === today) return callback(null, initialAccount);
+
+    db.serialize(() => {
+      db.run('BEGIN IMMEDIATE', (beginErr) => {
+        if (beginErr) return callback(beginErr);
+        const rollback = (err) => db.run('ROLLBACK', () => callback(err));
+        selectAccount((accountErr, account) => {
+          if (accountErr) return rollback(accountErr);
+          if (!account) return rollback(new Error('Account not found.'));
+          if (account.risk_day === today) {
+            return db.run('COMMIT', (commitErr) => commitErr ? callback(commitErr) : callback(null, account));
+          }
+
+          const baselines = advanceRiskBaselines(account, account, today);
+          const updateAccount = () => db.run(
+            `UPDATE accounts SET risk_day = ?, daily_starting_balance = ?, high_water_mark = ?
+             WHERE id = ?`,
+            [baselines.risk_day, baselines.daily_starting_balance, baselines.high_water_mark, accountId],
+            (updateErr) => {
+              if (updateErr) return rollback(updateErr);
+              Object.assign(account, baselines);
+              const breach = getRiskBreach(account, account);
+              const commit = () => db.run('COMMIT', (commitErr) => {
+                if (commitErr) return callback(commitErr);
+                callback(null, account);
+              });
+              if (!breach) return commit();
+              db.run(
+                `UPDATE accounts SET status = ?, lock_reason = ?, locked_until = ?, permanent_lock = ?
+                 WHERE id = ?`,
+                [
+                  breach.permanent ? 'PERMANENTLY_LOCKED' : 'LOCKED',
+                  breach.reason,
+                  breach.lockedUntil,
+                  breach.permanent ? 1 : 0,
+                  accountId
+                ],
+                (lockErr) => {
+                  if (lockErr) return rollback(lockErr);
+                  account.status = breach.permanent ? 'PERMANENTLY_LOCKED' : 'LOCKED';
+                  account.lock_reason = breach.reason;
+                  account.locked_until = breach.lockedUntil;
+                  account.permanent_lock = breach.permanent ? 1 : 0;
+                  commit();
+                }
+              );
+            }
+          );
+
+          if (!account.risk_day) return updateAccount();
+          db.run(
+            `INSERT OR REPLACE INTO daily_account_summaries
+             (account_id, day, opening_balance, closing_balance, profit)
+             VALUES (?, ?, ?, ?, ?)`,
+            [
+              accountId,
+              account.risk_day,
+              account.daily_starting_balance,
+              account.current_equity,
+              account.current_equity - account.daily_starting_balance
+            ],
+            (summaryErr) => {
+              if (summaryErr) return rollback(summaryErr);
+              updateAccount();
+            }
+          );
+        });
+      });
+    });
+  });
+}
+
+let riskRolloverInProgress = false;
+function rolloverAccountsAtUtcDay() {
+  if (riskRolloverInProgress) return;
+  riskRolloverInProgress = true;
+  const today = new Date().toISOString().slice(0, 10);
+  db.all(
+    'SELECT id FROM accounts WHERE risk_day IS NULL OR risk_day < ? ORDER BY id',
+    [today],
+    (err, accounts) => {
+      if (err) {
+        riskRolloverInProgress = false;
+        return console.error('Unable to find accounts for daily risk rollover:', err.message);
+      }
+      const processNext = (index) => {
+        if (index >= accounts.length) {
+          riskRolloverInProgress = false;
+          return;
+        }
+        refreshRiskBaselines(accounts[index].id, (rolloverErr) => {
+          if (rolloverErr) console.error(`Unable to roll risk baselines for account ${accounts[index].id}:`, rolloverErr.message);
+          processNext(index + 1);
+        });
+      };
+      processNext(0);
+    }
+  );
+}
+
+setTimeout(rolloverAccountsAtUtcDay, 5000);
+setInterval(rolloverAccountsAtUtcDay, 60 * 1000);
+
 function unlockExpiredAccount(account, callback) {
   const lock = getActiveLock(account);
   if (lock) return callback(null, lock);
@@ -247,6 +362,22 @@ function unlockExpiredAccount(account, callback) {
     );
   }
   callback(null, null);
+}
+
+function refreshAccountLock(account, callback) {
+  unlockExpiredAccount(account, (unlockErr, activeLock) => {
+    if (unlockErr || activeLock) return callback(unlockErr, activeLock);
+    const breach = getRiskBreach(account, account);
+    if (!breach) return callback(null, null);
+    lockAccount(account.id, breach, (lockErr) => {
+      if (lockErr) return callback(lockErr);
+      account.status = breach.permanent ? 'PERMANENTLY_LOCKED' : 'LOCKED';
+      account.lock_reason = breach.reason;
+      account.locked_until = breach.lockedUntil;
+      account.permanent_lock = breach.permanent ? 1 : 0;
+      callback(null, breach);
+    });
+  });
 }
 
 function requireAdminWallet(req, res, next) {
@@ -336,7 +467,7 @@ app.post('/api/auth/trade-challenge', sensitiveLimiter, (req, res) => {
   const nonce = crypto.randomBytes(24).toString('hex');
   const expiresAt = now + 2 * 60 * 1000;
   const message = `Blastrr trade authorization\nWallet: ${key}\nNonce: ${nonce}\nExpires: ${expiresAt}`;
-  tradeChallenges.set(message, { walletAddress: key, expiresAt });
+  tradeChallenges.set(message, { message, walletAddress: key, expiresAt });
   res.json({ challenge: message });
 });
 
@@ -612,7 +743,10 @@ app.get('/api/accounts/details', requireWalletSession, (req, res) => {
         return res.status(403).json({ error: 'Wallet does not own this account.' });
       }
 
-      unlockExpiredAccount(account, (unlockErr, activeLock) => {
+      refreshRiskBaselines(accountId, (baselineErr, refreshedAccount) => {
+        if (baselineErr) return res.status(500).json({ error: 'Unable to update daily account baselines.' });
+        account = refreshedAccount;
+        refreshAccountLock(account, (unlockErr, activeLock) => {
         if (unlockErr) return res.status(500).json({ error: 'Unable to refresh account lock status.' });
         db.all(`SELECT * FROM trades WHERE account_id = ? ORDER BY created_at DESC`, [accountId], (err2, trades) => {
         if (err2) return res.status(500).json({ error: 'Unable to load account trades.' });
@@ -620,7 +754,8 @@ app.get('/api/accounts/details', requireWalletSession, (req, res) => {
         const profitProgress = Math.min(100, Math.max(0, (totalProfit / account.profit_target) * 100));
         
         const maxAllowedDD = account.initial_balance * (account.max_drawdown_pct / 100);
-        const currentDD = Math.max(0, account.initial_balance - account.current_equity);
+        const mllFloor = getMllFloor(account, account);
+        const currentDD = Math.max(0, account.high_water_mark - account.current_equity);
         const ddProgress = Math.min(100, Math.max(0, (currentDD / maxAllowedDD) * 100));
 
         const maxAllowedDLL = account.daily_starting_balance * (account.daily_loss_pct / 100);
@@ -640,24 +775,35 @@ app.get('/api/accounts/details', requireWalletSession, (req, res) => {
           }
         }
 
-        res.json({
-          account,
-          lock: activeLock,
-          metrics: {
-            profitProgress: profitProgress.toFixed(1),
-            profitTarget: account.profit_target,
-            currentProfit: totalProfit,
-            ddProgress: ddProgress.toFixed(1),
-            maxAllowedDD,
-            currentDD,
-            dllProgress: dllProgress.toFixed(1),
-            maxAllowedDLL,
-            currentDLL,
-            consistencyScore
-          },
-          trades: trades || []
+        db.all(
+          `SELECT day, opening_balance, closing_balance, profit
+           FROM daily_account_summaries WHERE account_id = ? ORDER BY day`,
+          [accountId],
+          (summaryErr, dailySummaries) => {
+            if (summaryErr) return res.status(500).json({ error: 'Unable to load daily profit history.' });
+            res.json({
+              account,
+              lock: activeLock,
+              metrics: {
+                profitProgress: profitProgress.toFixed(1),
+                profitTarget: account.profit_target,
+                currentProfit: totalProfit,
+                ddProgress: ddProgress.toFixed(1),
+                maxAllowedDD,
+                currentDD,
+                mllFloor,
+                dllProgress: dllProgress.toFixed(1),
+                maxAllowedDLL,
+                currentDLL,
+                consistencyScore
+              },
+              dailySummaries: dailySummaries || [],
+              trades: trades || []
+            });
+          }
+        );
         });
-        });
+      });
       });
     }
   );
@@ -719,9 +865,9 @@ app.post('/api/accounts/purchase', sensitiveLimiter, async (req, res) => {
               return db.run('ROLLBACK', () => res.status(409).json({ error: 'This transaction has already been used or could not be recorded.' }));
             }
             db.run(
-              `INSERT INTO accounts (id, wallet_address, plan_id, initial_balance, current_balance, current_equity, high_water_mark, daily_starting_balance, status)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'ACTIVE')`,
-              [accountId, wallet_address, Number(plan_id), plan.simulated_capital, plan.simulated_capital, plan.simulated_capital, plan.simulated_capital, plan.simulated_capital],
+              `INSERT INTO accounts (id, wallet_address, plan_id, initial_balance, current_balance, current_equity, high_water_mark, daily_starting_balance, risk_day, status)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'ACTIVE')`,
+              [accountId, wallet_address, Number(plan_id), plan.simulated_capital, plan.simulated_capital, plan.simulated_capital, plan.simulated_capital, plan.simulated_capital, new Date().toISOString().slice(0, 10)],
               (accountErr) => {
                 if (accountErr) {
                   return db.run('ROLLBACK', () => res.status(500).json({ error: 'Unable to provision the purchased account.' }));
@@ -905,6 +1051,9 @@ app.post('/api/trades/execute', sensitiveLimiter, requireTradeSignature, (req, r
         return res.status(403).json({ error: 'Wallet does not own this account.' });
       }
 
+      refreshRiskBaselines(account_id, (baselineErr, refreshedAccount) => {
+      if (baselineErr) return res.status(500).json({ error: 'Unable to update daily account baselines.' });
+      account = refreshedAccount;
       unlockExpiredAccount(account, (unlockErr, activeLock) => {
         if (unlockErr) return res.status(500).json({ error: 'Unable to refresh account lock status.' });
         if (activeLock) {
@@ -976,6 +1125,7 @@ app.post('/api/trades/execute', sensitiveLimiter, requireTradeSignature, (req, r
           res.status(503).json({ error: 'Unable to obtain a fresh market price. Please retry.' });
         });
       });
+      });
     }
   );
 });
@@ -997,14 +1147,16 @@ app.post('/api/trades/close', sensitiveLimiter, requireTradeSignature, (req, res
         return res.status(403).json({ error: 'Wallet does not own this trade.' });
       }
 
+      refreshRiskBaselines(trade.account_id, (baselineErr, refreshedAccount) => {
+      if (baselineErr) return res.status(500).json({ error: 'Unable to update daily account baselines.' });
       const account = {
         id: trade.account_id,
-        current_equity: trade.current_equity,
-        daily_starting_balance: trade.daily_starting_balance,
-        status: trade.account_status,
-        lock_reason: trade.lock_reason,
-        locked_until: trade.locked_until,
-        permanent_lock: trade.permanent_lock
+        current_equity: refreshedAccount.current_equity,
+        daily_starting_balance: refreshedAccount.daily_starting_balance,
+        status: refreshedAccount.status,
+        lock_reason: refreshedAccount.lock_reason,
+        locked_until: refreshedAccount.locked_until,
+        permanent_lock: refreshedAccount.permanent_lock
       };
       unlockExpiredAccount(account, (unlockErr) => {
         if (unlockErr) return res.status(500).json({ error: 'Unable to refresh account lock status.' });
@@ -1062,6 +1214,7 @@ app.post('/api/trades/close', sensitiveLimiter, requireTradeSignature, (req, res
           console.error('Unable to obtain trade closing price:', priceError.message);
           res.status(503).json({ error: 'Unable to obtain a fresh market price. Please retry.' });
         });
+      });
       });
     }
   );

@@ -215,6 +215,54 @@
             gap: 10px;
         }
 
+        .account-card { background: rgba(8, 12, 18, 0.85); border-color: rgba(255, 255, 255, 0.08); }
+        .account-card-header, .account-card-actions, .account-preview-stat > span,
+        .account-risk-item > div:first-child, .account-card-footer {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+        }
+        .account-card-header { margin-bottom: 18px; }
+        .account-plan-name { color: #c084fc; font-size: 18px; font-weight: 800; }
+        .account-id { margin-left: 10px; color: #9ca3af; font-size: 12px; }
+        .account-card-actions { justify-content: flex-end; }
+        .account-card-actions .btn-wallet { padding: 7px 14px; font-size: 12px; }
+        .account-card-actions .btn-wallet:first-child { background: #059669; }
+        .account-preview-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; }
+        .account-preview-stat { display: grid; gap: 6px; background: rgba(5, 7, 11, 0.7); padding: 12px 14px; border-radius: 8px; }
+        .account-preview-stat > span, .account-risk-item > div:first-child { color: #9ca3af; font-size: 12px; }
+        .account-preview-stat strong { color: #f3f4f6; font-size: 16px; }
+        .account-preview-stat:nth-child(2) strong, .account-preview-stat:nth-child(3) strong { color: #34d399; }
+        .account-risk-preview { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 16px; margin: 18px 0; }
+        .account-risk-item { display: grid; gap: 7px; }
+        .account-risk-item > div:first-child strong { color: #e5e7eb; }
+        .account-risk-item:nth-child(1) .account-progress i { background: #34d399; }
+        .account-risk-item:nth-child(2) .account-progress i { background: #ef4444; }
+        .account-risk-item:nth-child(3) .account-progress i { background: #f59e0b; }
+        .account-risk-item small { color: #6b7280; font-size: 11px; }
+        .account-progress { height: 7px; background: #1f2937; border-radius: 5px; overflow: hidden; }
+        .account-progress i { display: block; height: 100%; width: 0; transition: width 0.3s ease; }
+        .account-card-footer { align-items: flex-start; flex-wrap: wrap; font-size: 13px; color: #9ca3af; }
+        .account-card-footer > span { padding-top: 10px; }
+        .account-card-footer > span strong { color: #c084fc; }
+        .account-expanded { flex: 1 1 100%; border-top: 1px solid rgba(255, 255, 255, 0.06); margin-top: 8px; }
+        .account-expanded > summary { cursor: pointer; padding: 14px 0 4px; color: #c084fc; font-weight: 700; }
+        .account-expanded > summary:hover { color: #e9d5ff; }
+        .account-profit-section { margin: 18px 0 24px; }
+        .account-profit-section h3, .account-trades-heading { color: #e5e7eb; font-size: 14px; }
+        .account-profit-chart { display: grid; grid-template-columns: minmax(0, 1fr) minmax(200px, 0.55fr); gap: 14px; align-items: start; }
+        .daily-profit-svg { width: 100%; min-height: 150px; overflow: visible; background: rgba(5, 7, 11, 0.45); border-radius: 8px; }
+        .daily-profit-svg text { fill: #9ca3af; font: 11px Inter, sans-serif; }
+        .profit-zero-line { stroke: rgba(156, 163, 175, 0.35); stroke-dasharray: 4 4; }
+        .profit-line { fill: none; stroke: #c084fc; stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; }
+        .daily-profit-table { min-width: 0; font-size: 12px; }
+        .daily-profit-table th, .daily-profit-table td { padding: 7px 9px; }
+        .profit-positive { color: #34d399; }
+        .profit-negative { color: #f87171; }
+        .account-chart-empty { color: #9ca3af; }
+        .account-trades-heading { margin-top: 24px; }
+
         .trade-grid { display: grid; grid-template-columns: 3fr 1fr; gap: 24px; }
         .grid-3 { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px; }
         .plans-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(265px, 1fr)); gap: 24px; }
@@ -260,4 +308,10 @@
             nav .nav-tab { width: 100%; text-align: left; padding: 12px 16px; font-size: 15px; }
             .trade-grid { grid-template-columns: 1fr; }
             header { padding: 14px 18px; }
+        }
+
+        @media (max-width: 700px) {
+            .account-card-header, .account-card-actions { align-items: flex-start; flex-direction: column; }
+            .account-card-actions { width: 100%; }
+            .account-profit-chart { grid-template-columns: 1fr; }
         }

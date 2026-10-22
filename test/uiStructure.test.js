@@ -32,6 +32,13 @@ test('landing-page plans are loaded from the shared plans API', () => {
   assert.doesNotThrow(() => new vm.Script(inlineScript));
 });
 
+test('account cards expose expandable trade history and daily profit charts', () => {
+  assert.match(appJs, /<details class="account-expanded"/);
+  assert.match(appJs, /renderDailyProfitChart/);
+  assert.match(appJs, /Daily profit by date/);
+  assert.match(appJs, /walletFetch\(`\/api\/accounts\/details/);
+});
+
 test('browser application files contain no copied provider credentials', () => {
   assert.doesNotMatch(`${appHtml}\n${appJs}`, /alch_[A-Za-z0-9_-]+/);
 });

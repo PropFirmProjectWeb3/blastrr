@@ -543,8 +543,11 @@ let connectedWallet = null;
                 return;
             }
 
-            const emptyStateMsg = container.querySelector('p');
-            if (emptyStateMsg && emptyStateMsg.innerText.includes('No accounts found')) container.innerHTML = '';
+            const accountIds = new Set(userAccounts.map(account => `acc-card-${account.id}`));
+            container.querySelectorAll('[id^="acc-card-"]').forEach(card => {
+                if (!accountIds.has(card.id)) card.remove();
+            });
+            if (!container.querySelector('[id^="acc-card-"]')) container.replaceChildren();
 
             for (const acc of userAccounts) {
                 const detailsRes = await walletFetch(`/api/accounts/details?account_id=${encodeURIComponent(acc.id)}&wallet=${encodeURIComponent(connectedWallet)}`);
@@ -557,87 +560,79 @@ let connectedWallet = null;
                 let cardElem = document.getElementById(`acc-card-${acc.id}`);
                 if (!cardElem) {
                     const cardHtml = `
-                        <div id="acc-card-${acc.id}" class="card" style="background: rgba(8, 12, 18, 0.85); border: 1px solid rgba(255, 255, 255, 0.05); margin-bottom: 24px;">
-                            <div class="card-title" style="margin-bottom: 20px;">
+                        <article id="acc-card-${acc.id}" class="card account-card">
+                            <div class="account-card-header">
                                 <div>
-                                    <span style="font-size: 18px; color: #c084fc; font-weight: 800;">${acc.plan_name}</span> 
-                                    <code style="margin-left: 10px; color: #9ca3af; font-size: 12px; background: rgba(255,255,255,0.03); padding: 3px 8px; border-radius: 4px;">${acc.id}</code>
+                                    <span class="account-plan-name">${acc.plan_name}</span>
+                                    <code class="account-id">${acc.id}</code>
                                 </div>
-                                <div style="display: flex; gap: 10px; flex-wrap: wrap;">
-                                    <button class="btn-wallet" style="padding: 7px 14px; font-size: 12px; background: #059669;" onclick="requestWithdrawal('${acc.id}', ${acc.current_balance})">Request Withdrawal</button>
-                                    <button class="btn-wallet" style="padding: 7px 14px; font-size: 12px;" onclick="selectAccountAndTrade('${acc.id}')">Select in Terminal</button>
+                                <div class="account-card-actions">
+                                    <button class="btn-wallet" onclick="requestWithdrawal('${acc.id}', ${acc.current_balance})">Request Withdrawal</button>
+                                    <button class="btn-wallet" onclick="selectAccountAndTrade('${acc.id}')">Select in Terminal</button>
                                 </div>
                             </div>
-
-                            <div class="grid-3" style="margin-bottom: 20px;">
-                                <div>
-                                    <div style="display: flex; justify-content: space-between; font-size: 12px; color: #9ca3af; font-weight: 600;">
-                                        <span>Profit Target ($${acc.profit_target.toLocaleString()})</span>
-                                        <span id="p-prog-val-${acc.id}" style="color: #34d399; font-weight: bold;">${m.profitProgress}%</span>
-                                    </div>
-                                    <div style="background: #1f2937; height: 8px; border-radius: 4px; margin-top: 6px; overflow: hidden;"><div id="p-prog-bar-${acc.id}" style="background: #34d399; height: 100%; width: ${m.profitProgress}%;"></div></div>
+                            <div class="account-preview-grid">
+                                <div class="account-preview-stat"><span>Initial capital</span><strong>$${acc.initial_balance.toLocaleString()}</strong></div>
+                                <div class="account-preview-stat"><span>Current balance</span><strong id="bal-val-${acc.id}">$${acc.current_balance.toLocaleString()}</strong></div>
+                                <div class="account-preview-stat"><span>Total profit</span><strong id="profit-val-${acc.id}">$${m.currentProfit.toLocaleString()}</strong></div>
+                                <div class="account-preview-stat"><span>Account status</span><strong id="status-val-${acc.id}">${acc.status}</strong></div>
+                            </div>
+                            <div class="account-risk-preview">
+                                <div class="account-risk-item">
+                                    <div><span>Profit target</span><strong id="p-prog-val-${acc.id}">${m.profitProgress}%</strong></div>
+                                    <div class="account-progress"><i id="p-prog-bar-${acc.id}"></i></div>
                                 </div>
-                                <div>
-                                    <div style="display: flex; justify-content: space-between; font-size: 12px; color: #9ca3af; font-weight: 600;">
-                                        <span>Daily Loss Limit (DLL)</span>
-                                        <span id="dll-prog-val-${acc.id}" style="color: #ef4444; font-weight: bold;">${m.dllProgress}%</span>
-                                    </div>
-                                    <div style="background: #1f2937; height: 8px; border-radius: 4px; margin-top: 6px; overflow: hidden;"><div id="dll-prog-bar-${acc.id}" style="background: #ef4444; height: 100%; width: ${m.dllProgress}%;"></div></div>
+                                <div class="account-risk-item">
+                                    <div><span>Daily loss (DLL)</span><strong id="dll-prog-val-${acc.id}">${m.dllProgress}%</strong></div>
+                                    <div class="account-progress"><i id="dll-prog-bar-${acc.id}"></i></div>
+                                    <small id="dll-base-${acc.id}"></small>
                                 </div>
-                                <div>
-                                    <div style="display: flex; justify-content: space-between; font-size: 12px; color: #9ca3af; font-weight: 600;">
-                                        <span>Max Drawdown (Max DD)</span>
-                                        <span id="dd-prog-val-${acc.id}" style="color: #f59e0b; font-weight: bold;">${m.ddProgress}%</span>
-                                    </div>
-                                    <div style="background: #1f2937; height: 8px; border-radius: 4px; margin-top: 6px; overflow: hidden;"><div id="dd-prog-bar-${acc.id}" style="background: #f59e0b; height: 100%; width: ${m.ddProgress}%;"></div></div>
+                                <div class="account-risk-item">
+                                    <div><span>Trailing MLL</span><strong id="dd-prog-val-${acc.id}">${m.ddProgress}%</strong></div>
+                                    <div class="account-progress"><i id="dd-prog-bar-${acc.id}"></i></div>
+                                    <small id="mll-floor-${acc.id}"></small>
                                 </div>
                             </div>
-
-                            <div style="display: flex; gap: 20px; font-size: 13.5px; margin-bottom: 20px; background: rgba(5, 7, 11, 0.7); padding: 14px 18px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.03); flex-wrap: wrap;">
-                                <div>Initial Capital: <strong style="color: #f3f4f6;">$${acc.initial_balance.toLocaleString()}</strong></div>
-                                <div>Current Balance: <strong id="bal-val-${acc.id}" style="color: #34d399;">$${acc.current_balance.toLocaleString()}</strong></div>
-                                <div>Consistency Score: <strong id="cs-val-${acc.id}" style="color: #c084fc;">${m.consistencyScore}%</strong></div>
-                                <div>Account Status: <strong id="status-val-${acc.id}" style="color: #34d399;">${acc.status}</strong></div>
-                            </div>
-
-                            <div class="card-title" style="font-size: 14px; margin-top: 14px; border-bottom: 1px solid rgba(255, 255, 255, 0.06); padding-bottom: 8px;">Account Trade History</div>
-                            <div class="table-responsive">
-                                <table>
-                                    <thead>
-                                        <tr>
-                                            <th>Trade ID</th>
-                                            <th>Symbol</th>
-                                            <th>Side</th>
-                                            <th>Entry Price</th>
-                                            <th>Size ($)</th>
-                                            <th>SL / TP</th>
-                                            <th>Realized PnL</th>
-                                            <th>Status</th>
-                                            <th>Share</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody id="trades-body-${acc.id}"></tbody>
-                                </table>
+                            <div class="account-card-footer">
+                                <span>Consistency score: <strong id="cs-val-${acc.id}">${m.consistencyScore}%</strong></span>
+                                <details class="account-expanded">
+                                    <summary>Expand account performance and trades</summary>
+                                    <section class="account-profit-section">
+                                        <h3>Daily profit</h3>
+                                        <div id="profit-chart-${acc.id}" class="account-profit-chart"></div>
+                                    </section>
+                                    <h3 class="account-trades-heading">Trade history</h3>
+                                    <div class="table-responsive">
+                                        <table>
+                                            <thead><tr><th>Trade ID</th><th>Symbol</th><th>Side</th><th>Entry Price</th><th>Size ($)</th><th>SL / TP</th><th>Realized PnL</th><th>Status</th><th>Share</th></tr></thead>
+                                            <tbody id="trades-body-${acc.id}"></tbody>
+                                        </table>
+                                    </div>
+                                </details>
                             </div>
                         </div>
                     `;
                     container.insertAdjacentHTML('beforeend', cardHtml);
+                    cardElem = document.getElementById(`acc-card-${acc.id}`);
                 }
 
-                document.getElementById(`p-prog-val-${acc.id}`).innerText = `${m.profitProgress}%`;
-                document.getElementById(`p-prog-bar-${acc.id}`).style.width = `${m.profitProgress}%`;
-                document.getElementById(`dll-prog-val-${acc.id}`).innerText = `${m.dllProgress}%`;
-                document.getElementById(`dll-prog-bar-${acc.id}`).style.width = `${m.dllProgress}%`;
-                document.getElementById(`dd-prog-val-${acc.id}`).innerText = `${m.ddProgress}%`;
-                document.getElementById(`dd-prog-bar-${acc.id}`).style.width = `${m.ddProgress}%`;
-                document.getElementById(`bal-val-${acc.id}`).innerText = `$${acc.current_balance.toLocaleString()}`;
-                document.getElementById(`cs-val-${acc.id}`).innerText = `${m.consistencyScore}%`;
+                cardElem.querySelector(`#bal-val-${CSS.escape(acc.id)}`).innerText = `$${acc.current_balance.toLocaleString()}`;
+                cardElem.querySelector(`#profit-val-${CSS.escape(acc.id)}`).innerText = `$${m.currentProfit.toLocaleString()}`;
+                cardElem.querySelector(`#p-prog-val-${CSS.escape(acc.id)}`).innerText = `${m.profitProgress}%`;
+                cardElem.querySelector(`#p-prog-bar-${CSS.escape(acc.id)}`).style.width = `${m.profitProgress}%`;
+                cardElem.querySelector(`#dll-prog-val-${CSS.escape(acc.id)}`).innerText = `${m.dllProgress}%`;
+                cardElem.querySelector(`#dll-prog-bar-${CSS.escape(acc.id)}`).style.width = `${m.dllProgress}%`;
+                cardElem.querySelector(`#dd-prog-val-${CSS.escape(acc.id)}`).innerText = `${m.ddProgress}%`;
+                cardElem.querySelector(`#dd-prog-bar-${CSS.escape(acc.id)}`).style.width = `${m.ddProgress}%`;
+                cardElem.querySelector(`#dll-base-${CSS.escape(acc.id)}`).innerText = `Risk baseline: $${acc.daily_starting_balance.toLocaleString()}`;
+                cardElem.querySelector(`#mll-floor-${CSS.escape(acc.id)}`).innerText = `Breach floor: $${m.mllFloor.toLocaleString()}`;
+                cardElem.querySelector(`#cs-val-${CSS.escape(acc.id)}`).innerText = `${m.consistencyScore}%`;
                 const statusLabel = acc.lock_reason === 'MLL'
                     ? 'PERMANENTLY LOCKED — MLL'
                     : acc.lock_reason === 'DLL'
                         ? `LOCKED — DLL until ${new Date(acc.locked_until).toLocaleString()}`
                         : acc.status;
-                const statusElement = document.getElementById(`status-val-${acc.id}`);
+                const statusElement = cardElem.querySelector(`#status-val-${CSS.escape(acc.id)}`);
                 statusElement.innerText = statusLabel;
                 statusElement.style.color = acc.lock_reason ? '#ef4444' : '#34d399';
 
@@ -666,7 +661,63 @@ let connectedWallet = null;
                 }
                 const bodyElem = document.getElementById(`trades-body-${acc.id}`);
                 if (bodyElem) bodyElem.innerHTML = tradesRows;
+
+                const dailyHistory = [...(details.dailySummaries || [])];
+                dailyHistory.push({
+                    day: acc.risk_day || new Date().toISOString().slice(0, 10),
+                    profit: acc.current_equity - acc.daily_starting_balance
+                });
+                renderDailyProfitChart(cardElem.querySelector(`#profit-chart-${CSS.escape(acc.id)}`), dailyHistory);
             }
+        }
+
+        function renderDailyProfitChart(container, dailyHistory) {
+            if (!container) return;
+            const points = dailyHistory
+                .filter(point => /^\d{4}-\d{2}-\d{2}$/.test(point.day) && Number.isFinite(Number(point.profit)))
+                .sort((left, right) => left.day.localeCompare(right.day))
+                .slice(-14);
+            if (!points.length) {
+                container.innerHTML = '<p class="account-chart-empty">Daily profit history will appear here.</p>';
+                return;
+            }
+
+            const width = 640;
+            const height = 220;
+            const left = 54;
+            const right = width - 18;
+            const top = 20;
+            const bottom = 166;
+            const values = points.map(point => Number(point.profit));
+            const minValue = Math.min(0, ...values);
+            const maxValue = Math.max(0, ...values);
+            const range = Math.max(1, maxValue - minValue);
+            const x = index => points.length === 1 ? (left + right) / 2 : left + index * (right - left) / (points.length - 1);
+            const y = value => bottom - ((value - minValue) / range) * (bottom - top);
+            const zeroY = y(0);
+            const coordinates = points.map((point, index) => `${x(index)},${y(Number(point.profit))}`).join(' ');
+            const circles = points.map((point, index) => (
+                `<circle cx="${x(index)}" cy="${y(Number(point.profit))}" r="4" fill="#c084fc"><title>${point.day}: $${Number(point.profit).toFixed(2)}</title></circle>`
+            )).join('');
+            const dateLabels = points.map((point, index) => (
+                index % Math.max(1, Math.ceil(points.length / 7)) === 0 || index === points.length - 1
+                    ? `<text x="${x(index)}" y="194" text-anchor="middle">${point.day.slice(5)}</text>`
+                    : ''
+            )).join('');
+            const rows = [...points].reverse().map(point => `
+                <tr><td>${point.day}</td><td class="${Number(point.profit) >= 0 ? 'profit-positive' : 'profit-negative'}">$${Number(point.profit).toFixed(2)}</td></tr>
+            `).join('');
+
+            container.innerHTML = `
+                <svg class="daily-profit-svg" viewBox="0 0 ${width} ${height}" role="img" aria-label="Daily profit by date">
+                    <line x1="${left}" y1="${zeroY}" x2="${right}" y2="${zeroY}" class="profit-zero-line"></line>
+                    <polyline points="${coordinates}" class="profit-line"></polyline>
+                    ${circles}${dateLabels}
+                </svg>
+                <div class="table-responsive">
+                    <table class="daily-profit-table"><thead><tr><th>Date (UTC)</th><th>Profit</th></tr></thead><tbody>${rows}</tbody></table>
+                </div>
+            `;
         }
 
         async function requestWithdrawal(accountId, maxBalance) {

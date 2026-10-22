@@ -583,24 +583,37 @@
     </main>
 
     <script type="text/javascript" src="https://s3.tradingview.com/tv.js"></script>
-    <script type="module">
-        import { calculatePositionMetrics, formatCurrency } from './leverageUtils.js';
+    <script>
+        // Dedicated Leverage Calculation Module logic safely inline
+        function calculatePositionMetrics(marginInput, leverage, currentLivePrice) {
+            const notional = marginInput * leverage;
+            const price = currentLivePrice || 0;
+            let estLiqPrice = 0;
+            if (price > 0 && marginInput > 0 && leverage > 1) {
+                estLiqPrice = price * (1 - (1 / leverage) * 0.9);
+            }
+            return { notional, estLiqPrice, isLeveraged: leverage > 1 };
+        }
 
-        window.connectedWallet = null;
-        window.availableWallets = [];
-        window.userAccounts = [];
-        window.selectedAccountId = null;
-        window.activeAccount = null;
-        window.tvWidget = null;
-        window.activePromoCode = null;
-        window.plansData = [];
-        window.livePriceInterval = null;
-        window.autoSyncInterval = null;
-        window.currentLivePrice = 0;
-        window.availableCommissionBalance = 0;
-        window.currentLeaderboardMode = 'DAILY';
-        window.rawLeaderboardData = [];
-        window.currentUserProfile = null;
+        function formatCurrency(amount) {
+            return '$' + parseFloat(amount || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        }
+
+        let connectedWallet = null;
+        let availableWallets = [];
+        let userAccounts = [];
+        let selectedAccountId = null;
+        let activeAccount = null;
+        let tvWidget = null;
+        let activePromoCode = null;
+        let plansData = [];
+        let livePriceInterval = null;
+        let autoSyncInterval = null;
+        let currentLivePrice = 0;
+        let availableCommissionBalance = 0;
+        let currentLeaderboardMode = 'DAILY';
+        let rawLeaderboardData = [];
+        let currentUserProfile = null;
         
         const TREASURY_WALLET = "0x8632fa855d5dc6b59a3cf892d72cf4a94f182aae";
 
@@ -615,11 +628,11 @@
         window.addEventListener('DOMContentLoaded', () => {
             initTradingViewWidget("TVC:GOLD");
             loadPlans();
-            loadLeaderboard(window.currentLeaderboardMode);
+            loadLeaderboard(currentLeaderboardMode);
             onSymbolChanged("TVC:GOLD");
 
-            window.autoSyncInterval = setInterval(() => {
-                if (window.connectedWallet) silentSyncUserData(window.connectedWallet);
+            autoSyncInterval = setInterval(() => {
+                if (connectedWallet) silentSyncUserData(connectedWallet);
             }, 5000);
 
             const urlParams = new URLSearchParams(window.location.search);
@@ -636,7 +649,7 @@
             if (provider?.on) {
                 provider.on('accountsChanged', (accounts) => {
                     if (accounts && accounts.length > 0) {
-                        window.availableWallets = accounts;
+                        availableWallets = accounts;
                         updateWalletDropdown();
                         onWalletSwitched(accounts[0]);
                     } else {
@@ -646,7 +659,7 @@
             }
         });
 
-        window.toggleMobileMenu = function(forceClose = false) {
+        function toggleMobileMenu(forceClose = false) {
             const nav = document.getElementById('nav-menu');
             const hamburger = document.getElementById('hamburger-icon');
             if (!nav) return;
@@ -657,13 +670,13 @@
             }
             nav.classList.toggle('mobile-open');
             if (hamburger) hamburger.innerText = nav.classList.contains('mobile-open') ? '✕' : '☰';
-        };
+        }
 
         function initTradingViewWidget(symbol) {
             const container = document.getElementById('tradingview-widget-container');
             if (!container) return;
             container.innerHTML = '';
-            window.tvWidget = new TradingView.widget({
+            tvWidget = new TradingView.widget({
                 "autosize": true,
                 "symbol": symbol,
                 "interval": "D",
@@ -677,14 +690,14 @@
         }
 
         function updateTradingViewSymbol(symbol) {
-            if (window.tvWidget && window.tvWidget.chart) {
-                try { window.tvWidget.chart().setSymbol(symbol); } catch(e) { initTradingViewWidget(symbol); }
+            if (tvWidget && tvWidget.chart) {
+                try { tvWidget.chart().setSymbol(symbol); } catch(e) { initTradingViewWidget(symbol); }
             } else {
                 initTradingViewWidget(symbol);
             }
         }
 
-        window.onSymbolChanged = function(tvSymbol) {
+        function onSymbolChanged(tvSymbol) {
             updateTradingViewSymbol(tvSymbol);
             const select = document.getElementById('order-symbol');
             if (!select) return;
@@ -694,12 +707,12 @@
                 const type = opt.getAttribute('data-type');
                 startPricePolling(pair, type);
             }
-        };
+        }
 
         function startPricePolling(pair, type) {
-            if (window.livePriceInterval) clearInterval(window.livePriceInterval);
+            if (livePriceInterval) clearInterval(livePriceInterval);
             fetchPrice(pair, type);
-            window.livePriceInterval = setInterval(() => fetchPrice(pair, type), 2000);
+            livePriceInterval = setInterval(() => fetchPrice(pair, type), 2000);
         }
 
         async function fetchPrice(pair, type) {
@@ -710,36 +723,35 @@
                         : `https://api.binance.com/api/v3/ticker/price?symbol=${pair}`;
                     const res = await fetch(endpoint);
                     const data = await res.json();
-                    if (data && data.price) window.currentLivePrice = parseFloat(data.price);
+                    if (data && data.price) currentLivePrice = parseFloat(data.price);
                 } else {
                     const res = await fetch(`/api/market/price?symbol=${pair}`);
                     if (!res.ok) return;
                     const data = await res.json();
-                    if (data && data.price) window.currentLivePrice = parseFloat(data.price);
+                    if (data && data.price) currentLivePrice = parseFloat(data.price);
                 }
 
                 const priceInput = document.getElementById('order-price');
-                if (priceInput && window.currentLivePrice > 0) {
-                    priceInput.value = window.currentLivePrice;
-                    window.calculateMetrics();
+                if (priceInput && currentLivePrice > 0) {
+                    priceInput.value = currentLivePrice;
+                    calculateMetrics();
                 }
             } catch (err) { 
                 console.warn("Price feed warning for", pair, err); 
             }
         }
 
-        window.updateLeverageDisplay = function(val) {
+        function updateLeverageDisplay(val) {
             const lbl = document.getElementById('leverage-label');
             if (lbl) lbl.innerText = val == "1" ? "1x Spot Mode" : `${val}x Risk Mode`;
-            window.calculateMetrics();
-        };
+            calculateMetrics();
+        }
 
-        window.calculateMetrics = function() {
+        function calculateMetrics() {
             const marginInput = parseFloat(document.getElementById('order-size-usd')?.value) || 0;
             const leverage = parseInt(document.getElementById('order-leverage')?.value) || 1;
             
-            // Utilize imported dedicated leverage calculation module
-            const metrics = calculatePositionMetrics(marginInput, leverage, window.currentLivePrice);
+            const metrics = calculatePositionMetrics(marginInput, leverage, currentLivePrice);
 
             const notionalLabel = document.getElementById('notional-exposure-label');
             if (notionalLabel) {
@@ -754,9 +766,9 @@
                     liqLabel.innerText = `Est. Liquidation Price: $0.00 (Spot Mode)`;
                 }
             }
-        };
+        }
 
-        window.switchView = function(viewId) {
+        function switchView(viewId) {
             document.querySelectorAll('.view-panel').forEach(panel => panel.classList.remove('active'));
             document.querySelectorAll('.nav-tab').forEach(tab => tab.classList.remove('active'));
             
@@ -766,15 +778,15 @@
             const activeTab = Array.from(document.querySelectorAll('.nav-tab')).find(t => t.getAttribute('onclick')?.includes(viewId));
             if (activeTab) activeTab.classList.add('active');
 
-            window.toggleMobileMenu(true);
+            toggleMobileMenu(true);
 
             if (viewId === 'adminView') loadAdminWithdrawals();
-            else if (viewId === 'leaderboardView') loadLeaderboard(window.currentLeaderboardMode);
-            else if (viewId === 'accountsView' && window.connectedWallet) loadUserAccounts(window.connectedWallet);
-        };
+            else if (viewId === 'leaderboardView') loadLeaderboard(currentLeaderboardMode);
+            else if (viewId === 'accountsView' && connectedWallet) loadUserAccounts(connectedWallet);
+        }
 
-        window.switchLeaderboardMode = function(mode) {
-            window.currentLeaderboardMode = mode;
+        function switchLeaderboardMode(mode) {
+            currentLeaderboardMode = mode;
             ['lb-btn-daily', 'lb-btn-monthly', 'lb-btn-payouts'].forEach(id => {
                 const el = document.getElementById(id);
                 if (el) el.classList.remove('active');
@@ -798,14 +810,14 @@
             }
 
             loadLeaderboard(mode);
-        };
+        }
 
         async function loadLeaderboard(mode = 'DAILY') {
             try {
                 const res = await fetch(`/api/leaderboard?mode=${mode}`);
                 const data = await res.json();
-                window.rawLeaderboardData = data.leaderboard || [];
-                renderLeaderboardTable(window.rawLeaderboardData);
+                rawLeaderboardData = data.leaderboard || [];
+                renderLeaderboardTable(rawLeaderboardData);
             } catch (err) { console.error(err); }
         }
 
@@ -824,12 +836,12 @@
             let userFoundRank = null;
 
             dataRows.forEach((row, index) => {
-                const isUser = window.currentUserProfile && row.wallet_address && row.wallet_address.toLowerCase() === window.currentUserProfile.wallet_address.toLowerCase();
+                const isUser = currentUserProfile && row.wallet_address && row.wallet_address.toLowerCase() === currentUserProfile.wallet_address.toLowerCase();
                 if (isUser) userFoundRank = index + 1;
 
                 const metricColor = row.metric_value >= 0 ? '#34d399' : '#ef4444';
                 const rankDisplay = `#${index + 1}`;
-                const badgeText = window.currentLeaderboardMode === 'PAYOUTS' ? 'PAID' : 'PnL';
+                const badgeText = currentLeaderboardMode === 'PAYOUTS' ? 'PAID' : 'PnL';
 
                 tbody.innerHTML += `
                     <tr>
@@ -856,62 +868,62 @@
             }
         }
 
-        window.filterLeaderboardTable = function() {
+        function filterLeaderboardTable() {
             const query = document.getElementById('lb-search-input')?.value.toLowerCase().trim() || '';
             if (!query) {
-                renderLeaderboardTable(window.rawLeaderboardData);
+                renderLeaderboardTable(rawLeaderboardData);
                 return;
             }
-            const filtered = window.rawLeaderboardData.filter(row => 
+            const filtered = rawLeaderboardData.filter(row => 
                 row.username.toLowerCase().includes(query) || row.discount_code.toLowerCase().includes(query)
             );
             renderLeaderboardTable(filtered);
-        };
+        }
 
-        window.shareRankOnX = function(rank, username, metricValue) {
-            const modeText = window.currentLeaderboardMode === 'DAILY' ? 'Daily Profit' : (window.currentLeaderboardMode === 'MONTHLY' ? 'Monthly Profit' : 'Lifetime Payouts');
-            const text = `I'm ranked #${rank} on @BlastrrProp for ${modeText} with $${metricValue.toFixed(2)} USDT! 🚀\n\nTrade live crypto prop accounts with 90% OFF using my code: ${window.currentUserProfile?.discount_code || 'BLASTRR'}\n\nhttps://blastrr.com/?ref=${window.currentUserProfile?.discount_code || ''}`;
+        function shareRankOnX(rank, username, metricValue) {
+            const modeText = currentLeaderboardMode === 'DAILY' ? 'Daily Profit' : (currentLeaderboardMode === 'MONTHLY' ? 'Monthly Profit' : 'Lifetime Payouts');
+            const text = `I'm ranked #${rank} on @BlastrrProp for ${modeText} with $${metricValue.toFixed(2)} USDT! 🚀\n\nTrade live crypto prop accounts with 90% OFF using my code: ${currentUserProfile?.discount_code || 'BLASTRR'}\n\nhttps://blastrr.com/?ref=${currentUserProfile?.discount_code || ''}`;
             window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}`, '_blank');
-        };
+        }
 
-        window.shareTradeOnX = function(tradeId, symbol, side, pnl, entryPrice) {
+        function shareTradeOnX(tradeId, symbol, side, pnl, entryPrice) {
             const emoji = pnl >= 0 ? '🟢' : '🔴';
             const text = `${emoji} Just closed a ${side} trade on ${symbol} via @BlastrrProp!\nEntry: $${entryPrice.toFixed(2)} | Realized PnL: $${pnl.toFixed(2)} USDT 📈\n\nTrade direct-to-live crypto prop accounts on Blastrr: https://blastrr.com`;
             window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}`, '_blank');
-        };
+        }
 
-        window.shareCreatorCodeOnX = function() {
-            if (!window.currentUserProfile) return;
-            const text = `Get 90% OFF your @BlastrrProp evaluation trading accounts using my promo code: ${window.currentUserProfile.discount_code} 🔥\n\nDirect-to-live crypto prop trading terminal with instant executions:\nhttps://blastrr.com/?ref=${window.currentUserProfile.discount_code}`;
+        function shareCreatorCodeOnX() {
+            if (!currentUserProfile) return;
+            const text = `Get 90% OFF your @BlastrrProp evaluation trading accounts using my promo code: ${currentUserProfile.discount_code} 🔥\n\nDirect-to-live crypto prop trading terminal with instant executions:\nhttps://blastrr.com/?ref=${currentUserProfile.discount_code}`;
             window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}`, '_blank');
-        };
+        }
 
-        window.usePromoCode = function(code) {
+        function usePromoCode(code) {
             const promoInput = document.getElementById('applied-promo');
             if (promoInput) promoInput.value = code;
             switchView('buyView');
             applyPromo();
-        };
+        }
 
         function getProvider() {
             return window.ethereum?.providers ? window.ethereum.providers.find(p => p.isMetaMask) || window.ethereum.providers[0] : window.ethereum;
         }
 
-        window.connectWallet = async function() {
+        async function connectWallet() {
             const provider = getProvider();
             if (!provider) { alert("No Web3 wallet found!"); return; }
             try {
                 const accounts = await provider.request({ method: 'eth_requestAccounts' });
                 if (!accounts || accounts.length === 0) return;
-                window.availableWallets = accounts;
-                window.connectedWallet = accounts[0];
+                availableWallets = accounts;
+                connectedWallet = accounts[0];
                 updateWalletUIState(true);
                 updateWalletDropdown();
-                onWalletSwitched(window.connectedWallet);
+                onWalletSwitched(connectedWallet);
             } catch (err) { console.error("Wallet Connection Error:", err); }
-        };
+        }
 
-        window.connectNewWallet = async function() {
+        async function connectNewWallet() {
             const provider = getProvider();
             if (!provider) { alert("No Web3 wallet found!"); return; }
             try {
@@ -920,23 +932,23 @@
                 if (accountsPermission) {
                     const accounts = await provider.request({ method: 'eth_accounts' });
                     if (accounts && accounts.length > 0) {
-                        window.availableWallets = accounts;
-                        window.connectedWallet = accounts[0];
+                        availableWallets = accounts;
+                        connectedWallet = accounts[0];
                         updateWalletUIState(true);
                         updateWalletDropdown();
-                        onWalletSwitched(window.connectedWallet);
+                        onWalletSwitched(connectedWallet);
                     }
                 }
             } catch (err) { console.error(err); }
-        };
+        }
 
         function updateWalletDropdown() {
             const walletSelect = document.getElementById('wallet-select');
             if (!walletSelect) return;
             walletSelect.innerHTML = '';
-            window.availableWallets.forEach(acc => {
+            availableWallets.forEach(acc => {
                 const shortAddr = acc.substring(0, 6) + '...' + acc.slice(-4);
-                walletSelect.innerHTML += `<option value="${acc}" ${acc.toLowerCase() === window.connectedWallet?.toLowerCase() ? 'selected' : ''}>${shortAddr}</option>`;
+                walletSelect.innerHTML += `<option value="${acc}" ${acc.toLowerCase() === connectedWallet?.toLowerCase() ? 'selected' : ''}>${shortAddr}</option>`;
             });
         }
 
@@ -958,67 +970,67 @@
             }
         }
 
-        window.onWalletSwitched = function(walletAddress) {
+        function onWalletSwitched(walletAddress) {
             if (!walletAddress) return;
-            window.connectedWallet = walletAddress;
-            checkRole(window.connectedWallet);
-            loadUserAccounts(window.connectedWallet);
-            loadUserProfile(window.connectedWallet);
-        };
+            connectedWallet = walletAddress;
+            checkRole(connectedWallet);
+            loadUserAccounts(connectedWallet);
+            loadUserProfile(connectedWallet);
+        }
 
         async function silentSyncUserData(wallet) {
             try {
                 const res = await fetch(`/api/accounts?wallet=${wallet}`);
                 const data = await res.json();
-                window.userAccounts = data.accounts || [];
+                userAccounts = data.accounts || [];
 
                 const selectElem = document.getElementById('active-account-select');
                 if (!selectElem) return;
                 const currentSelected = selectElem.value;
 
-                if (window.userAccounts.length === 0) {
+                if (userAccounts.length === 0) {
                     selectElem.innerHTML = '<option value="">No Accounts Available</option>';
-                    window.selectedAccountId = null;
-                    window.activeAccount = null;
+                    selectedAccountId = null;
+                    activeAccount = null;
                 } else {
                     let selectHtml = '';
-                    window.userAccounts.forEach((acc) => {
-                        if (!window.selectedAccountId) window.selectedAccountId = acc.id;
-                        if (acc.id === window.selectedAccountId) window.activeAccount = acc;
-                        selectHtml += `<option value="${acc.id}" ${acc.id === window.selectedAccountId ? 'selected' : ''}>${acc.plan_name} (${acc.id}) - Bal: $${acc.current_balance.toLocaleString()}</option>`;
+                    userAccounts.forEach((acc) => {
+                        if (!selectedAccountId) selectedAccountId = acc.id;
+                        if (acc.id === selectedAccountId) activeAccount = acc;
+                        selectHtml += `<option value="${acc.id}" ${acc.id === selectedAccountId ? 'selected' : ''}>${acc.plan_name} (${acc.id}) - Bal: $${acc.current_balance.toLocaleString()}</option>`;
                     });
                     if (selectElem.innerHTML !== selectHtml) selectElem.innerHTML = selectHtml;
 
-                    if (currentSelected && window.userAccounts.some(a => a.id === currentSelected)) {
+                    if (currentSelected && userAccounts.some(a => a.id === currentSelected)) {
                         selectElem.value = currentSelected;
-                        window.selectedAccountId = currentSelected;
-                        window.activeAccount = window.userAccounts.find(a => a.id === currentSelected);
+                        selectedAccountId = currentSelected;
+                        activeAccount = userAccounts.find(a => a.id === currentSelected);
                     }
                 }
 
-                if (window.selectedAccountId) {
+                if (selectedAccountId) {
                     updateAvailableBalanceLabel();
-                    loadOpenTrades(window.selectedAccountId);
+                    loadOpenTrades(selectedAccountId);
                 }
 
                 if (document.getElementById('accountsView')?.classList.contains('active')) renderAccountsPortfolioFlickerFree();
             } catch (err) { console.error("Auto-sync error:", err); }
         }
 
-        window.manualRefreshData = function() {
-            if (!window.connectedWallet) { alert("Connect wallet first!"); return; }
-            silentSyncUserData(window.connectedWallet);
-            loadLeaderboard(window.currentLeaderboardMode);
+        function manualRefreshData() {
+            if (!connectedWallet) { alert("Connect wallet first!"); return; }
+            silentSyncUserData(connectedWallet);
+            loadLeaderboard(currentLeaderboardMode);
             alert("Data refreshed successfully!");
-        };
+        }
 
-        window.disconnectWallet = function() {
-            window.connectedWallet = null;
-            window.availableWallets = [];
-            window.userAccounts = [];
-            window.selectedAccountId = null;
-            window.activeAccount = null;
-            window.currentUserProfile = null;
+        function disconnectWallet() {
+            connectedWallet = null;
+            availableWallets = [];
+            userAccounts = [];
+            selectedAccountId = null;
+            activeAccount = null;
+            currentUserProfile = null;
 
             updateWalletUIState(false);
             const adminNav = document.getElementById('admin-nav-item');
@@ -1041,8 +1053,8 @@
             if (dispBox) dispBox.style.display = 'none';
             if (editBtn) editBtn.style.display = 'none';
 
-            loadLeaderboard(window.currentLeaderboardMode);
-        };
+            loadLeaderboard(currentLeaderboardMode);
+        }
 
         async function checkRole(wallet) {
             try {
@@ -1061,7 +1073,7 @@
         async function renderAccountsPortfolioFlickerFree() {
             const container = document.getElementById('accounts-portfolio-container');
             if (!container) return;
-            if (window.userAccounts.length === 0) {
+            if (userAccounts.length === 0) {
                 container.innerHTML = '<p style="text-align: center; color: #6b7280; padding: 30px;">No accounts found. Purchase a plan in the marketplace!</p>';
                 return;
             }
@@ -1069,7 +1081,7 @@
             const emptyStateMsg = container.querySelector('p');
             if (emptyStateMsg && emptyStateMsg.innerText.includes('No accounts found')) container.innerHTML = '';
 
-            for (const acc of window.userAccounts) {
+            for (const acc of userAccounts) {
                 const detailsRes = await fetch(`/api/accounts/details?account_id=${acc.id}`);
                 const details = await detailsRes.json();
                 const m = details.metrics;
@@ -1183,7 +1195,7 @@
             }
         }
 
-        window.requestWithdrawal = async function(accountId, maxBalance) {
+        async function requestWithdrawal(accountId, maxBalance) {
             try {
                 const detailsRes = await fetch(`/api/accounts/details?account_id=${accountId}`);
                 const details = await detailsRes.json();
@@ -1215,31 +1227,31 @@
                 const res = await fetch('/api/withdrawals/request', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ account_id: accountId, wallet_address: window.connectedWallet, amount })
+                    body: JSON.stringify({ account_id: accountId, wallet_address: connectedWallet, amount })
                 });
                 const data = await res.json();
-                if (data.success) { alert("Withdrawal requested!"); loadUserAccounts(window.connectedWallet); }
+                if (data.success) { alert("Withdrawal requested!"); loadUserAccounts(connectedWallet); }
                 else alert("Error: " + data.error);
             } catch (err) { console.error(err); }
-        };
+        }
 
-        window.requestCommissionWithdrawal = async function() {
-            const amountInput = prompt(`Enter commission USDT amount (Available: $${window.availableCommissionBalance.toFixed(2)}):`);
+        async function requestCommissionWithdrawal() {
+            const amountInput = prompt(`Enter commission USDT amount (Available: $${availableCommissionBalance.toFixed(2)}):`);
             if (!amountInput) return;
             const amount = parseFloat(amountInput);
-            if (isNaN(amount) || amount <= 0 || amount > window.availableCommissionBalance) { alert("Invalid amount."); return; }
+            if (isNaN(amount) || amount <= 0 || amount > availableCommissionBalance) { alert("Invalid amount."); return; }
 
             try {
                 const res = await fetch('/api/referrals/withdraw', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ wallet_address: window.connectedWallet, amount })
+                    body: JSON.stringify({ wallet_address: connectedWallet, amount })
                 });
                 const data = await res.json();
-                if (data.success) { alert("Commission withdrawal submitted!"); loadUserProfile(window.connectedWallet); }
+                if (data.success) { alert("Commission withdrawal submitted!"); loadUserProfile(connectedWallet); }
                 else alert("Error: " + data.error);
             } catch (err) { console.error(err); }
-        };
+        }
 
         async function loadAdminWithdrawals() {
             try {
@@ -1276,7 +1288,7 @@
             } catch (err) { console.error(err); }
         }
 
-        window.processWithdrawal = async function(withdrawalId, action, type) {
+        async function processWithdrawal(withdrawalId, action, type) {
             if (!confirm(`Are you sure you want to mark this withdrawal as ${action}?`)) return;
             try {
                 const res = await fetch('/api/admin/withdrawals/action', {
@@ -1288,29 +1300,29 @@
                 if (data.success) { alert(data.message); loadAdminWithdrawals(); }
                 else alert("Error: " + data.error);
             } catch (err) { console.error(err); }
-        };
+        }
 
-        window.switchActiveAccount = function(accId) {
-            window.selectedAccountId = accId;
-            window.activeAccount = window.userAccounts.find(a => a.id === accId);
+        function switchActiveAccount(accId) {
+            selectedAccountId = accId;
+            activeAccount = userAccounts.find(a => a.id === accId);
             updateAvailableBalanceLabel();
             loadOpenTrades(accId);
-        };
+        }
 
-        window.selectAccountAndTrade = function(accId) {
-            window.selectedAccountId = accId;
-            window.activeAccount = window.userAccounts.find(a => a.id === accId);
+        function selectAccountAndTrade(accId) {
+            selectedAccountId = accId;
+            activeAccount = userAccounts.find(a => a.id === accId);
             const selectElem = document.getElementById('active-account-select');
             if (selectElem) selectElem.value = accId;
             updateAvailableBalanceLabel();
             switchView('tradeView');
             loadOpenTrades(accId);
-        };
+        }
 
         function updateAvailableBalanceLabel() {
             const balLabel = document.getElementById('available-bal-label');
             if (balLabel) {
-                balLabel.innerText = window.activeAccount ? `Available Balance: $${window.activeAccount.current_balance.toLocaleString()}` : `Available Balance: $0.00`;
+                balLabel.innerText = activeAccount ? `Available Balance: $${activeAccount.current_balance.toLocaleString()}` : `Available Balance: $0.00`;
             }
         }
 
@@ -1328,7 +1340,7 @@
             }
 
             data.trades.forEach(trd => {
-                const currentPrice = window.currentLivePrice || trd.entry_price;
+                const currentPrice = currentLivePrice || trd.entry_price;
                 const priceDiff = trd.side === 'BUY' ? (currentPrice - trd.entry_price) : (trd.entry_price - currentPrice);
                 const pnl = priceDiff * trd.units;
                 const pnlColor = pnl >= 0 ? '#34d399' : '#ef4444';
@@ -1350,16 +1362,16 @@
             });
         }
 
-        window.executeTrade = async function(side) {
-            if (!window.selectedAccountId || !window.activeAccount) { alert("Please select or purchase an active trading account first!"); return; }
+        async function executeTrade(side) {
+            if (!selectedAccountId || !activeAccount) { alert("Please select or purchase an active trading account first!"); return; }
             const symbol = document.getElementById('order-symbol').value;
-            const price = window.currentLivePrice || parseFloat(document.getElementById('order-price').value);
+            const price = currentLivePrice || parseFloat(document.getElementById('order-price').value);
             const sizeUsd = parseFloat(document.getElementById('order-size-usd').value);
             const leverage = parseInt(document.getElementById('order-leverage').value) || 1;
             const sl = parseFloat(document.getElementById('order-sl').value) || null;
             const tp = parseFloat(document.getElementById('order-tp').value) || null;
 
-            if (!sizeUsd || sizeUsd <= 0 || sizeUsd > window.activeAccount.current_balance) {
+            if (!sizeUsd || sizeUsd <= 0 || sizeUsd > activeAccount.current_balance) {
                 alert("Please check position size and balance.");
                 return;
             }
@@ -1371,7 +1383,7 @@
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ 
-                        account_id: window.selectedAccountId, 
+                        account_id: selectedAccountId, 
                         symbol, 
                         side, 
                         price, 
@@ -1384,12 +1396,12 @@
                     })
                 });
                 const data = await res.json();
-                if (data.success) { alert(`Order executed at $${data.execution_price.toFixed(2)} (${leverage}x mode)!`); loadUserAccounts(window.connectedWallet); }
+                if (data.success) { alert(`Order executed at $${data.execution_price.toFixed(2)} (${leverage}x mode)!`); loadUserAccounts(connectedWallet); }
                 else alert("Error: " + data.error);
             } catch (err) { console.error(err); }
-        };
+        }
 
-        window.closeTrade = async function(tradeId, currentPrice) {
+        async function closeTrade(tradeId, currentPrice) {
             if (!confirm("Are you sure you want to close this position early?")) return;
             try {
                 const res = await fetch('/api/trades/close', {
@@ -1398,16 +1410,16 @@
                     body: JSON.stringify({ trade_id: tradeId, current_market_price: currentPrice })
                 });
                 const data = await res.json();
-                if (data.success) { alert(`Position closed. Realized PnL: $${data.pnl.toFixed(2)}`); loadUserAccounts(window.connectedWallet); loadLeaderboard(window.currentLeaderboardMode); }
+                if (data.success) { alert(`Position closed. Realized PnL: $${data.pnl.toFixed(2)}`); loadUserAccounts(connectedWallet); loadLeaderboard(currentLeaderboardMode); }
                 else alert("Error: " + data.error);
             } catch (err) { console.error(err); }
-        };
+        }
 
         async function loadPlans() {
             try {
                 const res = await fetch('/api/plans');
                 const data = await res.json();
-                window.plansData = data.plans || [];
+                plansData = data.plans || [];
                 renderPlans();
             } catch(e) { console.error("Plans load error:", e); }
         }
@@ -1417,11 +1429,11 @@
             if (!container) return;
             container.innerHTML = '';
 
-            window.plansData.forEach(plan => {
+            plansData.forEach(plan => {
                 let displayPrice = plan.base_price_usdt;
                 let priceHtml = `$${plan.base_price_usdt.toLocaleString()} USDT`;
 
-                if (window.activePromoCode) {
+                if (activePromoCode) {
                     displayPrice = plan.price_usdt;
                     priceHtml = `<span style="text-decoration: line-through; color: #6b7280; font-size: 15px;">$${plan.base_price_usdt.toLocaleString()}</span> <span style="color: #34d399;">$${plan.price_usdt.toLocaleString()} USDT</span>`;
                 }
@@ -1442,7 +1454,7 @@
             });
         }
 
-        window.applyPromo = async function() {
+        async function applyPromo() {
             const code = document.getElementById('applied-promo')?.value.trim();
             if (!code) return;
 
@@ -1455,15 +1467,15 @@
 
             const feedback = document.getElementById('promo-feedback');
             if (data.valid) {
-                window.activePromoCode = code.toUpperCase();
-                if (feedback) feedback.innerText = `✓ Code '${window.activePromoCode}' applied! Discount active.`;
+                activePromoCode = code.toUpperCase();
+                if (feedback) feedback.innerText = `✓ Code '${activePromoCode}' applied! Discount active.`;
                 renderPlans();
             } else {
-                window.activePromoCode = null;
+                activePromoCode = null;
                 if (feedback) feedback.innerText = `✕ Invalid promo code.`;
                 renderPlans();
             }
-        };
+        }
 
         async function loadUserProfile(wallet) {
             try {
@@ -1475,7 +1487,7 @@
                 const editBtn = document.getElementById('btn-toggle-edit');
 
                 if (data.user) {
-                    window.currentUserProfile = data.user;
+                    currentUserProfile = data.user;
                     if (setupBox) setupBox.style.display = 'none';
                     if (dispBox) dispBox.style.display = 'block';
                     if (editBtn) editBtn.style.display = 'inline-block';
@@ -1495,24 +1507,24 @@
                     const refCount = document.getElementById('stat-ref-count');
                     const refEarn = document.getElementById('stat-ref-earnings');
                     if (refCount) refCount.innerText = data.stats.total_referrals || 0;
-                    window.availableCommissionBalance = data.stats.available_commission || 0;
-                    if (refEarn) refEarn.innerText = `$${window.availableCommissionBalance.toFixed(2)} USDT`;
+                    availableCommissionBalance = data.stats.available_commission || 0;
+                    if (refEarn) refEarn.innerText = `$${availableCommissionBalance.toFixed(2)} USDT`;
 
                     loadReferralTransactions(wallet);
                 } else {
-                    window.currentUserProfile = null;
+                    currentUserProfile = null;
                     if (setupBox) setupBox.style.display = 'block';
                     if (dispBox) dispBox.style.display = 'none';
                     if (editBtn) editBtn.style.display = 'none';
                 }
-                loadLeaderboard(window.currentLeaderboardMode);
+                loadLeaderboard(currentLeaderboardMode);
             } catch (err) { console.error(err); }
         }
 
-        window.toggleEditProfile = function() {
+        function toggleEditProfile() {
             const setupBox = document.getElementById('profile-setup-box');
             if (setupBox) setupBox.style.display = setupBox.style.display === 'none' ? 'block' : 'none';
-        };
+        }
 
         async function loadReferralTransactions(wallet) {
             try {
@@ -1542,8 +1554,8 @@
             } catch (err) { console.error(err); }
         }
 
-        window.saveProfile = async function() {
-            if (!window.connectedWallet) { alert("Connect wallet first!"); return; }
+        async function saveProfile() {
+            if (!connectedWallet) { alert("Connect wallet first!"); return; }
             const username = document.getElementById('prof-username')?.value.trim();
             const discount_code = document.getElementById('prof-code')?.value.trim();
 
@@ -1555,20 +1567,20 @@
             const res = await fetch('/api/user/profile', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ wallet_address: window.connectedWallet, username, discount_code })
+                body: JSON.stringify({ wallet_address: connectedWallet, username, discount_code })
             });
             const data = await res.json();
 
             if (data.success) {
                 alert("Profile saved successfully!");
-                loadUserProfile(window.connectedWallet);
+                loadUserProfile(connectedWallet);
             } else {
                 alert("Error: " + data.error);
             }
-        };
+        }
 
-        window.buyPlan = async function(planId, priceUsdt) {
-            if (!window.connectedWallet) { alert("Connect wallet first!"); return; }
+        async function buyPlan(planId, priceUsdt) {
+            if (!connectedWallet) { alert("Connect wallet first!"); return; }
             
             const selectedChainId = parseInt(document.getElementById('payment-chain-select')?.value || '1');
             const chainConfig = SUPPORTED_EVM_CHAINS[selectedChainId];
@@ -1602,7 +1614,7 @@
                 const txHash = await provider.request({
                     method: 'eth_sendTransaction',
                     params: [{
-                        from: window.connectedWallet,
+                        from: connectedWallet,
                         to: chainConfig.usdtAddress,
                         data: calldata
                     }]
@@ -1614,18 +1626,18 @@
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ 
-                        wallet_address: window.connectedWallet, 
+                        wallet_address: connectedWallet, 
                         plan_id: planId, 
                         tx_hash: txHash, 
                         chain_id: selectedChainId,
-                        promo_code: window.activePromoCode 
+                        promo_code: activePromoCode 
                     })
                 });
                 const data = await res.json();
 
                 if (data.success) {
                     alert("Payment verified on-chain! Account provisioned successfully.");
-                    loadUserAccounts(window.connectedWallet);
+                    loadUserAccounts(connectedWallet);
                     switchView('tradeView');
                 } else {
                     alert("Verification Error: " + data.error);
@@ -1634,7 +1646,7 @@
                 console.error("Purchase Error:", err);
                 alert("Transaction failed or was rejected.");
             }
-        };
+        }
     </script>
 </body>
 </html>

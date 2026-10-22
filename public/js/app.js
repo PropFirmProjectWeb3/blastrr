@@ -1201,9 +1201,9 @@ let connectedWallet = null;
             }
 
             data.trades.forEach(trd => {
-                const currentPrice = currentLivePrice || trd.entry_price;
+                const currentPrice = trd.current_price || currentLivePrice || trd.entry_price;
                 const priceDiff = trd.side === 'BUY' ? (currentPrice - trd.entry_price) : (trd.entry_price - currentPrice);
-                const pnl = priceDiff * trd.units;
+                const pnl = Number.isFinite(Number(trd.live_pnl)) ? Number(trd.live_pnl) : priceDiff * trd.units;
                 const pnlColor = pnl >= 0 ? '#34d399' : '#ef4444';
                 const leverageDisplay = trd.leverage && trd.leverage > 1 ? `${trd.leverage}x Perp` : '1x Spot';
 

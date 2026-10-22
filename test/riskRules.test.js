@@ -3,10 +3,13 @@ const assert = require('node:assert/strict');
 const {
   DLL_LOCK_HOURS,
   advanceRiskBaselines,
+  calculateUnrealizedPnl,
   getActiveLock,
+  getLiveRiskBalance,
   getMllFloor,
   getRiskBalance,
-  getRiskBreach
+  getRiskBreach,
+  getTradeMargin
 } = require('../riskRules');
 
 const plan = { max_drawdown_pct: 10, daily_loss_pct: 5 };
@@ -39,16 +42,61 @@ test('legacy account balance can trigger a permanent MLL lock when stored equity
   assert.equal(getRiskBreach(legacy, plan, 0).reason, 'MLL');
 });
 
-test('reserved open-trade margin is included in the risk balance', () => {
+test('risk balance keeps reserved trade margin separate from account equity', () => {
   const openPosition = {
     initial_balance: 5000,
     current_balance: 4400,
     current_equity: 5000,
-    risk_balance: 5000,
     high_water_mark: 5000,
     daily_starting_balance: 5000
   };
-  assert.equal(getRiskBreach(openPosition, plan, 0), null);
+  const trade = { symbol: 'BTC/USDT', side: 'BUY', entry_price: 100, units: 6, size_usd: 600, leverage: 1 };
+  assert.equal(getLiveRiskBalance(openPosition, [trade], new Map([['BTC/USDT', 100]])), 5000);
+  assert.equal(getRiskBreach({ ...openPosition, risk_balance: 5000 }, plan, 0), null);
+});
+
+test('live risk keeps legacy cash balance authoritative when stored equity is stale', () => {
+  const legacy = {
+    initial_balance: 5000,
+    current_balance: 4900,
+    current_equity: 5600,
+    high_water_mark: 5500,
+    daily_starting_balance: 5600
+  };
+  assert.equal(getLiveRiskBalance(legacy, [], new Map()), 4900);
+  assert.equal(getRiskBreach({ ...legacy, risk_balance: 4900 }, plan, 0).reason, 'MLL');
+});
+
+test('live unrealized losses reduce account equity and trigger DLL before MLL', () => {
+  const account = {
+    initial_balance: 250000,
+    current_balance: 230000,
+    current_equity: 250000,
+    daily_starting_balance: 250000,
+    high_water_mark: 250000
+  };
+  const trade = { symbol: 'BTC/USDT', side: 'BUY', entry_price: 100, units: 1000, size_usd: 100000, leverage: 5 };
+  const liveRiskBalance = getLiveRiskBalance(account, [trade], new Map([['BTC/USDT', 87]]));
+
+  assert.equal(calculateUnrealizedPnl(trade, 87), -13000);
+  assert.equal(getTradeMargin(trade), 20000);
+  assert.equal(liveRiskBalance, 237000);
+  assert.equal(getRiskBreach({ ...account, risk_balance: liveRiskBalance }, plan, 0).reason, 'DLL');
+});
+
+test('live unrealized losses at the MLL floor trigger a permanent lock', () => {
+  const account = {
+    initial_balance: 250000,
+    current_balance: 210000,
+    current_equity: 250000,
+    daily_starting_balance: 250000,
+    high_water_mark: 250000
+  };
+  const trade = { symbol: 'BTC/USDT', side: 'BUY', entry_price: 100, units: 2000, size_usd: 200000, leverage: 5 };
+  const liveRiskBalance = getLiveRiskBalance(account, [trade], new Map([['BTC/USDT', 87]]));
+
+  assert.equal(liveRiskBalance, 224000);
+  assert.equal(getRiskBreach({ ...account, risk_balance: liveRiskBalance }, plan, 0).reason, 'MLL');
 });
 
 test('MLL trails the EOD high-water mark by the initial fixed loss amount and caps at initial capital', () => {

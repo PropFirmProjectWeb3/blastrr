@@ -8,6 +8,41 @@ function getRiskBalance(account) {
   return Number(account.current_equity);
 }
 
+function calculateUnrealizedPnl(trade, currentPrice) {
+  const price = Number(currentPrice);
+  const entryPrice = Number(trade.entry_price);
+  const units = Number(trade.units);
+  if (!Number.isFinite(price) || price <= 0 || !Number.isFinite(entryPrice) || entryPrice <= 0 ||
+      !Number.isFinite(units) || units <= 0 || !['BUY', 'SELL'].includes(trade.side)) {
+    throw new Error('Cannot calculate live risk from an invalid trade or market price.');
+  }
+  return (trade.side === 'BUY' ? price - entryPrice : entryPrice - price) * units;
+}
+
+function getTradeMargin(trade) {
+  const notional = Number(trade.size_usd);
+  const leverage = trade.leverage == null ? 1 : Number(trade.leverage);
+  if (!Number.isFinite(notional) || notional <= 0 || !Number.isFinite(leverage) || leverage <= 0) {
+    throw new Error('Cannot calculate live risk from invalid trade margin.');
+  }
+  return notional / leverage;
+}
+
+function getLiveRiskBalance(account, openTrades, pricesBySymbol) {
+  const hasCashBalance = account.current_balance != null;
+  const baseEquity = !hasCashBalance
+    ? Number(account.current_equity)
+    : Number(account.current_balance);
+  if (!Number.isFinite(baseEquity)) throw new Error('Cannot calculate live risk without a valid account equity.');
+  return baseEquity + openTrades.reduce((total, trade) => {
+    if (!pricesBySymbol.has(trade.symbol)) {
+      throw new Error(`Cannot calculate live risk without a price for ${trade.symbol}.`);
+    }
+    const reservedMargin = hasCashBalance ? getTradeMargin(trade) : 0;
+    return total + reservedMargin + calculateUnrealizedPnl(trade, pricesBySymbol.get(trade.symbol));
+  }, 0);
+}
+
 function getMllFloor(account, plan) {
   const maxLoss = account.initial_balance * (plan.max_drawdown_pct / 100);
   const trailingCap = account.initial_balance + maxLoss;
@@ -84,4 +119,14 @@ function getActiveLock(account, now = Date.now()) {
   return null;
 }
 
-module.exports = { DLL_LOCK_HOURS, advanceRiskBaselines, getActiveLock, getMllFloor, getRiskBalance, getRiskBreach };
+module.exports = {
+  DLL_LOCK_HOURS,
+  advanceRiskBaselines,
+  calculateUnrealizedPnl,
+  getActiveLock,
+  getLiveRiskBalance,
+  getMllFloor,
+  getRiskBalance,
+  getRiskBreach,
+  getTradeMargin
+};

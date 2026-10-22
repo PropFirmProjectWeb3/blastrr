@@ -44,6 +44,15 @@ test('NullNet checkout uses the correct chain ID and matching wallet and verific
   assert.match(appJs, /const activeChainId = BigInt\(await provider\.request\(\{ method: 'eth_chainId' \}\)\)/);
 });
 
+test('live market PnL feeds server-side risk checks and active trade responses', () => {
+  assert.match(serverJs, /function loadAccountWithLiveRisk/);
+  assert.match(serverJs, /getLiveRiskBalance\(account, openTrades, pricesBySymbol\)/);
+  assert.match(serverJs, /setInterval\(checkLiveRiskLimits, 5000\)/);
+  assert.match(serverJs, /risk_balance: getRiskBalance\(liveAccount\)/);
+  assert.match(serverJs, /Math\.max\(0, getTradeMargin\(trade\) \+ pnl\)/);
+  assert.match(appJs, /Number\.isFinite\(Number\(trd\.live_pnl\)\)/);
+});
+
 test('live market polling uses browser-side provider URLs, not the app proxy', () => {
   assert.match(appJs, /https:\/\/api\.binance\.com\/api\/v3\/ticker\/price/);
   assert.match(appJs, /https:\/\/fapi\.binance\.com\/fapi\/v1\/ticker\/price/);

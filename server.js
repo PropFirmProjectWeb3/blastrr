@@ -6,7 +6,16 @@ const { ethers } = require('ethers');
 const db = require('./database');
 const defaultPlans = require('./config/plans.json');
 const markets = require('./public/config/markets.json');
-const { advanceRiskBaselines, getActiveLock, getMllFloor, getRiskBalance, getRiskBreach } = require('./riskRules');
+const {
+  advanceRiskBaselines,
+  calculateUnrealizedPnl,
+  getActiveLock,
+  getLiveRiskBalance,
+  getMllFloor,
+  getRiskBalance,
+  getRiskBreach,
+  getTradeMargin
+} = require('./riskRules');
 const { getProtectedPayoutBalance, getAvailableGrossWithdrawal, splitWithdrawal } = require('./payoutRules');
 
 const app = express();
@@ -145,6 +154,7 @@ setTimeout(seedPlans, 1000);
 const tradeChallenges = new Map();
 const walletSessions = new Map();
 const WALLET_SESSION_DURATION_MS = 12 * 60 * 60 * 1000;
+const marketPriceCache = new Map();
 
 function getAuthoritativePrice(market) {
   if (market.source === 'SIMULATED') {
@@ -158,8 +168,13 @@ function getAuthoritativePrice(market) {
   const baseUrl = market.source === 'BINANCE_PERP'
     ? 'https://fapi.binance.com/fapi/v1/ticker/price'
     : 'https://api.binance.com/api/v3/ticker/price';
+  const cacheKey = `${market.source}:${market.pair}`;
+  const cached = marketPriceCache.get(cacheKey);
+  if (cached?.price && cached.expiresAt > Date.now()) return Promise.resolve(cached.price);
+  if (cached?.promise) return cached.promise;
+
   const url = `${baseUrl}?symbol=${encodeURIComponent(market.pair)}`;
-  return new Promise((resolve, reject) => {
+  const pricePromise = new Promise((resolve, reject) => {
     const request = https.get(url, { timeout: 5000 }, (response) => {
       let body = '';
       response.setEncoding('utf8');
@@ -179,6 +194,57 @@ function getAuthoritativePrice(market) {
     request.on('timeout', () => request.destroy(new Error('Market price request timed out.')));
     request.on('error', reject);
   });
+  marketPriceCache.set(cacheKey, { promise: pricePromise });
+  pricePromise.then((price) => {
+    marketPriceCache.set(cacheKey, { price, expiresAt: Date.now() + 2000 });
+  }).catch(() => {
+    marketPriceCache.delete(cacheKey);
+  });
+  return pricePromise;
+}
+
+function loadAccountWithLiveRisk(accountId, callback) {
+  db.get(
+    `SELECT a.*, p.name AS plan_name, p.profit_target, p.simulated_capital,
+     p.max_drawdown_pct, p.daily_loss_pct,
+     COALESCE((SELECT SUM(w.amount) FROM withdrawals w
+       WHERE w.account_id = a.id AND w.status = 'PENDING'), 0) AS pending_withdrawal_amount
+     FROM accounts a JOIN plans p ON a.plan_id = p.id WHERE a.id = ?`,
+    [accountId],
+    (accountErr, account) => {
+      if (accountErr) return callback(accountErr);
+      if (!account) return callback(new Error('Account not found.'));
+      db.all(
+        `SELECT * FROM trades WHERE account_id = ? AND status = 'OPEN'`,
+        [accountId],
+        (tradesErr, trades) => {
+          if (tradesErr) return callback(tradesErr);
+          const openTrades = trades || [];
+          const marketsBySymbol = new Map();
+          for (const trade of openTrades) {
+            const market = markets.find(item => item.symbol === trade.symbol);
+            if (!market) return callback(new Error(`Open trade market is not configured: ${trade.symbol}`));
+            marketsBySymbol.set(trade.symbol, market);
+          }
+          Promise.all([...marketsBySymbol].map(async ([symbol, market]) => [symbol, await getAuthoritativePrice(market)]))
+            .then((prices) => {
+              const pricesBySymbol = new Map(prices);
+              account.risk_balance = getLiveRiskBalance(account, openTrades, pricesBySymbol);
+              account.open_trades = openTrades.map(trade => {
+                const currentPrice = pricesBySymbol.get(trade.symbol);
+                return {
+                  ...trade,
+                  current_price: currentPrice,
+                  live_pnl: calculateUnrealizedPnl(trade, currentPrice)
+                };
+              });
+              callback(null, account);
+            })
+            .catch(callback);
+        }
+      );
+    }
+  );
 }
 
 function requireTradeSignature(req, res, next) {
@@ -237,17 +303,7 @@ function lockAccount(accountId, breach, callback) {
 
 function refreshRiskBaselines(accountId, callback) {
   const today = new Date().toISOString().slice(0, 10);
-  const selectAccount = (done) => db.get(
-    `SELECT a.*, p.name AS plan_name, p.profit_target, p.simulated_capital,
-     p.max_drawdown_pct, p.daily_loss_pct,
-     COALESCE(a.current_balance, a.current_equity, 0) + COALESCE((SELECT SUM(t.size_usd) FROM trades t
-       WHERE t.account_id = a.id AND t.status = 'OPEN'), 0) AS risk_balance,
-     COALESCE((SELECT SUM(w.amount) FROM withdrawals w
-       WHERE w.account_id = a.id AND w.status = 'PENDING'), 0) AS pending_withdrawal_amount
-     FROM accounts a JOIN plans p ON a.plan_id = p.id WHERE a.id = ?`,
-    [accountId],
-    done
-  );
+  const selectAccount = (done) => loadAccountWithLiveRisk(accountId, done);
   selectAccount((initialErr, initialAccount) => {
     if (initialErr) return callback(initialErr);
     if (!initialAccount) return callback(new Error('Account not found.'));
@@ -354,19 +410,58 @@ function rolloverAccountsAtUtcDay() {
 setTimeout(rolloverAccountsAtUtcDay, 5000);
 setInterval(rolloverAccountsAtUtcDay, 60 * 1000);
 
+let liveRiskCheckInProgress = false;
+function checkLiveRiskLimits() {
+  if (liveRiskCheckInProgress) return;
+  liveRiskCheckInProgress = true;
+  db.all(
+    `SELECT DISTINCT a.id FROM accounts a
+     JOIN trades t ON t.account_id = a.id AND t.status = 'OPEN'
+     WHERE a.status = 'ACTIVE' AND a.permanent_lock = 0 ORDER BY a.id`,
+    [],
+    (err, accounts) => {
+      if (err) {
+        liveRiskCheckInProgress = false;
+        return console.error('Unable to find accounts with open trades for live risk checks:', err.message);
+      }
+      const processNext = (index) => {
+        if (index >= accounts.length) {
+          liveRiskCheckInProgress = false;
+          return;
+        }
+        const accountId = accounts[index].id;
+        refreshRiskBaselines(accountId, (baselineErr, account) => {
+          if (baselineErr) {
+            console.error(`Unable to calculate live risk for account ${accountId}:`, baselineErr.message);
+            return processNext(index + 1);
+          }
+          refreshAccountLock(account, (lockErr) => {
+            if (lockErr) console.error(`Unable to apply live risk lock for account ${accountId}:`, lockErr.message);
+            processNext(index + 1);
+          });
+        });
+      };
+      processNext(0);
+    }
+  );
+}
+
+setTimeout(checkLiveRiskLimits, 2000);
+setInterval(checkLiveRiskLimits, 5000);
+
 function unlockExpiredAccount(account, callback) {
   const lock = getActiveLock(account);
   if (lock) return callback(null, lock);
   if (account.lock_reason === 'DLL') {
     return db.run(
-      `UPDATE accounts SET status = 'ACTIVE', daily_starting_balance = current_equity,
+      `UPDATE accounts SET status = 'ACTIVE', daily_starting_balance = ?,
        lock_reason = NULL, locked_until = NULL
        WHERE id = ? AND permanent_lock = 0`,
-      [account.id],
+      [getRiskBalance(account), account.id],
       (err) => {
         if (!err) {
           account.status = 'ACTIVE';
-          account.daily_starting_balance = account.current_equity;
+          account.daily_starting_balance = getRiskBalance(account);
           account.lock_reason = null;
           account.locked_until = null;
         }
@@ -746,12 +841,7 @@ app.get('/api/accounts/details', requireWalletSession, (req, res) => {
   }
 
   db.get(
-    `SELECT a.*, p.name as plan_name, p.profit_target, p.max_drawdown_pct, p.daily_loss_pct, p.simulated_capital,
-     COALESCE(a.current_balance, a.current_equity, 0) + COALESCE((SELECT SUM(t.size_usd) FROM trades t
-       WHERE t.account_id = a.id AND t.status = 'OPEN'), 0) AS risk_balance,
-     COALESCE((SELECT SUM(w.amount) FROM withdrawals w
-       WHERE w.account_id = a.id AND w.status = 'PENDING'), 0) AS pending_withdrawal_amount
-     FROM accounts a JOIN plans p ON a.plan_id = p.id WHERE a.id = ?`,
+    `SELECT wallet_address FROM accounts WHERE id = ?`,
     [accountId],
     (err, account) => {
       if (err) return res.status(500).json({ error: 'Unable to load account.' });
@@ -1053,8 +1143,6 @@ app.post('/api/admin/accounts', sensitiveLimiter, requireTradeSignature, require
      a.high_water_mark, a.daily_starting_balance, a.status, a.lock_reason, a.locked_until,
      a.permanent_lock, a.admin_frozen, a.admin_freeze_reason, p.name AS plan_name,
      p.max_drawdown_pct, p.daily_loss_pct,
-     COALESCE(a.current_balance, a.current_equity, 0) + COALESCE((SELECT SUM(t.size_usd) FROM trades t
-       WHERE t.account_id = a.id AND t.status = 'OPEN'), 0) AS risk_balance,
      EXISTS(SELECT 1 FROM withdrawals w WHERE w.account_id = a.id AND w.status = 'PENDING') AS withdrawal_pending
      FROM accounts a JOIN plans p ON a.plan_id = p.id ORDER BY a.created_at DESC`,
     [],
@@ -1063,16 +1151,32 @@ app.post('/api/admin/accounts', sensitiveLimiter, requireTradeSignature, require
       const rows = accounts || [];
       const loadNext = (index) => {
         if (index >= rows.length) return res.json({ accounts: rows });
-        db.all(
-          `SELECT id, symbol, side, entry_price, size_usd, pnl, status, created_at, closed_at
-           FROM trades WHERE account_id = ? ORDER BY created_at DESC`,
-          [rows[index].id],
-          (tradeErr, trades) => {
-            if (tradeErr) return res.status(500).json({ error: 'Unable to load account trade review.' });
-            rows[index].trades = trades || [];
-            loadNext(index + 1);
-          }
-        );
+        const row = rows[index];
+        loadAccountWithLiveRisk(row.id, (riskErr, liveAccount) => {
+          if (riskErr) return res.status(503).json({ error: `Unable to calculate live risk for account ${row.id}.` });
+          refreshAccountLock(liveAccount, (lockErr, lock) => {
+            if (lockErr) return res.status(500).json({ error: `Unable to apply risk lock for account ${row.id}.` });
+            Object.assign(row, {
+              risk_balance: getRiskBalance(liveAccount),
+              status: liveAccount.status,
+              lock_reason: liveAccount.lock_reason,
+              locked_until: liveAccount.locked_until,
+              permanent_lock: liveAccount.permanent_lock,
+              risk_lock: lock || getActiveLock(liveAccount),
+              open_trades: liveAccount.open_trades
+            });
+            db.all(
+              `SELECT id, symbol, side, entry_price, size_usd, pnl, status, created_at, closed_at
+               FROM trades WHERE account_id = ? ORDER BY created_at DESC`,
+              [row.id],
+              (tradeErr, trades) => {
+                if (tradeErr) return res.status(500).json({ error: 'Unable to load account trade review.' });
+                row.trades = trades || [];
+                loadNext(index + 1);
+              }
+            );
+          });
+        });
       };
       loadNext(0);
     }
@@ -1211,8 +1315,6 @@ app.post('/api/trades/execute', sensitiveLimiter, requireWalletSession, (req, re
 
   db.get(
     `SELECT a.*, p.max_drawdown_pct, p.daily_loss_pct,
-     COALESCE(a.current_balance, a.current_equity, 0) + COALESCE((SELECT SUM(t.size_usd) FROM trades t
-       WHERE t.account_id = a.id AND t.status = 'OPEN'), 0) AS risk_balance,
      COALESCE((SELECT SUM(w.amount) FROM withdrawals w
        WHERE w.account_id = a.id AND w.status = 'PENDING'), 0) AS pending_withdrawal_amount
      FROM accounts a JOIN plans p ON a.plan_id = p.id WHERE a.id = ?`,
@@ -1333,6 +1435,7 @@ app.post('/api/trades/close', sensitiveLimiter, requireWalletSession, (req, res)
       const account = {
         id: trade.account_id,
         current_equity: refreshedAccount.current_equity,
+        risk_balance: refreshedAccount.risk_balance,
         daily_starting_balance: refreshedAccount.daily_starting_balance,
         status: refreshedAccount.status,
         lock_reason: refreshedAccount.lock_reason,
@@ -1346,7 +1449,7 @@ app.post('/api/trades/close', sensitiveLimiter, requireWalletSession, (req, res)
         getAuthoritativePrice(market).then((price) => {
         const priceDiff = trade.side === 'BUY' ? price - trade.entry_price : trade.entry_price - price;
         const pnl = priceDiff * trade.units;
-        const returnedMargin = Math.max(0, trade.size_usd + pnl);
+        const returnedMargin = Math.max(0, getTradeMargin(trade) + pnl);
         db.serialize(() => {
           db.run('BEGIN IMMEDIATE');
           db.run(
@@ -1363,13 +1466,7 @@ app.post('/api/trades/close', sensitiveLimiter, requireWalletSession, (req, res)
                 [returnedMargin, pnl, trade.account_id],
                 (balanceErr) => {
                   if (balanceErr) return db.run('ROLLBACK', () => res.status(500).json({ error: 'Unable to settle trade.' }));
-                  db.get(
-                    `SELECT a.*, p.max_drawdown_pct, p.daily_loss_pct,
-                     COALESCE(a.current_balance, a.current_equity, 0) + COALESCE((SELECT SUM(open_trade.size_usd) FROM trades open_trade
-                       WHERE open_trade.account_id = a.id AND open_trade.status = 'OPEN'), 0) AS risk_balance
-                     FROM accounts a JOIN plans p ON a.plan_id = p.id WHERE a.id = ?`,
-                    [trade.account_id],
-                    (accountErr, account) => {
+                  loadAccountWithLiveRisk(trade.account_id, (accountErr, account) => {
                       if (accountErr || !account) return db.run('ROLLBACK', () => res.status(500).json({ error: 'Unable to verify account limits.' }));
                       const breach = getRiskBreach(account, account);
                       const activeLock = breach || getActiveLock(account);
@@ -1386,8 +1483,7 @@ app.post('/api/trades/close', sensitiveLimiter, requireWalletSession, (req, res)
                           lockedUntil: breach.lockedUntil
                         });
                       });
-                    }
-                  );
+                    });
                 }
               );
             }
@@ -1415,9 +1511,18 @@ app.get('/api/trades/active', requireWalletSession, (req, res) => {
     if (!account || account.wallet_address.toLowerCase() !== wallet.toLowerCase()) {
       return res.status(403).json({ error: 'Wallet does not own this account.' });
     }
-    db.all("SELECT * FROM trades WHERE account_id = ? AND status = 'OPEN'", [accountId], (err, trades) => {
-      if (err) return res.status(500).json({ error: 'Unable to load open trades.' });
-      res.json({ trades: trades || [] });
+    refreshRiskBaselines(accountId, (baselineErr, liveAccount) => {
+      if (baselineErr) return res.status(503).json({ error: 'Unable to calculate live account risk.' });
+      refreshAccountLock(liveAccount, (lockErr, lock) => {
+        if (lockErr) return res.status(500).json({ error: 'Unable to apply account risk lock.' });
+        res.json({
+          trades: liveAccount.open_trades || [],
+          risk_balance: getRiskBalance(liveAccount),
+          lock: lock || getActiveLock(liveAccount),
+          account_status: liveAccount.status,
+          lock_reason: liveAccount.lock_reason
+        });
+      });
     });
   });
 });

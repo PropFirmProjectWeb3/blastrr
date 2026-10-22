@@ -51,6 +51,7 @@
             letter-spacing: -0.5px;
             text-shadow: 0 0 20px rgba(168, 85, 247, 0.4);
             flex-shrink: 0;
+            text-decoration: none;
         }
         
         .logo img {
@@ -59,7 +60,7 @@
             object-fit: contain;
         }
         
-        /* Centralized Navigation (Flexbox auto-centering) */
+        /* Centralized Navigation */
         nav { 
             display: flex; 
             gap: 6px; 
@@ -81,13 +82,15 @@
             background: radial-gradient(circle at center, rgba(31, 41, 55, 0.4) 0%, rgba(15, 23, 42, 0.75) 100%);
             border-color: rgba(255, 255, 255, 0.04);
             white-space: nowrap;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
         }
         .nav-tab:hover { color: #f3f4f6; background: radial-gradient(circle at center, rgba(55, 65, 81, 0.6) 0%, rgba(31, 41, 55, 0.85) 100%); border-color: rgba(255, 255, 255, 0.1); }
         .nav-tab.active { color: #ffffff; background: linear-gradient(135deg, #7c3aed 0%, #4c1d95 100%); border-color: rgba(168, 85, 247, 0.4); box-shadow: 0 0 15px rgba(124, 58, 237, 0.35); }
         .nav-tab.admin-tab { display: none; background: radial-gradient(circle at center, rgba(153, 27, 27, 0.4) 0%, rgba(69, 10, 10, 0.8) 100%); color: #fca5a5; border-color: rgba(239, 68, 68, 0.2); }
         .nav-tab.admin-tab.active { background: #dc2626; color: #ffffff; border-color: #f87171; box-shadow: 0 0 15px rgba(220, 38, 38, 0.4); }
 
-        /* Hamburger Menu Button */
         .hamburger-btn {
             display: none;
             background: radial-gradient(circle at center, rgba(31, 41, 55, 0.7) 0%, rgba(15, 23, 42, 0.95) 100%);
@@ -147,7 +150,6 @@
             gap: 5px;
             box-shadow: inset 0 0 8px rgba(0, 0, 0, 0.4), 0 0 10px rgba(29, 155, 240, 0.15);
         }
-        .btn-share-x:hover { background: radial-gradient(circle at center, rgba(29, 155, 240, 0.6) 0%, rgba(15, 35, 65, 0.9) 100%); box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.5), 0 0 18px rgba(29, 155, 240, 0.35); }
 
         .btn-new-wallet {
             background: radial-gradient(circle at center, rgba(37, 99, 235, 0.4) 0%, rgba(15, 23, 42, 0.85) 100%);
@@ -161,7 +163,6 @@
             display: none;
             box-shadow: inset 0 0 8px rgba(0, 0, 0, 0.4), 0 0 10px rgba(59, 130, 246, 0.15);
         }
-        .btn-new-wallet:hover { background: radial-gradient(circle at center, rgba(37, 99, 235, 0.6) 0%, rgba(23, 37, 84, 0.9) 100%); color: #93c5fd; box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.5), 0 0 18px rgba(59, 130, 246, 0.35); }
 
         .btn-disconnect {
             background: radial-gradient(circle at center, rgba(220, 38, 38, 0.35) 0%, rgba(69, 10, 10, 0.8) 100%);
@@ -175,7 +176,6 @@
             display: none;
             box-shadow: inset 0 0 8px rgba(0, 0, 0, 0.4), 0 0 10px rgba(239, 68, 68, 0.15);
         }
-        .btn-disconnect:hover { background: radial-gradient(circle at center, rgba(220, 38, 38, 0.6) 0%, rgba(127, 29, 29, 0.9) 100%); color: #fca5a5; border-color: rgba(239, 68, 68, 0.5); box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.5), 0 0 18px rgba(239, 68, 68, 0.35); }
 
         .wallet-select {
             background: radial-gradient(circle at center, rgba(5, 150, 105, 0.3) 0%, rgba(6, 78, 59, 0.8) 100%);
@@ -187,9 +187,7 @@
             font-size: 13.5px;
             display: none;
             cursor: pointer;
-            box-shadow: inset 0 0 8px rgba(0, 0, 0, 0.4), 0 0 10px rgba(52, 211, 153, 0.15);
         }
-        .wallet-select:hover { box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.5), 0 0 16px rgba(52, 211, 153, 0.3); }
 
         .status-pill {
             padding: 6px 14px;
@@ -203,7 +201,7 @@
             border: 1px solid rgba(255, 255, 255, 0.05);
             white-space: nowrap;
         }
-        .status-pill.connected { background: rgba(6, 95, 70, 0.3); color: #34d399; border-color: rgba(52, 211, 153, 0.3); box-shadow: 0 0 12px rgba(52, 211, 153, 0.15); }
+        .status-pill.connected { background: rgba(6, 95, 70, 0.3); color: #34d399; border-color: rgba(52, 211, 153, 0.3); }
 
         main { padding: 28px; max-width: 1440px; margin: 0 auto; }
         .view-panel { display: none; }
@@ -253,45 +251,18 @@
             font-size: 14px;
             transition: all 0.2s;
         }
-        .form-group input:focus, .form-group select:focus {
-            outline: none;
-            border-color: #a855f7;
-            box-shadow: 0 0 0 3px rgba(168, 85, 247, 0.2);
-        }
 
-        .btn-buy { width: 100%; background: radial-gradient(circle at center, rgba(5, 150, 105, 0.5) 0%, rgba(4, 120, 87, 0.9) 100%); color: white; border: 1px solid rgba(52, 211, 153, 0.35); padding: 12px; border-radius: 8px; font-weight: 700; cursor: pointer; font-size: 14px; margin-bottom: 10px; box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.4), 0 0 12px rgba(5, 150, 105, 0.2); }
-        .btn-buy:hover { box-shadow: inset 0 0 12px rgba(0, 0, 0, 0.5), 0 0 20px rgba(16, 185, 129, 0.4); }
-        
-        .btn-sell { width: 100%; background: radial-gradient(circle at center, rgba(220, 38, 38, 0.5) 0%, rgba(153, 27, 27, 0.9) 100%); color: white; border: 1px solid rgba(248, 113, 113, 0.35); padding: 12px; border-radius: 8px; font-weight: 700; cursor: pointer; font-size: 14px; box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.4), 0 0 12px rgba(220, 38, 38, 0.2); }
-        .btn-sell:hover { box-shadow: inset 0 0 12px rgba(0, 0, 0, 0.5), 0 0 20px rgba(239, 68, 68, 0.4); }
+        .btn-buy { width: 100%; background: radial-gradient(circle at center, rgba(5, 150, 105, 0.5) 0%, rgba(4, 120, 87, 0.9) 100%); color: white; border: 1px solid rgba(52, 211, 153, 0.35); padding: 12px; border-radius: 8px; font-weight: 700; cursor: pointer; font-size: 14px; margin-bottom: 10px; }
+        .btn-sell { width: 100%; background: radial-gradient(circle at center, rgba(220, 38, 38, 0.5) 0%, rgba(153, 27, 27, 0.9) 100%); color: white; border: 1px solid rgba(248, 113, 113, 0.35); padding: 12px; border-radius: 8px; font-weight: 700; cursor: pointer; font-size: 14px; }
 
-        .table-responsive { width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+        .table-responsive { width: 100%; overflow-x: auto; }
         table { width: 100%; border-collapse: collapse; text-align: left; font-size: 13.5px; min-width: 600px; }
-        th { background: rgba(5, 7, 11, 0.9); color: #9ca3af; padding: 12px 14px; font-weight: 600; border-bottom: 1px solid rgba(255, 255, 255, 0.08); text-transform: uppercase; font-size: 11px; letter-spacing: 0.5px; }
+        th { background: rgba(5, 7, 11, 0.9); color: #9ca3af; padding: 12px 14px; font-weight: 600; border-bottom: 1px solid rgba(255, 255, 255, 0.08); text-transform: uppercase; font-size: 11px; }
         td { padding: 13px 14px; border-bottom: 1px solid rgba(255, 255, 255, 0.04); color: #e5e7eb; }
-        tr:hover td { background: rgba(255, 255, 255, 0.015); }
-        tr.highlight-user td { background: rgba(168, 85, 247, 0.15); border-color: rgba(168, 85, 247, 0.4); }
 
-        .plan-card { 
-            background: rgba(9, 13, 19, 0.9); 
-            border: 1px solid rgba(255, 255, 255, 0.06); 
-            border-radius: 12px; 
-            padding: 26px; 
-            text-align: center; 
-            display: flex; 
-            flex-direction: column; 
-            justify-content: space-between;
-            transition: all 0.25s;
-            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
-        }
-        .plan-card:hover { border-color: rgba(168, 85, 247, 0.4); transform: translateY(-3px); box-shadow: 0 12px 32px rgba(124, 58, 237, 0.15); }
-        .plan-price { font-size: 26px; font-weight: 800; color: #c084fc; margin: 14px 0; text-shadow: 0 0 15px rgba(168, 85, 247, 0.3); }
-        .plan-feature { padding: 9px 0; border-bottom: 1px solid rgba(255, 255, 255, 0.04); font-size: 13.5px; color: #d1d5db; display: flex; justify-content: space-between; }
+        .logo { display: flex; align-items: center; gap: 10px; text-decoration: none; white-space: nowrap; }
+        .logo .brand-mark { display: grid; place-items: center; flex: 0 0 34px; width: 34px; height: 34px; border-radius: 11px; background: linear-gradient(145deg, #bd91ff, #6424e8); color: #fff; box-shadow: 0 0 28px rgba(142,72,255,.35); font-size: 20px; clip-path: polygon(40% 0, 100% 0, 64% 43%, 91% 43%, 23% 100%, 40% 55%, 12% 55%); }
 
-        .progress-container { background: rgba(5, 7, 11, 0.9); border-radius: 6px; height: 8px; width: 100%; margin-top: 8px; overflow: hidden; border: 1px solid rgba(255, 255, 255, 0.06); }
-        .progress-bar { height: 100%; background: linear-gradient(90deg, #10b981, #34d399); width: 0%; border-radius: 6px; box-shadow: 0 0 10px rgba(52, 211, 153, 0.4); transition: width 0.4s ease; }
-
-        /* Mobile Responsiveness & Hamburger Menu Drawer */
         @media (max-width: 1250px) {
             .hamburger-btn { display: inline-flex; align-items: center; justify-content: center; }
             nav {
@@ -305,7 +276,6 @@
                 left: 0;
                 padding: 16px;
                 border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-                box-shadow: 0 15px 35px rgba(0,0,0,0.7);
             }
             nav.mobile-open { display: flex; }
             nav .nav-tab { width: 100%; text-align: left; padding: 12px 16px; font-size: 15px; }
@@ -313,109 +283,23 @@
             header { padding: 14px 18px; }
             main { padding: 14px; }
         }
-
-        @media (max-width: 640px) {
-            .card { padding: 16px; }
-            .logo img { height: 34px; }
-            .btn-wallet, .wallet-select, .btn-new-wallet, .btn-disconnect { font-size: 12px; padding: 8px 10px; }
-            .status-pill { font-size: 10px; padding: 4px 8px; }
-            .hamburger-btn { padding: 8px 12px; font-size: 18px; }
-        }
-    
-
-        /* Match the Blastrr homepage wordmark and lightning mark */
-        .logo{display:flex;align-items:center;gap:10px;text-decoration:none;white-space:nowrap}
-        .logo .brand-mark{display:grid;place-items:center;flex:0 0 34px;width:34px;height:34px;border-radius:11px;background:linear-gradient(145deg,#bd91ff,#6424e8);color:#fff;box-shadow:0 0 28px rgba(142,72,255,.35);font-size:20px;line-height:1;clip-path:polygon(40% 0,100% 0,64% 43%,91% 43%,23% 100%,40% 55%,12% 55%);text-shadow:none}
-        @media(max-width:640px){.logo .brand-mark{flex-basis:30px;width:30px;height:30px;font-size:18px}}
-
-        /* BLASTRR VISUAL REFRESH — presentation-only overrides; application logic unchanged */
-        :root{color-scheme:dark;--bl-bg:#07070d;--bl-panel:rgba(17,16,29,.84);--bl-line:rgba(173,126,255,.20);--bl-purple:#8d4dff;--bl-purple2:#c3a0ff;--bl-text:#f6f3ff;--bl-muted:#a7a1bd;--bl-green:#68f0c0}
-        html{scroll-behavior:smooth;scroll-padding-top:100px;background:var(--bl-bg)}
-        body{font-family:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:radial-gradient(ellipse at 78% 0%,rgba(104,44,206,.16),transparent 33%),radial-gradient(ellipse at 3% 42%,rgba(72,40,144,.11),transparent 30%),#07070d;color:var(--bl-text);min-height:100vh}
-        body:before{content:"";position:fixed;inset:0;z-index:-1;pointer-events:none;opacity:.24;background-image:linear-gradient(rgba(178,145,255,.045) 1px,transparent 1px),linear-gradient(90deg,rgba(178,145,255,.045) 1px,transparent 1px);background-size:46px 46px;mask-image:linear-gradient(to bottom,black,transparent 80%)}
-        ::selection{background:rgba(141,77,255,.42);color:#fff}::-webkit-scrollbar-track{background:#080710}::-webkit-scrollbar-thumb{background:linear-gradient(#8d4dff,#432080);border-radius:99px}
-        header{min-height:78px;padding:13px clamp(14px,2.6vw,34px);gap:18px;background:rgba(7,7,13,.84);backdrop-filter:blur(22px);-webkit-backdrop-filter:blur(22px);border-bottom:1px solid rgba(174,130,255,.16);box-shadow:0 8px 30px rgba(0,0,0,.16)}
-        .logo{font-size:22px;font-weight:900;letter-spacing:.1em;color:#f7f2ff;text-shadow:0 0 24px rgba(145,76,255,.34);gap:11px}
-        .logo img{height:39px;max-width:150px;object-fit:contain;filter:drop-shadow(0 0 12px rgba(154,91,255,.22))}
-        nav{gap:5px}
-        .nav-tab{color:#aaa4c2;background:rgba(255,255,255,.018);border:1px solid transparent;border-radius:11px;padding:10px 12px;font-size:12px;font-weight:700;transition:background .2s,border-color .2s,color .2s,transform .2s;box-shadow:none}
-        .nav-tab:hover{color:#fff;background:rgba(141,77,255,.10);border-color:rgba(173,126,255,.22);transform:translateY(-1px)}
-        .nav-tab.active{color:#fff;background:linear-gradient(120deg,rgba(141,77,255,.92),rgba(91,42,179,.84));border-color:rgba(200,169,255,.42);box-shadow:0 6px 24px rgba(116,53,225,.24),inset 0 1px rgba(255,255,255,.16)}
-        .nav-tab.admin-tab{background:rgba(220,38,38,.08);border-color:rgba(248,113,113,.18)}
-        .nav-tab.admin-tab.active{background:linear-gradient(120deg,#b91c1c,#7f1d1d)}
-        .hamburger-btn{background:rgba(141,77,255,.13);border:1px solid var(--bl-line);border-radius:11px;color:#fff;box-shadow:none}
-        .header-actions{gap:8px}
-        button,.btn-wallet,.btn-new-wallet,.btn-disconnect,.wallet-select,.btn-buy,.btn-sell{font-family:inherit;border-radius:11px;transition:transform .2s,border-color .2s,box-shadow .2s,background .2s}
-        button:focus-visible,select:focus-visible,input:focus-visible{outline:2px solid #b58aff;outline-offset:2px}
-        .btn-wallet{background:linear-gradient(115deg,#9654ff,#6428d9);border:1px solid rgba(204,174,255,.38);color:#fff;padding:11px 16px;font-size:12.5px;font-weight:800;box-shadow:0 8px 24px rgba(109,45,218,.2),inset 0 1px rgba(255,255,255,.13)}
-        .btn-wallet:hover{background:linear-gradient(115deg,#a66cff,#753be9);box-shadow:0 10px 30px rgba(120,52,235,.36)}
-        .btn-new-wallet{background:rgba(70,111,255,.12);border-color:rgba(102,145,255,.28);color:#a9c2ff}
-        .btn-disconnect{background:rgba(220,38,38,.1);border-color:rgba(248,113,113,.25);color:#ffaaaa}
-        .wallet-select{background:#151024;border-color:rgba(173,126,255,.25);color:#d9c8ff}
-        .status-pill{padding:7px 11px;border-radius:999px;background:rgba(255,255,255,.035);border:1px solid rgba(255,255,255,.09);color:#a9a2bc;font-size:10px;letter-spacing:.09em}
-        .status-pill.connected{background:rgba(50,210,154,.09);border-color:rgba(104,240,192,.25);color:#75f2c4;box-shadow:0 0 18px rgba(60,220,165,.07)}
-        main{width:100%;max-width:1560px;margin:0 auto;padding:30px clamp(14px,2.4vw,34px) 56px}
-        .view-panel.active{animation:blastrrIn .32s ease-out}@keyframes blastrrIn{from{opacity:.55;transform:translateY(7px)}to{opacity:1;transform:none}}
-        .card{position:relative;background:linear-gradient(145deg,rgba(22,20,36,.88),rgba(11,11,19,.91));backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);border:1px solid rgba(173,126,255,.17);border-radius:19px;padding:clamp(16px,2vw,25px);margin-bottom:20px;box-shadow:0 18px 55px rgba(0,0,0,.23),inset 0 1px rgba(255,255,255,.025)}
-        .card:before{content:"";position:absolute;inset:0 18% auto;height:1px;background:linear-gradient(90deg,transparent,rgba(190,151,255,.25),transparent);pointer-events:none}
-        .card-title{color:#f7f3ff;font-size:15px;font-weight:800;letter-spacing:-.025em;margin-bottom:18px;gap:12px}
-        .trade-grid{grid-template-columns:minmax(0,2.1fr) minmax(300px,.9fr);gap:20px;align-items:start}
-        .grid-3{gap:16px}.plans-grid{gap:16px}
-        .form-group{margin-bottom:17px}.form-group label{color:#aaa2c3;font-size:10px;letter-spacing:.11em;margin-bottom:8px}
-        .form-group input,.form-group select,select,input,textarea{font-family:inherit;background:rgba(5,5,12,.72);border:1px solid rgba(173,126,255,.18);color:#f5f0ff;border-radius:11px;padding:12px 13px;max-width:100%}
-        .form-group input:focus,.form-group select:focus{outline:none;border-color:#9d69ff;box-shadow:0 0 0 3px rgba(141,77,255,.14)}
-        input::placeholder,textarea::placeholder{color:#68627e}
-        select option{background:#100e1a;color:#f5f0ff}
-        .btn-buy{width:100%;background:linear-gradient(115deg,#22bd91,#087d65);border:1px solid rgba(104,240,192,.34);color:#fff;padding:13px;font-weight:850;box-shadow:0 8px 24px rgba(13,157,115,.12),inset 0 1px rgba(255,255,255,.12)}
-        .btn-buy:hover{box-shadow:0 10px 28px rgba(13,190,139,.23);filter:brightness(1.08)}
-        .btn-sell{width:100%;background:linear-gradient(115deg,#ff638e,#a91f50);border:1px solid rgba(255,126,164,.34);color:#fff;padding:13px;font-weight:850;box-shadow:0 8px 24px rgba(200,30,85,.12),inset 0 1px rgba(255,255,255,.12)}
-        .btn-sell:hover{box-shadow:0 10px 28px rgba(230,45,103,.23);filter:brightness(1.08)}
-        .table-responsive{border:1px solid rgba(173,126,255,.13);border-radius:13px;background:rgba(4,4,10,.24)}
-        table{font-size:12px;min-width:620px;border-collapse:separate;border-spacing:0}
-        th{background:rgba(125,70,220,.10);color:#aaa2c3;padding:13px 14px;border-bottom:1px solid rgba(173,126,255,.17);font-size:10px;letter-spacing:.1em}
-        td{padding:13px 14px;border-bottom:1px solid rgba(173,126,255,.09);color:#ded8ee}
-        tbody tr:last-child td{border-bottom:0}tbody tr:hover td{background:rgba(141,77,255,.045)}
-        .view-panel h1,.view-panel h2,.view-panel h3{letter-spacing:-.035em}
-        .view-panel p{line-height:1.65}
-        #tradingview-widget-container{border:1px solid rgba(173,126,255,.14);background:#080811;box-shadow:inset 0 0 30px rgba(120,65,200,.04)}
-        #active-account-select{max-width:100%;background:#100e1a!important;border-color:rgba(173,126,255,.2)!important}
-        .trade-grid>div{min-width:0}
-        .view-panel .card-title button{flex-shrink:0}
-        /* Make the actual trading workspace adapt cleanly from desktop to narrow phones. */
-        @media (max-width:1250px){header{flex-wrap:wrap}.trade-grid{grid-template-columns:minmax(0,1.6fr) minmax(285px,.9fr);gap:15px}.nav-tab{padding:9px 10px;font-size:11.5px}.logo{font-size:20px}.header-actions{gap:6px}}
-        @media (max-width:900px){header{position:sticky;padding:12px 15px;gap:12px}.logo{font-size:18px}.logo img{height:34px}nav{gap:4px;flex-wrap:wrap}.nav-tab{font-size:11px;padding:8px 9px}.header-actions{margin-left:auto}.trade-grid{grid-template-columns:1fr}.trade-grid>div{min-width:0}main{padding:20px 15px 40px}.card{margin-bottom:16px}.view-panel #tradingview-widget-container{height:430px!important}}
-        @media (max-width:640px){
-          header{min-height:65px;display:flex;flex-wrap:nowrap;padding:10px 12px;gap:9px}
-          .logo{font-size:16px;gap:7px;letter-spacing:.07em}.logo img{height:31px;max-width:105px}
-          #nav-menu{display:none;position:absolute;left:10px;right:10px;top:calc(100% + 8px);z-index:1200;flex-direction:column;align-items:stretch;justify-content:flex-start;gap:5px;padding:10px;border:1px solid rgba(173,126,255,.24);border-radius:16px;background:rgba(10,9,18,.97);backdrop-filter:blur(22px);box-shadow:0 18px 55px rgba(0,0,0,.55)}
-          #nav-menu.mobile-open,#nav-menu.show,#nav-menu.active{display:flex}
-          #nav-menu .nav-tab{width:100%;text-align:left;padding:12px 13px;font-size:12px;border-radius:10px}
-          .header-actions{gap:6px;min-width:0}.status-pill{font-size:8px;padding:6px 7px;letter-spacing:.04em}.btn-wallet{padding:9px 10px;font-size:11px}.btn-new-wallet,.btn-disconnect{padding:8px 9px;font-size:10px}.wallet-select{max-width:105px;padding:7px;font-size:10px}.hamburger-btn{display:block;padding:8px 10px;font-size:18px}
-          main{padding:14px 10px 32px}.card{padding:15px;border-radius:15px;margin-bottom:13px}.card-title{font-size:14px;margin-bottom:14px;align-items:flex-start}.trade-grid{display:grid;grid-template-columns:minmax(0,1fr);gap:0}.trade-grid>div{width:100%;min-width:0}.view-panel #tradingview-widget-container{height:360px!important;min-height:320px}.view-panel .card-title>div{max-width:100%}.view-panel .card-title select{max-width:48vw!important}
-          .form-group input,.form-group select,select,input{font-size:16px} /* prevent iOS zoom on focus */
-          .grid-3,.plans-grid{grid-template-columns:minmax(0,1fr);gap:12px}
-          .table-responsive{max-width:100%;overflow-x:auto}table{min-width:620px;font-size:11px}th,td{padding:11px 10px}
-          .btn-buy,.btn-sell{padding:14px;font-size:13px}.view-panel .card-title{flex-wrap:wrap}.view-panel .card-title>div{display:flex;flex-wrap:wrap;align-items:center;gap:7px!important}
-          .view-panel .card-title button{font-size:10px!important}.status-pill{max-width:92px;overflow:hidden;text-overflow:ellipsis}
-        }
-        @media (max-width:390px){.logo{font-size:14px}.logo img{height:27px;max-width:82px}.status-pill{display:none}.btn-wallet{padding:8px;font-size:10px}.header-actions{gap:5px}.view-panel #tradingview-widget-container{height:320px!important}.card{padding:12px}main{padding-left:8px;padding-right:8px}}
-        @media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}*,*:before,*:after{animation-duration:.01ms!important;transition-duration:.01ms!important}}
-
     </style>
 </head>
 <body>
 
     <header>
-        <a class="logo" href="/" aria-label="Blastrr home">
+        <a class="logo" href="index.html" aria-label="Blastrr home">
             <span class="brand-mark" aria-hidden="true">ϟ</span>
             <span>BLASTRR</span>
         </a>
 
+        <!-- NAVIGATION WITH CROSS-PAGE LINKS -->
         <nav id="nav-menu">
-            <button class="nav-tab active" onclick="switchView('tradeView'); toggleMobileMenu(true);">Trade</button>
+            <button class="nav-tab active" onclick="switchView('tradeView'); toggleMobileMenu(true);">📈 Spot Terminal</button>
+            <a href="perps.html" class="nav-tab">⚡ Perpetual Futures</a>
             <button class="nav-tab" onclick="switchView('accountsView'); toggleMobileMenu(true);">My Accounts</button>
             <button class="nav-tab" onclick="switchView('leaderboardView'); toggleMobileMenu(true);">🏆 Leaderboard</button>
-            <button class="nav-tab" onclick="switchView('profileView'); toggleMobileMenu(true);">👤 My Profile & Promos</button>
+            <button class="nav-tab" onclick="switchView('profileView'); toggleMobileMenu(true);">👤 Profile & Promos</button>
             <button class="nav-tab" onclick="switchView('buyView'); toggleMobileMenu(true);">Buy Plans</button>
             <button id="admin-nav-item" class="nav-tab admin-tab" onclick="switchView('adminView'); toggleMobileMenu(true);">🛡️ Admin Control</button>
         </nav>
@@ -431,13 +315,13 @@
     </header>
 
     <main>
-        <!-- 1. TRADE VIEW -->
+        <!-- 1. SPOT TRADE VIEW -->
         <section id="tradeView" class="view-panel active">
             <div class="trade-grid">
                 <div>
                     <div class="card">
                         <div class="card-title">
-                            <span id="chart-title">TradingView Chart Terminal</span>
+                            <span id="chart-title">TradingView Spot Terminal</span>
                             <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
                                 <button class="btn-wallet" style="padding: 5px 10px; font-size: 11px;" onclick="manualRefreshData()">🔄 Refresh</button>
                                 <label style="font-size: 11px; color: #9ca3af; text-transform: uppercase; font-weight: 700;">Active Account:</label>
@@ -450,7 +334,7 @@
                     </div>
 
                     <div class="card">
-                        <div class="card-title">Open Positions & PnL</div>
+                        <div class="card-title">Open Spot Positions & PnL</div>
                         <div class="table-responsive">
                             <table>
                                 <thead>
@@ -475,7 +359,7 @@
 
                 <div>
                     <div class="card">
-                        <div class="card-title">Order Execution</div>
+                        <div class="card-title">Spot Order Execution</div>
                         <div class="form-group">
                             <label>Market Selection (Binance Pairs)</label>
                             <select id="order-symbol" onchange="onSymbolChanged(this.value)">
@@ -569,7 +453,7 @@
             </div>
         </section>
 
-        <!-- 4. PROFILE & PROMOS VIEW -->
+        <!-- 4. PROFILE VIEW -->
         <section id="profileView" class="view-panel">
             <div class="card">
                 <div class="card-title">
@@ -640,7 +524,6 @@
             <div class="card">
                 <div class="card-title">Evaluation Plans Marketplace</div>
                 
-                <!-- Payment Network Selector Dropdown -->
                 <div class="form-group" style="max-width: 420px; margin-bottom: 24px;">
                     <label>Select Payment Network (USDT / Token Chain)</label>
                     <select id="payment-chain-select" style="background: rgba(5,7,11,0.9); border: 1px solid rgba(255,255,255,0.1); color: white; padding: 10px; border-radius: 8px; width: 100%;">
@@ -712,7 +595,6 @@
         
         const TREASURY_WALLET = "0x8632fa855d5dc6b59a3cf892d72cf4a94f182aae";
 
-        // Supported EVM Chains Configuration on Frontend (including NullNet)
         const SUPPORTED_EVM_CHAINS = {
             1: { name: "Ethereum Mainnet", chainIdHex: "0x1", usdtAddress: "0xdac17f958d2ee523a2206206994597c13d831ec7" },
             8453: { name: "Base", chainIdHex: "0x2105", usdtAddress: "0xfde4c96c8593536e31f229ea8f37b2ada2699bb2" },
@@ -728,9 +610,7 @@
             startLivePricePolling("BTCUSDT");
 
             autoSyncInterval = setInterval(() => {
-                if (connectedWallet) {
-                    silentSyncUserData(connectedWallet);
-                }
+                if (connectedWallet) silentSyncUserData(connectedWallet);
             }, 5000);
 
             const urlParams = new URLSearchParams(window.location.search);
@@ -763,11 +643,7 @@
                 return;
             }
             nav.classList.toggle('mobile-open');
-            if (nav.classList.contains('mobile-open')) {
-                hamburger.innerText = '✕';
-            } else {
-                hamburger.innerText = '☰';
-            }
+            hamburger.innerText = nav.classList.contains('mobile-open') ? '✕' : '☰';
         }
 
         function initTradingViewWidget(symbol) {
@@ -816,13 +692,9 @@
                 if (data && data.price) {
                     currentLivePrice = parseFloat(data.price);
                     document.getElementById('order-price').value = currentLivePrice;
-                    if (selectedAccountId) {
-                        loadOpenTrades(selectedAccountId);
-                    }
+                    if (selectedAccountId) loadOpenTrades(selectedAccountId);
                 }
-            } catch (err) {
-                console.error("Failed to fetch live price from Binance:", err);
-            }
+            } catch (err) { console.error("Price fetch error:", err); }
         }
 
         function switchView(viewId) {
@@ -831,13 +703,9 @@
             document.getElementById(viewId).classList.add('active');
             Array.from(document.querySelectorAll('.nav-tab')).find(t => t.getAttribute('onclick')?.includes(viewId))?.classList.add('active');
 
-            if (viewId === 'adminView') {
-                loadAdminWithdrawals();
-            } else if (viewId === 'leaderboardView') {
-                loadLeaderboard(currentLeaderboardMode);
-            } else if (viewId === 'accountsView' && connectedWallet) {
-                loadUserAccounts(connectedWallet);
-            }
+            if (viewId === 'adminView') loadAdminWithdrawals();
+            else if (viewId === 'leaderboardView') loadLeaderboard(currentLeaderboardMode);
+            else if (viewId === 'accountsView' && connectedWallet) loadUserAccounts(connectedWallet);
         }
 
         function switchLeaderboardMode(mode) {
@@ -877,7 +745,6 @@
         function renderLeaderboardTable(dataRows) {
             const tbody = document.getElementById('leaderboard-table-body');
             tbody.innerHTML = '';
-
             const myRankLabel = document.getElementById('lb-my-rank-label');
             myRankLabel.style.display = 'none';
 
@@ -927,7 +794,6 @@
                 renderLeaderboardTable(rawLeaderboardData);
                 return;
             }
-
             const filtered = rawLeaderboardData.filter(row => 
                 row.username.toLowerCase().includes(query) || row.discount_code.toLowerCase().includes(query)
             );
@@ -968,14 +834,11 @@
             try {
                 const accounts = await provider.request({ method: 'eth_requestAccounts' });
                 if (!accounts || accounts.length === 0) return;
-                
                 availableWallets = accounts;
                 connectedWallet = accounts[0];
-
                 updateWalletUIState(true);
                 updateWalletDropdown();
                 onWalletSwitched(connectedWallet);
-
             } catch (err) { console.error("Wallet Connection Error:", err); }
         }
 
@@ -983,24 +846,19 @@
             const provider = getProvider();
             if (!provider) { alert("No Web3 wallet found!"); return; }
             try {
-                const permissions = await provider.request({
-                    method: 'wallet_requestPermissions',
-                    params: [{ eth_accounts: {} }]
-                });
-                
+                const permissions = await provider.request({ method: 'wallet_requestPermissions', params: [{ eth_accounts: {} }] });
                 const accountsPermission = permissions.find(p => p.parentCapability === 'eth_accounts');
                 if (accountsPermission) {
                     const accounts = await provider.request({ method: 'eth_accounts' });
                     if (accounts && accounts.length > 0) {
                         availableWallets = accounts;
                         connectedWallet = accounts[0];
-
                         updateWalletUIState(true);
                         updateWalletDropdown();
                         onWalletSwitched(connectedWallet);
                     }
                 }
-            } catch (err) { console.error("Request Permissions Error:", err); }
+            } catch (err) { console.error(err); }
         }
 
         function updateWalletDropdown() {
@@ -1013,33 +871,18 @@
         }
 
         function updateWalletUIState(isConnected) {
-            const connectBtn = document.getElementById('connect-btn');
-            const walletSelect = document.getElementById('wallet-select');
-            const connectNewBtn = document.getElementById('connect-new-btn');
-            const disconnectBtn = document.getElementById('disconnect-btn');
+            document.getElementById('connect-btn').style.display = isConnected ? 'none' : 'inline-block';
+            document.getElementById('wallet-select').style.display = isConnected ? 'inline-block' : 'none';
+            document.getElementById('connect-new-btn').style.display = isConnected ? 'inline-block' : 'none';
+            document.getElementById('disconnect-btn').style.display = isConnected ? 'inline-block' : 'none';
             const statusPill = document.getElementById('wallet-status');
-
-            if (isConnected) {
-                connectBtn.style.display = 'none';
-                walletSelect.style.display = 'inline-block';
-                connectNewBtn.style.display = 'inline-block';
-                disconnectBtn.style.display = 'inline-block';
-                statusPill.innerText = "Connected";
-                statusPill.classList.add("connected");
-            } else {
-                connectBtn.style.display = 'inline-block';
-                walletSelect.style.display = 'none';
-                connectNewBtn.style.display = 'none';
-                disconnectBtn.style.display = 'none';
-                statusPill.innerText = "Disconnected";
-                statusPill.classList.remove("connected");
-            }
+            statusPill.innerText = isConnected ? "Connected" : "Disconnected";
+            statusPill.classList.toggle("connected", isConnected);
         }
 
         function onWalletSwitched(walletAddress) {
             if (!walletAddress) return;
             connectedWallet = walletAddress;
-
             checkRole(connectedWallet);
             loadUserAccounts(connectedWallet);
             loadUserProfile(connectedWallet);
@@ -1065,10 +908,7 @@
                         if (acc.id === selectedAccountId) activeAccount = acc;
                         selectHtml += `<option value="${acc.id}" ${acc.id === selectedAccountId ? 'selected' : ''}>${acc.plan_name} (${acc.id}) - Bal: $${acc.current_balance.toLocaleString()}</option>`;
                     });
-
-                    if (selectElem.innerHTML !== selectHtml) {
-                        selectElem.innerHTML = selectHtml;
-                    }
+                    if (selectElem.innerHTML !== selectHtml) selectElem.innerHTML = selectHtml;
 
                     if (currentSelected && userAccounts.some(a => a.id === currentSelected)) {
                         selectElem.value = currentSelected;
@@ -1082,9 +922,7 @@
                     loadOpenTrades(selectedAccountId);
                 }
 
-                if (document.getElementById('accountsView').classList.contains('active')) {
-                    renderAccountsPortfolioFlickerFree();
-                }
+                if (document.getElementById('accountsView').classList.contains('active')) renderAccountsPortfolioFlickerFree();
             } catch (err) { console.error("Auto-sync error:", err); }
         }
 
@@ -1104,11 +942,8 @@
             currentUserProfile = null;
 
             updateWalletUIState(false);
-
             document.getElementById('admin-nav-item').style.display = 'none';
-            if (document.getElementById('adminView').classList.contains('active')) {
-                switchView('tradeView');
-            }
+            if (document.getElementById('adminView').classList.contains('active')) switchView('tradeView');
 
             document.getElementById('active-account-select').innerHTML = '<option value="">No Accounts Available</option>';
             document.getElementById('accounts-portfolio-container').innerHTML = '<p style="text-align: center; color: #6b7280; padding: 30px;">Connect wallet to view your accounts.</p>';
@@ -1124,11 +959,7 @@
         async function checkRole(wallet) {
             const res = await fetch(`/api/auth/role?wallet=${wallet}`);
             const data = await res.json();
-            if (data.isAdmin) {
-                document.getElementById('admin-nav-item').style.display = 'inline-block';
-            } else {
-                document.getElementById('admin-nav-item').style.display = 'none';
-            }
+            document.getElementById('admin-nav-item').style.display = data.isAdmin ? 'inline-block' : 'none';
         }
 
         async function loadUserAccounts(wallet) {
@@ -1138,16 +969,13 @@
 
         async function renderAccountsPortfolioFlickerFree() {
             const container = document.getElementById('accounts-portfolio-container');
-
             if (userAccounts.length === 0) {
                 container.innerHTML = '<p style="text-align: center; color: #6b7280; padding: 30px;">No accounts found. Purchase a plan in the marketplace!</p>';
                 return;
             }
 
             const emptyStateMsg = container.querySelector('p');
-            if (emptyStateMsg && emptyStateMsg.innerText.includes('No accounts found')) {
-                container.innerHTML = '';
-            }
+            if (emptyStateMsg && emptyStateMsg.innerText.includes('No accounts found')) container.innerHTML = '';
 
             for (const acc of userAccounts) {
                 const detailsRes = await fetch(`/api/accounts/details?account_id=${acc.id}`);
@@ -1156,7 +984,6 @@
                 const trades = details.trades;
 
                 let cardElem = document.getElementById(`acc-card-${acc.id}`);
-
                 if (!cardElem) {
                     const cardHtml = `
                         <div id="acc-card-${acc.id}" class="card" style="background: rgba(8, 12, 18, 0.85); border: 1px solid rgba(255, 255, 255, 0.05); margin-bottom: 24px;">
@@ -1228,13 +1055,10 @@
 
                 document.getElementById(`p-prog-val-${acc.id}`).innerText = `${m.profitProgress}%`;
                 document.getElementById(`p-prog-bar-${acc.id}`).style.width = `${m.profitProgress}%`;
-
                 document.getElementById(`dll-prog-val-${acc.id}`).innerText = `${m.dllProgress}%`;
                 document.getElementById(`dll-prog-bar-${acc.id}`).style.width = `${m.dllProgress}%`;
-
                 document.getElementById(`dd-prog-val-${acc.id}`).innerText = `${m.ddProgress}%`;
                 document.getElementById(`dd-prog-bar-${acc.id}`).style.width = `${m.ddProgress}%`;
-
                 document.getElementById(`bal-val-${acc.id}`).innerText = `$${acc.current_balance.toLocaleString()}`;
                 document.getElementById(`cs-val-${acc.id}`).innerText = `${m.consistencyScore}%`;
                 document.getElementById(`status-val-${acc.id}`).innerText = acc.status;
@@ -1270,11 +1094,7 @@
             try {
                 const detailsRes = await fetch(`/api/accounts/details?account_id=${accountId}`);
                 const details = await detailsRes.json();
-                
-                if (!details || !details.account) {
-                    alert("Could not fetch account details.");
-                    return;
-                }
+                if (!details || !details.account) { alert("Could not fetch account details."); return; }
 
                 const acc = details.account;
                 const initialCapital = acc.initial_balance || 25000;
@@ -1284,30 +1104,18 @@
 
                 if (currentBalance < targetThreshold) {
                     const shortFall = targetThreshold - currentBalance;
-                    alert(
-                        `Account not ready for withdrawal. Please meet the minimum requirements before making a withdrawal.\n\n` +
-                        `• Initial Capital: $${initialCapital.toLocaleString()}\n` +
-                        `• Required Target Balance: $${targetThreshold.toLocaleString()}\n` +
-                        `• Current Balance: $${currentBalance.toLocaleString()}\n` +
-                        `• Profit Still Needed: $${shortFall.toLocaleString()} USDT`
-                    );
+                    alert(`Account not ready for withdrawal.\n\n• Required Target Balance: $${targetThreshold.toLocaleString()}\n• Current Balance: $${currentBalance.toLocaleString()}\n• Still Needed: $${shortFall.toLocaleString()} USDT`);
                     return;
                 }
 
                 const netProfit = currentBalance - initialCapital;
                 const maxPayout = netProfit * 0.50;
-
-                const amountInput = prompt(`Target reached! 50% Payout Limit: $${maxPayout.toLocaleString()} USDT.\nEnter USDT amount to withdraw:`);
+                const amountInput = prompt(`Target reached! 50% Payout Limit: $${maxPayout.toLocaleString()} USDT.\nEnter USDT amount:`);
                 if (!amountInput) return;
                 const amount = parseFloat(amountInput);
 
-                if (isNaN(amount) || amount <= 0) {
-                    alert("Please enter a valid amount.");
-                    return;
-                }
-
-                if (amount > maxPayout) {
-                    alert(`Withdrawal exceeds your 50% profit split limit of $${maxPayout.toLocaleString()} USDT.`);
+                if (isNaN(amount) || amount <= 0 || amount > maxPayout) {
+                    alert("Invalid amount or exceeds your limit.");
                     return;
                 }
 
@@ -1317,33 +1125,16 @@
                     body: JSON.stringify({ account_id: accountId, wallet_address: connectedWallet, amount })
                 });
                 const data = await res.json();
-
-                if (data.success) {
-                    alert("Withdrawal request submitted successfully!");
-                    loadUserAccounts(connectedWallet);
-                } else {
-                    alert("Error: " + data.error);
-                }
-            } catch (err) {
-                console.error(err);
-                alert("Failed to process withdrawal request.");
-            }
+                if (data.success) { alert("Withdrawal requested!"); loadUserAccounts(connectedWallet); }
+                else alert("Error: " + data.error);
+            } catch (err) { console.error(err); }
         }
 
         async function requestCommissionWithdrawal() {
-            const amountInput = prompt(`Enter commission USDT amount to withdraw (Available: $${availableCommissionBalance.toFixed(2)}):`);
+            const amountInput = prompt(`Enter commission USDT amount (Available: $${availableCommissionBalance.toFixed(2)}):`);
             if (!amountInput) return;
             const amount = parseFloat(amountInput);
-
-            if (isNaN(amount) || amount <= 0) {
-                alert("Please enter a valid amount.");
-                return;
-            }
-
-            if (amount > availableCommissionBalance) {
-                alert("Amount exceeds available commission balance.");
-                return;
-            }
+            if (isNaN(amount) || amount <= 0 || amount > availableCommissionBalance) { alert("Invalid amount."); return; }
 
             try {
                 const res = await fetch('/api/referrals/withdraw', {
@@ -1352,13 +1143,8 @@
                     body: JSON.stringify({ wallet_address: connectedWallet, amount })
                 });
                 const data = await res.json();
-
-                if (data.success) {
-                    alert("Commission withdrawal request submitted successfully!");
-                    loadUserProfile(connectedWallet);
-                } else {
-                    alert("Error: " + data.error);
-                }
+                if (data.success) { alert("Commission withdrawal submitted!"); loadUserProfile(connectedWallet); }
+                else alert("Error: " + data.error);
             } catch (err) { console.error(err); }
         }
 
@@ -1375,17 +1161,11 @@
                 }
 
                 data.withdrawals.forEach(w => {
-                    let statusColor = '#fbbf24';
-                    if (w.status === 'PAID') statusColor = '#34d399';
-                    if (w.status === 'REJECTED') statusColor = '#ef4444';
-
-                    let actionsHtml = `<span style="color: #9ca3af;">Processed</span>`;
-                    if (w.status === 'PENDING') {
-                        actionsHtml = `
-                            <button class="btn-wallet" style="padding: 4px 10px; font-size: 11px; background: #059669;" onclick="processWithdrawal('${w.id}', 'PAID', '${w.type}')">Mark Paid</button>
-                            <button class="btn-sell" style="padding: 4px 10px; font-size: 11px;" onclick="processWithdrawal('${w.id}', 'REJECT', '${w.type}')">Reject</button>
-                        `;
-                    }
+                    let statusColor = w.status === 'PAID' ? '#34d399' : (w.status === 'REJECTED' ? '#ef4444' : '#fbbf24');
+                    let actionsHtml = w.status === 'PENDING' ? `
+                        <button class="btn-wallet" style="padding: 4px 10px; font-size: 11px; background: #059669;" onclick="processWithdrawal('${w.id}', 'PAID', '${w.type}')">Mark Paid</button>
+                        <button class="btn-sell" style="padding: 4px 10px; font-size: 11px;" onclick="processWithdrawal('${w.id}', 'REJECT', '${w.type}')">Reject</button>
+                    ` : `<span style="color: #9ca3af;">Processed</span>`;
 
                     tbody.innerHTML += `
                         <tr>
@@ -1404,7 +1184,6 @@
 
         async function processWithdrawal(withdrawalId, action, type) {
             if (!confirm(`Are you sure you want to mark this withdrawal as ${action}?`)) return;
-
             try {
                 const res = await fetch('/api/admin/withdrawals/action', {
                     method: 'POST',
@@ -1412,13 +1191,8 @@
                     body: JSON.stringify({ withdrawal_id: withdrawalId, action, type })
                 });
                 const data = await res.json();
-
-                if (data.success) {
-                    alert(data.message);
-                    loadAdminWithdrawals();
-                } else {
-                    alert("Error: " + data.error);
-                }
+                if (data.success) { alert(data.message); loadAdminWithdrawals(); }
+                else alert("Error: " + data.error);
             } catch (err) { console.error(err); }
         }
 
@@ -1439,12 +1213,7 @@
         }
 
         function updateAvailableBalanceLabel() {
-            const lbl = document.getElementById('available-bal-label');
-            if (activeAccount) {
-                lbl.innerText = `Available Balance: $${activeAccount.current_balance.toLocaleString()}`;
-            } else {
-                lbl.innerText = `Available Balance: $0.00`;
-            }
+            document.getElementById('available-bal-label').innerText = activeAccount ? `Available Balance: $${activeAccount.current_balance.toLocaleString()}` : `Available Balance: $0.00`;
         }
 
         async function loadOpenTrades(accountId) {
@@ -1481,24 +1250,15 @@
         }
 
         async function executeTrade(side) {
-            if (!selectedAccountId || !activeAccount) {
-                alert("Please select or purchase an active trading account first!");
-                return;
-            }
-
+            if (!selectedAccountId || !activeAccount) { alert("Please select or purchase an active trading account first!"); return; }
             const symbol = document.getElementById('order-symbol').value;
             const price = currentLivePrice || parseFloat(document.getElementById('order-price').value);
             const sizeUsd = parseFloat(document.getElementById('order-size-usd').value);
             const sl = parseFloat(document.getElementById('order-sl').value) || null;
             const tp = parseFloat(document.getElementById('order-tp').value) || null;
 
-            if (!sizeUsd || sizeUsd <= 0) {
-                alert("Please enter a valid position size in USD.");
-                return;
-            }
-
-            if (sizeUsd > activeAccount.current_balance) {
-                alert(`Insufficient balance! You only have $${activeAccount.current_balance.toFixed(2)} available.`);
+            if (!sizeUsd || sizeUsd <= 0 || sizeUsd > activeAccount.current_balance) {
+                alert("Please check position size and balance.");
                 return;
             }
 
@@ -1509,19 +1269,13 @@
                     body: JSON.stringify({ account_id: selectedAccountId, symbol, side, price, size_usd: sizeUsd, sl, tp })
                 });
                 const data = await res.json();
-
-                if (data.success) {
-                    alert(`Market order executed at $${data.execution_price.toFixed(2)} (incl. 5pt slippage)!`);
-                    loadUserAccounts(connectedWallet);
-                } else {
-                    alert("Error: " + data.error);
-                }
+                if (data.success) { alert(`Market order executed at $${data.execution_price.toFixed(2)}!`); loadUserAccounts(connectedWallet); }
+                else alert("Error: " + data.error);
             } catch (err) { console.error(err); }
         }
 
         async function closeTrade(tradeId, currentPrice) {
             if (!confirm("Are you sure you want to close this position early?")) return;
-
             try {
                 const res = await fetch('/api/trades/close', {
                     method: 'POST',
@@ -1529,14 +1283,8 @@
                     body: JSON.stringify({ trade_id: tradeId, current_market_price: currentPrice })
                 });
                 const data = await res.json();
-
-                if (data.success) {
-                    alert(`Position closed. Realized PnL: $${data.pnl.toFixed(2)}`);
-                    loadUserAccounts(connectedWallet);
-                    loadLeaderboard(currentLeaderboardMode);
-                } else {
-                    alert("Error: " + data.error);
-                }
+                if (data.success) { alert(`Position closed. Realized PnL: $${data.pnl.toFixed(2)}`); loadUserAccounts(connectedWallet); loadLeaderboard(currentLeaderboardMode); }
+                else alert("Error: " + data.error);
             } catch (err) { console.error(err); }
         }
 
@@ -1633,11 +1381,7 @@
 
         function toggleEditProfile() {
             const setupBox = document.getElementById('profile-setup-box');
-            if (setupBox.style.display === 'none') {
-                setupBox.style.display = 'block';
-            } else {
-                setupBox.style.display = 'none';
-            }
+            setupBox.style.display = setupBox.style.display === 'none' ? 'block' : 'none';
         }
 
         async function loadReferralTransactions(wallet) {
@@ -1692,19 +1436,16 @@
             }
         }
 
-        // --- MULTI-CHAIN BUY PLAN FUNCTION ---
         async function buyPlan(planId, priceUsdt) {
             if (!connectedWallet) { alert("Connect wallet first!"); return; }
             
             const selectedChainId = parseInt(document.getElementById('payment-chain-select').value);
             const chainConfig = SUPPORTED_EVM_CHAINS[selectedChainId];
-            
             if (!chainConfig) { alert("Invalid network selection."); return; }
 
             const provider = getProvider();
             if (!provider) return;
 
-            // 1. Prompt wallet to switch to selected chain
             try {
                 await provider.request({
                     method: 'wallet_switchEthereumChain',
@@ -1722,13 +1463,11 @@
             if (!confirm(`Confirm purchase for $${priceUsdt} USDT on ${chainConfig.name}?`)) return;
 
             try {
-                // 2. Format ERC-20 transfer calldata
                 const paddedRecipient = TREASURY_WALLET.toLowerCase().replace('0x', '').padStart(64, '0');
-                const rawAmount = BigInt(Math.round(priceUsdt * 1e6)); // USDT has 6 decimals on these chains
+                const rawAmount = BigInt(Math.round(priceUsdt * 1e6));
                 const amountHex = rawAmount.toString(16).padStart(64, '0');
                 const calldata = '0xa9059cbb' + paddedRecipient + amountHex;
 
-                // 3. Broadcast transaction through connected user wallet (MetaMask)
                 const txHash = await provider.request({
                     method: 'eth_sendTransaction',
                     params: [{
@@ -1740,7 +1479,6 @@
 
                 alert("Transaction submitted! Verifying on-chain...");
 
-                // 4. Send TX hash and chain ID to backend for cryptographic verification
                 const res = await fetch('/api/accounts/purchase', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -1763,7 +1501,7 @@
                 }
             } catch (err) {
                 console.error("Purchase Error:", err);
-                alert("Transaction failed or was rejected by the user.");
+                alert("Transaction failed or was rejected.");
             }
         }
     </script>

@@ -127,6 +127,7 @@ test('terminal stays black and locked until a signed wallet session is establish
   assert.match(appJs, /accepted_terms: true,[\s\S]*?simulated_funds: true/);
   assert.match(appJs, /async function buyPlan\(planId, priceUsdt\)[\s\S]*?requestPurchaseDisclaimer\(\)[\s\S]*?completePlanPurchase\(planId, amount\)/);
   assert.match(appJs, /walletSessionOwner !== owner \|\| walletSessionExpiresAt <= Date\.now\(\)/);
+  assert.match(appJs, /async function completePlanPurchase\(planId, amount\)[\s\S]*?Confirm purchase for \$\$\{amount\} USDT[\s\S]*?toTokenUnits\(amount, chainConfig\.decimals\)/);
   assert.match(appJs, /disclaimer_version: DISCLAIMER_VERSION,[\s\S]*?terms_accepted: true,[\s\S]*?simulated_funds_acknowledged: true/);
   assert.match(serverJs, /app\.get\('\/api\/user\/disclaimer-consent', requireWalletSession/);
   assert.match(serverJs, /app\.post\('\/api\/user\/disclaimer-consent', sensitiveLimiter, requireWalletSession/);
@@ -154,7 +155,7 @@ test('homepage and terminal buttons use a transparent purple-glow treatment', ()
 test('NullNet checkout uses the correct chain ID and matching wallet and verification RPC settings', () => {
   assert.match(appJs, /448000:\s*\{[\s\S]*?chainIdHex: "0x6d600"[\s\S]*?rpcUrl: "https:\/\/rpc\.lunul\.org"[\s\S]*?nativeCurrency: \{ name: "LUN", symbol: "LUN", decimals: 18 \}[\s\S]*?usdtAddress: "0x7ec3659A8225ED474D7c662126616aE08545C29b",[\s\S]*?decimals: 18/);
   assert.match(serverJs, /448000:\s*\{[\s\S]*?chainIdHex: "0x6d600"[\s\S]*?rpcUrl: "https:\/\/rpc\.lunul\.org"[\s\S]*?decimals: 18/);
-  assert.match(appJs, /const rawAmount = toTokenUnits\(priceUsdt, chainConfig\.decimals\)/);
+  assert.match(appJs, /const rawAmount = toTokenUnits\(amount, chainConfig\.decimals\)/);
   assert.match(serverJs, /rawValue >= expectedRawValue/);
   assert.match(appJs, /method: 'wallet_addEthereumChain'/);
   assert.match(appJs, /const activeChainId = BigInt\(await provider\.request\(\{ method: 'eth_chainId' \}\)\)/);

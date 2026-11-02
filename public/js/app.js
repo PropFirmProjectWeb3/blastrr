@@ -3187,11 +3187,11 @@ let connectedWallet = null;
                 return;
             }
 
-            if (!confirm(`Confirm purchase for $${priceUsdt} USDT on ${chainConfig.name}?`)) return;
+            if (!confirm(`Confirm purchase for $${amount} USDT on ${chainConfig.name}?`)) return;
 
             try {
                 const paddedRecipient = TREASURY_WALLET.toLowerCase().replace('0x', '').padStart(64, '0');
-                const rawAmount = toTokenUnits(priceUsdt, chainConfig.decimals);
+                const rawAmount = toTokenUnits(amount, chainConfig.decimals);
                 const amountHex = rawAmount.toString(16).padStart(64, '0');
                 const calldata = '0xa9059cbb' + paddedRecipient + amountHex;
 

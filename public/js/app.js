@@ -151,6 +151,13 @@ let connectedWallet = null;
             document.getElementById('disclaimer-simulated-funds')?.addEventListener('change', updateDisclaimerContinueState);
             document.getElementById('disclaimer-continue-button')?.addEventListener('click', acceptDisclaimer);
             document.getElementById('disclaimer-cancel-purchase')?.addEventListener('click', () => resolvePurchaseDisclaimer(false));
+            document.getElementById('wallet-menu-trigger')?.addEventListener('click', toggleWalletMenu);
+            document.addEventListener('click', event => {
+                if (!event.target.closest('#wallet-menu')) closeWalletMenu();
+            });
+            document.addEventListener('keydown', event => {
+                if (event.key === 'Escape') closeWalletMenu();
+            });
 
             const provider = getProvider();
             if (provider?.on) {
@@ -1490,27 +1497,53 @@ let connectedWallet = null;
             }
         }
 
+        function toggleWalletMenu() {
+            const panel = document.getElementById('wallet-menu-panel');
+            const trigger = document.getElementById('wallet-menu-trigger');
+            if (!panel || !trigger) return;
+            const isOpen = panel.hidden;
+            panel.hidden = !isOpen;
+            trigger.setAttribute('aria-expanded', String(isOpen));
+        }
+
+        function closeWalletMenu() {
+            const panel = document.getElementById('wallet-menu-panel');
+            const trigger = document.getElementById('wallet-menu-trigger');
+            if (panel) panel.hidden = true;
+            if (trigger) trigger.setAttribute('aria-expanded', 'false');
+        }
+
         function updateWalletDropdown() {
-            const walletSelect = document.getElementById('wallet-select');
-            if (!walletSelect) return;
-            walletSelect.innerHTML = '';
-            availableWallets.forEach(acc => {
-                const shortAddr = acc.substring(0, 6) + '...' + acc.slice(-4);
-                walletSelect.innerHTML += `<option value="${acc}" ${acc.toLowerCase() === connectedWallet?.toLowerCase() ? 'selected' : ''}>${shortAddr}</option>`;
+            const accounts = document.getElementById('wallet-menu-accounts');
+            const preview = document.getElementById('wallet-active-preview');
+            if (!accounts || !preview) return;
+            preview.textContent = connectedWallet
+                ? `${connectedWallet.substring(0, 6)}...${connectedWallet.slice(-4)}`
+                : 'Wallet';
+            accounts.replaceChildren();
+            availableWallets.forEach(address => {
+                const isActive = address.toLowerCase() === connectedWallet?.toLowerCase();
+                const button = document.createElement('button');
+                button.type = 'button';
+                button.className = `wallet-menu-account${isActive ? ' is-active' : ''}`;
+                button.setAttribute('aria-current', isActive ? 'true' : 'false');
+                button.textContent = `${address.substring(0, 6)}...${address.slice(-4)}`;
+                button.addEventListener('click', () => {
+                    closeWalletMenu();
+                    onWalletSwitched(address);
+                });
+                accounts.append(button);
             });
         }
 
         function updateWalletUIState(isConnected) {
             const connectBtn = document.getElementById('connect-btn');
-            const walletSelect = document.getElementById('wallet-select');
-            const newBtn = document.getElementById('connect-new-btn');
-            const discBtn = document.getElementById('disconnect-btn');
+            const walletMenu = document.getElementById('wallet-menu');
             const statusPill = document.getElementById('wallet-status');
 
             if (connectBtn) connectBtn.style.display = isConnected ? 'none' : 'inline-block';
-            if (walletSelect) walletSelect.style.display = isConnected ? 'inline-block' : 'none';
-            if (newBtn) newBtn.style.display = isConnected ? 'inline-block' : 'none';
-            if (discBtn) discBtn.style.display = isConnected ? 'inline-block' : 'none';
+            if (walletMenu) walletMenu.hidden = !isConnected;
+            if (!isConnected) closeWalletMenu();
             
             if (statusPill) {
                 statusPill.innerText = isConnected ? "Connected" : "Disconnected";

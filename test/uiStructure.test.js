@@ -15,6 +15,10 @@ test('trading terminal HTML loads its external stylesheet and application script
   assert.doesNotMatch(appHtml, /<style[\s>]/i);
   assert.doesNotMatch(appHtml, /<script>\s*[\s\S]*?\bfunction\s/m);
   assert.match(appHtml, /id="nav-menu"/);
+  assert.match(appHtml, /id="wallet-menu-trigger"[^>]*aria-haspopup="true"/);
+  assert.match(appHtml, /id="wallet-menu-accounts"/);
+  assert.match(appHtml, /onclick="closeWalletMenu\(\); connectNewWallet\(\)">＋ Add account/);
+  assert.match(appHtml, /onclick="closeWalletMenu\(\); disconnectWallet\(\)">Log out/);
   assert.match(appHtml, /id="order-symbol"/);
   assert.doesNotMatch(appHtml, /\p{Extended_Pictographic}/u);
   assert.match(appHtml, /class="hamburger-glyph"/);
@@ -134,6 +138,15 @@ test('terminal stays black and locked until a signed wallet session is establish
   assert.match(serverJs, /wallet_disclaimer_acceptances/);
   assert.match(serverJs, /req\.body\?\.disclaimer_version !== DISCLAIMER_VERSION[\s\S]*?req\.body\?\.terms_accepted !== true[\s\S]*?req\.body\?\.simulated_funds_acknowledged !== true/);
   assert.match(appJs, /if \(dashboardAuthenticated && \(!walletSessionToken \|\| walletSessionExpiresAt <= Date\.now\(\)\)\)/);
+});
+
+test('wallet switcher menu lists connected accounts before add and logout actions', () => {
+  assert.match(appJs, /availableWallets\.forEach\(address => \{[\s\S]*?accounts\.append\(button\);[\s\S]*?function updateWalletUIState/);
+  assert.match(appJs, /function toggleWalletMenu\(\)/);
+  assert.match(appJs, /function closeWalletMenu\(\)/);
+  assert.match(appHtml, /id="wallet-menu-accounts"[\s\S]*?id="connect-new-btn"[\s\S]*?id="disconnect-btn"/);
+  assert.match(appCss, /\.wallet-menu-panel\s*\{[^}]*position: absolute/);
+  assert.match(appCss, /@media \(max-width: 700px\)[\s\S]*?\.wallet-menu-panel \{ position: fixed/);
 });
 
 test('BlastrrPass content and reward fields wrap without mobile overflow', () => {

@@ -86,9 +86,19 @@
         <div class="header-actions">
             <span id="wallet-status" class="status-pill">Disconnected</span>
             <button id="connect-btn" class="btn-wallet" onclick="connectWallet()">Connect Wallet</button>
-            <select id="wallet-select" class="wallet-select" onchange="onWalletSwitched(this.value)"></select>
-            <button id="connect-new-btn" class="btn-new-wallet" onclick="connectNewWallet()">+ Add Wallet</button>
-            <button id="disconnect-btn" class="btn-disconnect" onclick="disconnectWallet()">Disconnect</button>
+            <div id="wallet-menu" class="wallet-menu" hidden>
+                <button id="wallet-menu-trigger" class="wallet-select" type="button" aria-haspopup="true" aria-expanded="false" aria-controls="wallet-menu-panel">
+                    <span id="wallet-active-preview">Wallet</span>
+                    <span class="wallet-menu-chevron" aria-hidden="true">⌄</span>
+                </button>
+                <div id="wallet-menu-panel" class="wallet-menu-panel" hidden>
+                    <p class="wallet-menu-heading">Connected accounts</p>
+                    <div id="wallet-menu-accounts" class="wallet-menu-accounts"></div>
+                    <button id="connect-new-btn" class="wallet-menu-action" type="button" onclick="closeWalletMenu(); connectNewWallet()">＋ Add account</button>
+                    <div class="wallet-menu-divider" aria-hidden="true"></div>
+                    <button id="disconnect-btn" class="wallet-menu-action wallet-menu-logout" type="button" onclick="closeWalletMenu(); disconnectWallet()">Log out</button>
+                </div>
+            </div>
             <button class="hamburger-btn" onclick="toggleMobileMenu()" id="hamburger-icon" aria-label="Open navigation menu" aria-expanded="false">
                 <span class="hamburger-glyph" aria-hidden="true"></span>
             </button>

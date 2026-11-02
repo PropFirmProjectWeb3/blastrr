@@ -283,16 +283,63 @@
         }
 
         .wallet-select {
-            background: radial-gradient(circle at center, rgba(5, 150, 105, 0.3) 0%, rgba(6, 78, 59, 0.8) 100%);
-            border: 1px solid rgba(52, 211, 153, 0.4);
-            color: #34d399;
-            padding: 9px 14px;
-            border-radius: 8px;
-            font-weight: 600;
-            font-size: 13.5px;
-            display: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 9px;
+            min-height: 40px;
+            max-width: 190px;
+            padding: 8px 12px;
+            border: 1px solid rgba(168, 85, 247, 0.42);
+            border-radius: 9px;
+            background: rgba(15, 9, 23, 0.78);
+            color: #e9d5ff;
+            font: inherit;
+            font-size: 12px;
+            font-weight: 700;
             cursor: pointer;
         }
+        .wallet-menu { position: relative; flex: 0 0 auto; }
+        .wallet-select:hover, .wallet-select:focus-visible, .wallet-select[aria-expanded="true"] { border-color: rgba(168, 85, 247, 0.82); box-shadow: 0 0 12px rgba(168, 85, 247, 0.35); outline: none; }
+        #wallet-active-preview { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .wallet-menu-chevron { color: #b985ff; font-size: 15px; line-height: 1; }
+        .wallet-menu-panel {
+            position: absolute;
+            top: calc(100% + 9px);
+            right: 0;
+            z-index: 1010;
+            width: min(300px, calc(100vw - 24px));
+            max-height: min(70vh, 430px);
+            padding: 9px;
+            overflow-y: auto;
+            border: 1px solid rgba(168, 85, 247, 0.38);
+            border-radius: 12px;
+            background: rgba(8, 6, 12, 0.99);
+            box-shadow: 0 16px 38px rgba(0, 0, 0, 0.58), 0 0 22px rgba(106, 45, 170, 0.18);
+        }
+        .wallet-menu-heading { margin: 4px 8px 8px; color: #a99bb8; font-size: 10px; font-weight: 800; letter-spacing: 0.12em; text-transform: uppercase; }
+        .wallet-menu-accounts { display: grid; gap: 4px; }
+        .wallet-menu-account, .wallet-menu-action {
+            display: flex;
+            width: 100%;
+            min-height: 42px;
+            align-items: center;
+            padding: 10px 11px;
+            border: 1px solid transparent;
+            border-radius: 8px;
+            background: transparent;
+            color: #e9e3f2;
+            font: inherit;
+            font-size: 13px;
+            text-align: left;
+            cursor: pointer;
+        }
+        .wallet-menu-account:hover, .wallet-menu-action:hover, .wallet-menu-account:focus-visible, .wallet-menu-action:focus-visible { border-color: rgba(168, 85, 247, 0.38); background: rgba(88, 42, 133, 0.2); color: #fff; outline: none; }
+        .wallet-menu-account.is-active { color: #d8b4fe; }
+        .wallet-menu-account.is-active::before { width: 7px; height: 7px; margin-right: 9px; border-radius: 50%; background: #c084fc; box-shadow: 0 0 9px rgba(192, 132, 252, 0.7); content: ""; }
+        .wallet-menu-action { margin-top: 5px; color: #d8b4fe; font-weight: 700; }
+        .wallet-menu-divider { height: 1px; margin: 7px 3px; background: rgba(190, 153, 255, 0.14); }
+        .wallet-menu-action.wallet-menu-logout { margin-top: 0; color: #fca5a5; }
+        .wallet-menu-action.wallet-menu-logout:hover { border-color: rgba(248, 113, 113, 0.3); background: rgba(127, 29, 29, 0.2); }
 
         .status-pill {
             padding: 6px 14px;
@@ -559,7 +606,9 @@
             .logo .brand-mark { flex-basis: 30px; width: 30px; height: 30px; }
             .header-actions { order: 2; flex: 1 0 100%; min-width: 0; gap: 7px; flex-wrap: wrap; justify-content: flex-start; }
             .header-actions .status-pill { padding: 5px 9px; font-size: 10px; }
-            .header-actions .btn-wallet, .header-actions .btn-new-wallet, .header-actions .btn-disconnect { padding: 9px 10px; font-size: 12px; }
+            .header-actions .btn-wallet { padding: 9px 10px; font-size: 12px; }
+            .wallet-select { max-width: min(190px, calc(100vw - 190px)); }
+            .wallet-menu-panel { position: fixed; top: auto; right: 12px; margin-top: 8px; }
             .hamburger-btn { position: absolute; top: 12px; right: 12px; min-width: 44px; min-height: 44px; padding: 9px 12px; }
             header #nav-menu { z-index: 1001; padding: 12px; background: rgba(6, 4, 10, 0.99); }
             header #nav-menu .nav-tab { min-height: 54px; padding: 14px 16px; font-size: 16px; }

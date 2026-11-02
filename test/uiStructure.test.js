@@ -89,8 +89,8 @@ test('TradingView chart uses homepage candle colors with a purple EMA overlay an
   assert.match(appJs, /"mainSeriesProperties\.candleStyle\.downColor":\s*"#ff638e"/);
   assert.match(appCss, /\.order-actions \.btn-buy\s*\{[^}]*#72f0c3/);
   assert.match(appCss, /\.order-actions \.btn-sell\s*\{[^}]*#ff638e/);
-  assert.match(appCss, /\.order-actions \.btn-buy\s*\{[^}]*rgba\(114, 240, 195, 0\.2\)[^}]*!important/);
-  assert.match(appCss, /\.order-actions \.btn-sell\s*\{[^}]*rgba\(255, 99, 142, 0\.2\)[^}]*!important/);
+  assert.match(appCss, /\.order-actions button\.btn-buy:not\(\.nav-tab\):not\(\.admin-section-tab\)\s*\{[^}]*rgba\(114, 240, 195, 0\.2\)[^}]*!important/);
+  assert.match(appCss, /\.order-actions button\.btn-sell:not\(\.nav-tab\):not\(\.admin-section-tab\)\s*\{[^}]*rgba\(255, 99, 142, 0\.2\)[^}]*!important/);
 });
 
 test('open positions show margin and notional separately and refresh PnL with live quotes', () => {

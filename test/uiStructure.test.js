@@ -163,6 +163,22 @@ test('BlastrrPass content and reward fields wrap without mobile overflow', () =>
   assert.match(appCss, /\.battlepass-admin-row \{ grid-template-columns: repeat\(2, minmax\(0, 1fr\)\); \}/);
 });
 
+test('accounts, leaderboard, and profile use responsive Battle Pass-style cards', () => {
+  assert.match(appHtml, /id="accountsView" class="view-panel workspace-view"/);
+  assert.match(appHtml, /id="accounts-portfolio-container" class="account-card-list"/);
+  assert.match(appHtml, /id="leaderboardView" class="view-panel workspace-view"/);
+  assert.match(appHtml, /id="leaderboard-table-body" class="leaderboard-card-list"/);
+  assert.match(appHtml, /id="profileView" class="view-panel workspace-view"/);
+  assert.match(appHtml, /id="ref-transactions-list" class="profile-commission-list"/);
+  assert.match(appJs, /class="battlepass-task leaderboard-card/);
+  assert.match(appJs, /class="account-card"/);
+  assert.match(appJs, /class="battlepass-task profile-commission-card"/);
+  assert.match(appCss, /\.account-card\s*\{[^}]*border: 1px solid rgba\(203, 213, 225, 0\.095\)[^}]*background: rgba\(4, 3, 7, 0\.82\)/);
+  assert.match(appCss, /\.leaderboard-card-list\s*\{[^}]*grid-template-columns: repeat\(auto-fit/);
+  assert.match(appCss, /\.battlepass-task\s*\{[\s\S]*?border: 1px solid var\(--surface-border\)[\s\S]*?background: rgba\(5, 7, 11, 0\.38\)/);
+  assert.match(appCss, /@media \(max-width: 700px\)[\s\S]*?\.leaderboard-card-stats \{ grid-template-columns: repeat\(2, minmax\(0, 1fr\)\)/);
+});
+
 test('homepage and terminal buttons use a transparent purple-glow treatment', () => {
   const transparentButtonRule = /button:not\(\.nav-tab\):not\(\.admin-section-tab\), input\[type="button"\], input\[type="submit"\], input\[type="reset"\], \.btn\s*\{[\s\S]*?background: transparent !important;[\s\S]*?border: 1px solid rgba\(168, 85, 247, 0\.78\) !important;[\s\S]*?box-shadow: 0 0 12px rgba\(168, 85, 247, 0\.28\)/;
   assert.match(appCss, transparentButtonRule);

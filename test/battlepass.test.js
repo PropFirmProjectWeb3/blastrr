@@ -54,8 +54,8 @@ test('profile rewards and level discounts are wallet-bound and checkout applies 
 test('leaderboards and public profile cards include BlastrrPass level and XP', () => {
   assert.equal((serverJs.match(/AS battlepass_xp/g) || []).length, 3);
   assert.equal((serverJs.match(/b\.profile_image_url, COALESCE\(b\.xp/g) || []).length, 3);
-  assert.match(appHtml, /<th>Battle Pass Rank<\/th>/);
-  assert.match(appHtml, /<th>XP<\/th>/);
+  assert.match(appJs, /<small>Battle Pass rank<\/small>/);
+  assert.match(appJs, /<small>XP earned<\/small>/);
   assert.match(appHtml, /id="profile-battlepass-avatar"/);
   assert.match(appJs, /const battlePassRank = battlePassLevel \? `Level \$\{battlePassLevel\}` : 'Unranked'/);
   assert.match(appJs, /class="battlepass-avatar-wrap leaderboard-avatar"/);

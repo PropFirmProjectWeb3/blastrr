@@ -221,60 +221,45 @@
         </section>
 
         <!-- 2. ACCOUNTS VIEW -->
-        <section id="accountsView" class="view-panel">
-            <div class="card">
-                <div class="card-title">
-                    <span>Your Prop Accounts Portfolio</span>
-                    <button class="btn-wallet" style="padding: 5px 12px; font-size: 11px;" onclick="manualRefreshData()">Refresh Accounts</button>
-                </div>
+        <section id="accountsView" class="view-panel workspace-view">
+            <div class="battlepass-page-heading">
+                <div><span class="battlepass-eyebrow">YOUR ACCOUNTS</span><h1>Account portfolio</h1></div>
+                <p class="support-note">Review account performance, limits, and status. Expand an account for trade history and daily results.</p>
+            </div>
+            <div class="workspace-toolbar">
                 <label class="account-filter-toggle">
                     <input id="accounts-hide-permanent" type="checkbox" checked onchange="togglePermanentlyLockedAccounts(this.checked)">
                     <span>Hide permanently locked accounts</span>
                 </label>
-                <div id="accounts-portfolio-container">
+                <button class="battlepass-secondary-button" type="button" onclick="manualRefreshData()">Refresh accounts</button>
+            </div>
+            <div id="accounts-portfolio-container" class="account-card-list">
                     <p style="text-align: center; color: #6b7280; padding: 30px;">Connect wallet to view your accounts.</p>
-                </div>
             </div>
         </section>
 
         <!-- 3. LEADERBOARD VIEW -->
-        <section id="leaderboardView" class="view-panel">
-            <div class="card">
-                <div class="card-title" style="margin-bottom: 8px;">
-                    <div>Global Trader Leaderboard</div>
-                    <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+        <section id="leaderboardView" class="view-panel workspace-view">
+            <div class="battlepass-page-heading">
+                <div><span class="battlepass-eyebrow">COMMUNITY STANDINGS</span><h1>Trader leaderboard</h1></div>
+                <p class="support-note">Search traders, compare standings, and share your current rank.</p>
+            </div>
+            <div class="battlepass-mission-board leaderboard-board">
+                <div class="battlepass-section-heading leaderboard-section-heading">
+                    <div><h2>Global trader standings</h2><p id="lb-mode-subtitle">Realized PnL from trades closed today.</p></div>
+                    <div class="leaderboard-mode-tabs">
                         <button id="lb-btn-daily" class="nav-tab active" onclick="switchLeaderboardMode('DAILY')">Daily Profit</button>
                         <button id="lb-btn-monthly" class="nav-tab" onclick="switchLeaderboardMode('MONTHLY')">Monthly Profit</button>
                         <button id="lb-btn-payouts" class="nav-tab" onclick="switchLeaderboardMode('PAYOUTS')">Lifetime Payouts</button>
                     </div>
                 </div>
-
-                <p id="lb-mode-subtitle" style="color: #9ca3af; font-size: 13.5px; margin-bottom: 20px;">
-                    Realized PnL from trades closed today.
-                </p>
-
-                <div style="display: flex; gap: 12px; margin-bottom: 20px; flex-wrap: wrap; align-items: center;">
-                    <input type="text" id="lb-search-input" placeholder="Search username to find rank..." onkeyup="filterLeaderboardTable()" style="max-width: 350px; background: rgba(5,7,11,0.9); border: 1px solid rgba(255,255,255,0.08); color: white; padding: 10px 14px; border-radius: 8px; font-size: 13.5px; width: 100%;">
-                    <span id="lb-my-rank-label" style="color: #c084fc; font-weight: 600; font-size: 13.5px; display: none;">Your Rank: #-</span>
+                <div class="leaderboard-toolbar">
+                    <input type="search" id="lb-search-input" placeholder="Search username or promo code..." aria-label="Search leaderboard" oninput="filterLeaderboardTable()">
+                    <span id="lb-my-rank-label" class="leaderboard-my-rank" style="display: none;">Your Rank: #-</span>
                 </div>
-
-                <div class="table-responsive">
-                    <table>
-                        <thead>
-                            <tr>
-                                <th>Rank</th>
-                                <th>Trader Username</th>
-                                <th>Promo Code</th>
-                                <th>Battle Pass Rank</th>
-                                <th>XP</th>
-                                <th id="lb-metric-col-header">Daily Realized Profit</th>
-                                <th>Action</th>
-                            </tr>
-                        </thead>
-                        <tbody id="leaderboard-table-body">
-                            <tr><td colspan="7" style="text-align: center; color: #6b7280; padding: 24px;">Loading leaderboard...</td></tr>
-                        </tbody>
-                    </table>
+                <span id="lb-metric-col-header" class="sr-only">Daily Realized Profit</span>
+                <div id="leaderboard-table-body" class="leaderboard-card-list" aria-live="polite">
+                    <p class="workspace-empty-state">Loading leaderboard...</p>
                 </div>
             </div>
         </section>
@@ -373,14 +358,18 @@
         </section>
 
         <!-- 4. PROFILE VIEW -->
-        <section id="profileView" class="view-panel">
-            <div class="card">
+        <section id="profileView" class="view-panel workspace-view">
+            <div class="battlepass-page-heading">
+                <div><span class="battlepass-eyebrow">YOUR BLASTRR PROFILE</span><h1>Profile &amp; promos</h1></div>
+                <p class="support-note">Manage your creator profile, referrals, promo codes, and account support.</p>
+            </div>
+            <div class="card profile-primary-card">
                 <div class="card-title">
-                    <span>Your Creator & Affiliate Profile</span>
+                    <span>Creator &amp; affiliate profile</span>
                     <button id="btn-toggle-edit" class="btn-wallet" style="padding: 6px 12px; font-size: 12px; display: none;" onclick="toggleEditProfile()">Edit Details</button>
                 </div>
                 
-                <div id="profile-setup-box">
+                <div id="profile-setup-box" class="profile-setup-card">
                     <p style="color: #9ca3af; font-size: 14px; margin-bottom: 20px; line-height: 1.5;">
                         Configure your unique username and custom promo code. Your username will identify you on the leaderboards, and you'll earn your assigned referral commission on plan purchases made with your code.
                     </p>
@@ -395,7 +384,7 @@
                     <button class="btn-wallet" style="width: 100%; margin-top: 10px; padding: 12px;" onclick="saveProfile()">Save Profile & Generate Code</button>
                 </div>
 
-                <div id="profile-display-box" style="display: none; margin-top: 20px; border-top: 1px solid rgba(255, 255, 255, 0.06); padding-top: 24px;">
+                <div id="profile-display-box" class="profile-display-card" style="display: none;">
                     <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
                         <div class="profile-display-identity">
                             <div id="profile-battlepass-avatar" class="battlepass-avatar-wrap profile-battlepass-avatar" aria-label="Profile image"></div>
@@ -410,34 +399,21 @@
 
                     <p style="margin-top: 14px;"><strong>Shareable Referral Link:</strong> <input type="text" id="disp-link" readonly style="background: rgba(5, 7, 11, 0.9); border: 1px solid rgba(255, 255, 255, 0.08); color: #9ca3af; padding: 8px 12px; width: 100%; margin-top: 6px; border-radius: 8px;"></p>
                     
-                    <div class="grid-3" style="margin-top: 24px; margin-bottom: 28px;">
-                        <div class="card" style="background: rgba(5, 7, 11, 0.6); margin:0;">
+                    <div class="grid-3 profile-stat-grid">
+                        <div class="profile-stat-card">
                             <div class="card-title" style="font-size: 13px; color: #9ca3af; margin-bottom: 8px;">Total Referred Traders</div>
                             <p id="stat-ref-count" style="font-size: 26px; font-weight: 800; color: #34d399; margin: 0;">0</p>
                         </div>
-                        <div class="card" style="background: rgba(5, 7, 11, 0.6); margin:0; position: relative;">
+                        <div class="profile-stat-card">
                             <div class="card-title" style="font-size: 13px; color: #9ca3af; margin-bottom: 8px;">Available Commission Balance</div>
                             <p id="stat-ref-earnings" style="font-size: 26px; font-weight: 800; color: #c084fc; margin: 0; margin-bottom: 12px;">$0.00 USDT</p>
                             <button class="btn-wallet" style="padding: 6px 14px; font-size: 12px; background: #059669;" onclick="requestCommissionWithdrawal()">Withdraw Commissions</button>
                         </div>
                     </div>
 
-                    <div class="card-title" style="font-size: 15px; border-bottom: 1px solid rgba(255, 255, 255, 0.06); padding-bottom: 12px;">Commission Earnings History</div>
-                    <div class="table-responsive">
-                        <table>
-                            <thead>
-                                <tr>
-                                    <th>Buyer Username</th>
-                                    <th>Plan Purchased</th>
-                                    <th>Commission Earned</th>
-                                    <th>Rate</th>
-                                    <th>Date</th>
-                                </tr>
-                            </thead>
-                            <tbody id="ref-transactions-list">
-                                <tr><td colspan="5" style="text-align: center; color: #6b7280; padding: 24px;">No sales recorded yet.</td></tr>
-                            </tbody>
-                        </table>
+                    <div class="card-title profile-history-heading">Commission earnings history</div>
+                    <div id="ref-transactions-list" class="profile-commission-list">
+                        <p class="workspace-empty-state">No sales recorded yet.</p>
                     </div>
                 </div>
             </div>

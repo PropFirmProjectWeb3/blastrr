@@ -1135,14 +1135,14 @@ let connectedWallet = null;
         }
 
         function renderLeaderboardTable(dataRows) {
-            const tbody = document.getElementById('leaderboard-table-body');
-            if (!tbody) return;
-            tbody.innerHTML = '';
+            const container = document.getElementById('leaderboard-table-body');
+            if (!container) return;
+            container.replaceChildren();
             const myRankLabel = document.getElementById('lb-my-rank-label');
             if (myRankLabel) myRankLabel.style.display = 'none';
 
             if (!dataRows || dataRows.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; color: #6b7280; padding: 24px;">No records available for this leaderboard mode.</td></tr>';
+                container.innerHTML = '<p class="workspace-empty-state">No records available for this leaderboard mode.</p>';
                 return;
             }
 
@@ -1160,32 +1160,55 @@ let connectedWallet = null;
                 const rankDisplay = `#${index + 1}`;
                 const badgeText = currentLeaderboardMode === 'PAYOUTS' ? 'PAID' : 'PnL';
 
-                tbody.insertAdjacentHTML('beforeend', `
-                    <tr>
-                        <td><strong style="color: ${index < 3 ? '#c084fc' : '#f3f4f6'}">${rankDisplay}</strong></td>
-                        <td><div class="leaderboard-trader"><div class="battlepass-avatar-wrap leaderboard-avatar" aria-hidden="true"></div><span style="color: #c084fc; font-weight: bold;">@${row.username}</span> ${isUser ? '<small style="color:#34d399; margin-left:6px;">(You)</small>' : ''}</div></td>
-                        <td><code style="background: rgba(5,7,11,0.9); padding: 4px 8px; border-radius: 4px; color: #34d399;">${row.discount_code}</code></td>
-                        <td><span class="battlepass-rank-badge">${battlePassRank}</span></td>
-                        <td>${compactXp}</td>
-                        <td>
-                            <span style="color: ${metricColor}; font-weight: bold;">$${row.metric_value.toFixed(2)} USDT</span>
-                            <small style="font-size:10px; background: rgba(255,255,255,0.06); padding: 2px 6px; border-radius: 4px; margin-left: 6px; color: #9ca3af;">${badgeText}</small>
-                        </td>
-                        <td>
-                            <div style="display: flex; gap: 8px;">
-                                <button class="btn-wallet" style="padding: 5px 10px; font-size: 11px;" onclick="usePromoCode('${row.discount_code}')">Use Code</button>
-                                ${isUser ? `<button class="btn-share-x" onclick="shareRankOnX(${index + 1}, '${row.username}', ${row.metric_value})">𝕏 Share Rank</button>` : ''}
+                container.insertAdjacentHTML('beforeend', `
+                    <article class="battlepass-task leaderboard-card${isUser ? ' is-current-user' : ''}">
+                        <div class="leaderboard-card-top">
+                            <div class="leaderboard-trader">
+                                <span class="leaderboard-position${index < 3 ? ' is-top-three' : ''}">${rankDisplay}</span>
+                                <div class="battlepass-avatar-wrap leaderboard-avatar" aria-hidden="true"></div>
+                                <div class="leaderboard-identity">
+                                    <strong>@${escapeHTML(row.username)}</strong>
+                                    ${isUser ? '<small class="leaderboard-you">Your profile</small>' : ''}
+                                </div>
                             </div>
-                        </td>
-                    </tr>
+                            <div class="leaderboard-metric">
+                                <strong style="color: ${metricColor}">$${Number(row.metric_value).toFixed(2)} USDT</strong>
+                                <small>${badgeText}</small>
+                            </div>
+                        </div>
+                        <div class="leaderboard-card-stats">
+                            <div><small>Promo code</small><code>${escapeHTML(row.discount_code)}</code></div>
+                            <div><small>Battle Pass rank</small><span class="battlepass-rank-badge">${battlePassRank}</span></div>
+                            <div><small>XP earned</small><strong>${compactXp}</strong></div>
+                        </div>
+                        <div class="leaderboard-card-actions">
+                            <button class="battlepass-task-action" type="button" data-leaderboard-promo="${escapeHTML(row.discount_code)}">Use code</button>
+                            ${isUser ? `<button class="battlepass-task-action" type="button" data-share-rank="${index + 1}" data-share-username="${escapeHTML(row.username)}" data-share-metric="${Number(row.metric_value)}">Share rank on X</button>` : ''}
+                        </div>
+                    </article>
                 `);
-                setBattlePassAvatar(tbody.lastElementChild?.querySelector('.leaderboard-avatar'), row.profile_image_url, row.username);
+                setBattlePassAvatar(container.lastElementChild?.querySelector('.leaderboard-avatar'), row.profile_image_url, row.username);
             });
 
             if (userFoundRank && myRankLabel) {
                 myRankLabel.innerText = `Your Rank: #${userFoundRank}`;
                 myRankLabel.style.display = 'inline-block';
             }
+            container.onclick = event => {
+                const promoButton = event.target.closest('[data-leaderboard-promo]');
+                if (promoButton) {
+                    usePromoCode(promoButton.dataset.leaderboardPromo);
+                    return;
+                }
+                const shareButton = event.target.closest('[data-share-rank]');
+                if (shareButton) {
+                    shareRankOnX(
+                        Number(shareButton.dataset.shareRank),
+                        shareButton.dataset.shareUsername,
+                        Number(shareButton.dataset.shareMetric)
+                    );
+                }
+            };
         }
 
         function filterLeaderboardTable() {
@@ -1751,7 +1774,7 @@ let connectedWallet = null;
             const container = document.getElementById('accounts-portfolio-container');
             if (!container) return;
             if (userAccounts.length === 0) {
-                container.innerHTML = '<p style="text-align: center; color: #6b7280; padding: 30px;">No accounts found. Purchase a plan in the marketplace!</p>';
+                container.innerHTML = '<p class="workspace-empty-state">No accounts found. Purchase a plan in the marketplace!</p>';
                 return;
             }
 
@@ -1779,7 +1802,7 @@ let connectedWallet = null;
                 let cardElem = document.getElementById(`acc-card-${acc.id}`);
                 if (!cardElem) {
                     const cardHtml = `
-                        <article id="acc-card-${acc.id}" class="card account-card">
+                        <article id="acc-card-${acc.id}" class="account-card">
                             <div class="account-card-header">
                                 <div>
                                     <span class="account-plan-name">${acc.plan_name}</span>
@@ -1830,7 +1853,7 @@ let connectedWallet = null;
                                     </div>
                                 </details>
                             </div>
-                        </div>
+                        </article>
                     `;
                     container.insertAdjacentHTML('beforeend', cardHtml);
                     cardElem = document.getElementById(`acc-card-${acc.id}`);
@@ -3112,27 +3135,31 @@ let connectedWallet = null;
             try {
                 const res = await walletFetch(`/api/user/referrals?wallet=${encodeURIComponent(wallet)}`);
                 const data = await res.json();
-                const tbody = document.getElementById('ref-transactions-list');
-                if (!tbody) return;
-                tbody.innerHTML = '';
+                const container = document.getElementById('ref-transactions-list');
+                if (!container) return;
+                container.replaceChildren();
 
                 if (!data.referrals || data.referrals.length === 0) {
-                    tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; color: #6b7280; padding: 24px;">No sales recorded yet.</td></tr>';
+                    container.innerHTML = '<p class="workspace-empty-state">No sales recorded yet.</p>';
                     return;
                 }
 
                 data.referrals.forEach(ref => {
                     const buyerName = ref.buyer_username ? `@${ref.buyer_username}` : 'Anonymous Trader';
                     const dateStr = new Date(ref.created_at).toLocaleString();
-                    tbody.innerHTML += `
-                        <tr>
-                            <td><strong>${escapeHTML(buyerName)}</strong></td>
-                            <td>${escapeHTML(ref.plan_name)}</td>
-                            <td><span style="color: #34d399; font-weight: bold;">+$${Number(ref.commission_earned).toFixed(2)} USDT</span></td>
-                            <td>${Number(ref.commission_pct ?? 2)}%</td>
-                            <td style="color: #9ca3af; font-size: 12.5px;">${dateStr}</td>
-                        </tr>
-                    `;
+                    container.insertAdjacentHTML('beforeend', `
+                        <article class="battlepass-task profile-commission-card">
+                            <div class="profile-commission-main">
+                                <strong>${escapeHTML(buyerName)}</strong>
+                                <span>${escapeHTML(ref.plan_name)}</span>
+                            </div>
+                            <div class="profile-commission-details">
+                                <strong>+$${Number(ref.commission_earned).toFixed(2)} USDT</strong>
+                                <span>${Number(ref.commission_pct ?? 2)}% commission</span>
+                                <small>${escapeHTML(dateStr)}</small>
+                            </div>
+                        </article>
+                    `);
                 });
             } catch (err) { console.error(err); }
         }

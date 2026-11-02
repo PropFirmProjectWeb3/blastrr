@@ -116,8 +116,8 @@ test('terminal buy-plan cards show funded status, purchase reward styling, and a
 });
 
 test('dashboard and admin use purple glass surfaces with nav glow limited to active, hover, and focus states', () => {
-  assert.match(appCss, /--surface-glass:\s*rgba\(24,\s*18,\s*37/);
-  assert.match(appCss, /radial-gradient\(ellipse at 14% -10%, rgba\(116, 55, 223/);
+  assert.match(appCss, /--surface-glass:\s*rgba\(12,\s*8,\s*18,\s*0\.86\)/);
+  assert.match(appCss, /radial-gradient\(ellipse at 14% -10%, rgba\(116, 55, 223, 0\.12/);
   assert.match(appCss, /\.nav-tab:hover, \.nav-tab:focus-visible/);
   assert.match(appCss, /\.nav-tab\.active/);
   assert.match(appCss, /button:not\(\.nav-tab\):not\(\.admin-section-tab\)/);

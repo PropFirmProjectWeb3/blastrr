@@ -37,6 +37,15 @@ test('trading terminal and homepage use the Blastrr logo image', () => {
   assert.match(landingHtml, /\.brand-mark\{object-fit:cover;clip-path:none\}/);
 });
 
+test('brand and display headings load the matching futuristic font', () => {
+  assert.match(landingHtml, /fonts\.googleapis\.com\/css2\?family=Orbitron/);
+  assert.match(appHtml, /fonts\.googleapis\.com\/css2\?family=Orbitron/);
+  assert.match(landingHtml, /\.brand\{[^}]*font-family:"Orbitron"[^}]*font-style:italic/);
+  assert.match(landingHtml, /\.hero h1\{font-family:"Orbitron"[^}]*font-style:italic/);
+  assert.match(appCss, /\.logo > span \{ font-family: "Orbitron"[^}]*font-style: italic/);
+  assert.match(appCss, /\.battlepass-page-heading h1 \{[^}]*font-family: "Orbitron"[^}]*font-style: italic/);
+});
+
 test('homepage focuses on crypto markets without promoting derivatives products', () => {
   assert.match(landingHtml, /20 major Binance crypto markets/);
   assert.match(landingHtml, /Crypto trading terminal/);

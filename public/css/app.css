@@ -59,6 +59,7 @@
             flex-shrink: 0;
             text-decoration: none;
         }
+        .logo > span { font-family: "Orbitron", ui-sans-serif, sans-serif; font-style: italic; font-weight: 900; letter-spacing: 0.035em; }
         
         .logo img {
             height: 38px;
@@ -588,7 +589,7 @@
             margin: 3px 0 20px;
         }
         .battlepass-eyebrow { color: #a78bfa; font-size: 10px; font-weight: 800; letter-spacing: 0.18em; }
-        .battlepass-page-heading h1 { margin: 5px 0 0; color: #f8fafc; font-size: clamp(26px, 3vw, 36px); letter-spacing: -0.045em; }
+        .battlepass-page-heading h1 { margin: 5px 0 0; color: #f8fafc; font-family: "Orbitron", ui-sans-serif, sans-serif; font-size: clamp(26px, 3vw, 36px); font-style: italic; font-weight: 800; letter-spacing: -0.055em; }
         .battlepass-page-heading .support-note { margin: 0; text-align: right; }
         .battlepass-player-bar {
             display: flex;

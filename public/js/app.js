@@ -77,6 +77,14 @@ let connectedWallet = null;
             8453: { name: "Base", chainIdHex: "0x2105", usdtAddress: "0xfde4c96c8593536e31f229ea8f37b2ada2699bb2", decimals: 6 },
             137: { name: "Polygon PoS", chainIdHex: "0x89", usdtAddress: "0xc2132d05d31c914a87c6611c10748aeb04b58e8f", decimals: 6 },
             43114: { name: "Avalanche C-Chain", chainIdHex: "0xa86a", usdtAddress: "0x9702230a8ea53601f5cd2dc00fdbc13d4df4a8c7", decimals: 6 },
+            56: {
+                name: "BNB Smart Chain",
+                chainIdHex: "0x38",
+                rpcUrl: "https://bsc-dataseed.binance.org",
+                nativeCurrency: { name: "BNB", symbol: "BNB", decimals: 18 },
+                usdtAddress: "0x55d398326f99059fF775485246999027B3197955",
+                decimals: 18
+            },
             448000: {
                 name: "NullNet Private EVM",
                 chainIdHex: "0x6d600",

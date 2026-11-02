@@ -53,6 +53,13 @@ const SUPPORTED_EVM_CHAINS = {
         usdtAddress: "0x9702230a8ea53601f5cd2dc00fdbc13d4df4a8c7",
         decimals: 6
     },
+    56: {
+        name: "BNB Smart Chain",
+        chainIdHex: "0x38",
+        rpcUrl: process.env.BSC_RPC_URL || "https://bsc-dataseed.binance.org",
+        usdtAddress: "0x55d398326f99059fF775485246999027B3197955",
+        decimals: 18
+    },
     448000: {
         name: "NullNet Private EVM",
         chainIdHex: "0x6d600",

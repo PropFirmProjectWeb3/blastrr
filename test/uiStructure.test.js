@@ -144,6 +144,17 @@ test('NullNet checkout uses the correct chain ID and matching wallet and verific
   assert.match(appJs, /const activeChainId = BigInt\(await provider\.request\(\{ method: 'eth_chainId' \}\)\)/);
 });
 
+test('BNB Smart Chain checkout uses BEP-20 USDT and is listed on the payment surfaces', () => {
+  const bscUsdt = '0x55d398326f99059fF775485246999027B3197955';
+  assert.match(appJs, /56:\s*\{[\s\S]*?name: "BNB Smart Chain"[\s\S]*?chainIdHex: "0x38"[\s\S]*?rpcUrl: "https:\/\/bsc-dataseed\.binance\.org"[\s\S]*?nativeCurrency: \{ name: "BNB", symbol: "BNB", decimals: 18 \}[\s\S]*?usdtAddress: "0x55d398326f99059fF775485246999027B3197955"[\s\S]*?decimals: 18/);
+  assert.match(serverJs, /56:\s*\{[\s\S]*?name: "BNB Smart Chain"[\s\S]*?chainIdHex: "0x38"[\s\S]*?usdtAddress: "0x55d398326f99059fF775485246999027B3197955"[\s\S]*?decimals: 18/);
+  assert.match(appHtml, /<option value="56">BNB Smart Chain \(BSC\)<\/option>/);
+  assert.ok(landingHtml.includes('>BNB Smart Chain</b><small>BEP-20</small>'));
+  assert.match(landingHtml, /Six networks\./);
+  assert.ok(landingHtml.includes('BNB Smart Chain or NullNet'));
+  assert.equal((appJs.match(new RegExp(bscUsdt, 'g')) || []).length, 1);
+});
+
 test('purchase calldata encodes USDT amounts using each token decimal precision', () => {
   const helper = appJs.match(/function toTokenUnits\(amount, decimals\) \{[\s\S]*?\n        \}/);
   assert.ok(helper);

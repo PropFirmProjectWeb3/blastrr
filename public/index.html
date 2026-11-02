@@ -50,6 +50,8 @@ footer{border-top:1px solid rgba(173,127,255,.15);padding:35px 0 25px}.footer-to
 @media(max-width:1000px){.navlinks{gap:15px}.chain-pill{display:none}.hero-grid{grid-template-columns:1fr 1fr;gap:20px}.hero h1{font-size:54px}.plans{grid-template-columns:repeat(2,1fr)}.steps{grid-template-columns:repeat(2,1fr)}.step:nth-child(2):after{display:none}.network-panel{grid-template-columns:1fr}.feature-layout{grid-template-columns:1fr}}
 @media(max-width:720px){.wrap{width:min(100% - 28px,var(--max))}header{height:67px}.navlinks{display:none;position:absolute;top:66px;left:0;right:0;padding:18px;background:rgba(9,8,17,.97);border-bottom:1px solid var(--line);flex-direction:column;align-items:stretch;gap:0}.navlinks.open{display:flex}.navlinks a{padding:12px 8px}.menu-toggle{display:block}.navright .btn{display:none}.brand{font-size:17px}.hero{padding:40px 0 28px}.hero-grid{grid-template-columns:1fr}.hero h1{font-size:clamp(44px,13vw,65px)}.hero p{font-size:15px}.visual{min-height:390px}.chart-svg{height:185px}.floating-stat{top:84px;right:12px;padding:10px}.floating-stat b{font-size:16px}.ticker-inner{justify-content:flex-start;gap:13px}.ticker-item{width:calc(50% - 8px);font-size:11px}.section-head{display:block}.section-head .btn{margin-top:18px}.section-head h2{font-size:32px}.launch-strip{align-items:flex-start;flex-direction:column}.promo-code{margin:8px 0 0 0}.timer{width:100%}.timebox{flex:1}.plans{grid-template-columns:1fr}.plan{padding:21px}.plan .btn{margin-top:12px}.networks{grid-template-columns:repeat(3,1fr)}.network:last-child{grid-column:2}.steps{grid-template-columns:1fr}.step:not(:last-child):after{content:"↓";right:20px;top:auto;bottom:-19px}.feature-grid{grid-template-columns:1fr 1fr}.cta-band{padding:25px;display:block}.cta-actions{margin-top:22px}.footer-top{display:block}.footer-links{margin-top:22px}.footer-links a{padding:5px 0}}
 @media(max-width:720px){.market-hours-banner{align-items:flex-start;gap:12px;padding:17px}.market-hours-icon{flex-basis:38px;width:38px;height:38px;border-radius:12px;font-size:18px}.market-hours-copy h2{font-size:16px}.market-hours-copy p{font-size:11px}.market-hours-note{display:none}}
+.networks{grid-template-columns:repeat(3,1fr)}
+@media(max-width:720px){.network:last-child{grid-column:auto}}
 @media(max-width:390px){.feature-grid{grid-template-columns:1fr}.hero-actions .btn{width:100%}.visual-bottom{gap:6px;padding:12px}.mini-stat{padding:8px}.mini-stat strong{font-size:12px}}
 @media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}*,*:before,*:after{transition:none!important;animation:none!important}.reveal{opacity:1;transform:none}}
 .brand-mark{object-fit:cover;clip-path:none}
@@ -156,7 +158,7 @@ button:disabled,input[type="button"]:disabled,input[type="submit"]:disabled,inpu
   <div class="ticker-item"><span class="ticker-icon">ϟ</span><span><strong>Built for speed</strong><br><span class="muted">Performance-focused platform</span></span></div>
   <div class="ticker-item"><span class="ticker-icon">▤</span><span><strong>More than one account</strong><br><span class="muted">Scale within your budget</span></span></div>
   <div class="ticker-item"><span class="ticker-icon">⌁</span><span><strong>Static drawdown</strong><br><span class="muted">Rules you can plan around</span></span></div>
-  <div class="ticker-item"><span class="ticker-icon">◎</span><span><strong>USDT payments</strong><br><span class="muted">Five supported networks</span></span></div>
+  <div class="ticker-item"><span class="ticker-icon">◎</span><span><strong>USDT payments</strong><br><span class="muted">Six supported networks</span></span></div>
 </div></div>
 
 <section id="plans">
@@ -177,12 +179,13 @@ button:disabled,input[type="button"]:disabled,input[type="submit"]:disabled,inpu
 
 <section id="networks">
  <div class="wrap"><div class="network-panel reveal">
-  <div><span class="eyebrow">Pay in USDT</span><h3>Five networks.<br><span class="gradient-text">One payment asset.</span></h3><p>Buy plans and request withdrawals in USDT using a supported network. Always select the same network in your wallet and in the Blastrr app before sending funds.</p></div>
+  <div><span class="eyebrow">Pay in USDT</span><h3>Six networks.<br><span class="gradient-text">One payment asset.</span></h3><p>Buy plans and request withdrawals in USDT using a supported network. Always select the same network in your wallet and in the Blastrr app before sending funds.</p></div>
   <div class="networks">
    <div class="network"><div class="coin">Ξ</div><b>Ethereum</b><small>ERC-20</small></div>
    <div class="network"><div class="coin" style="color:#75a9ff">🔵</div><b>Base</b><small>Base network</small></div>
    <div class="network"><div class="coin">∞</div><b>Polygon</b><small>Polygon PoS</small></div>
    <div class="network"><div class="coin" style="color:#ff777f">▲</div><b>Avalanche</b><small>C-Chain</small></div>
+   <div class="network"><div class="coin" style="color:#f3ba2f">◆</div><b>BNB Smart Chain</b><small>BEP-20</small></div>
    <div class="network"><div class="coin">N</div><b>NullNet</b><small>Native network</small></div>
   </div>
  </div></div>
@@ -194,7 +197,7 @@ button:disabled,input[type="button"]:disabled,input[type="submit"]:disabled,inpu
   <div class="steps">
    <article class="step reveal"><div class="step-number">01</div><h3>Connect your wallet</h3><p>Open the Blastrr app and connect a compatible Web3 wallet. Keep control of your wallet and verify the site before approving transactions.</p></article>
    <article class="step reveal"><div class="step-number">02</div><h3>Choose your plan</h3><p>Select Micro through Whale based on your preferred simulated capital, profit target and risk limits.</p></article>
-   <article class="step reveal"><div class="step-number">03</div><h3>Pay in USDT</h3><p>Choose Ethereum, Base, Polygon, Avalanche or NullNet where supported. Confirm the asset, network and final amount in your wallet.</p></article>
+   <article class="step reveal"><div class="step-number">03</div><h3>Pay in USDT</h3><p>Choose Ethereum, Base, Polygon, Avalanche, BNB Smart Chain or NullNet where supported. Confirm the asset, network and final amount in your wallet.</p></article>
    <article class="step reveal"><div class="step-number">04</div><h3>Access the platform</h3><p>Once payment is confirmed and your account is provisioned, open the trading platform and follow the rules for your selected account.</p></article>
   </div>
  </div>
@@ -238,7 +241,7 @@ button:disabled,input[type="button"]:disabled,input[type="submit"]:disabled,inpu
   <div class="rules-panel reveal">
    <details class="rule"><summary>What does “straight to trading” mean?</summary><p>You choose and purchase a plan rather than completing a multi-stage evaluation challenge first. Account activation remains subject to payment confirmation and the platform's terms.</p></details>
    <details class="rule"><summary>Can I buy more than one account?</summary><p>The stated model allows users to purchase multiple accounts within their budget. Check current account limits, prohibited behaviour and any aggregation rules in the app.</p></details>
-   <details class="rule"><summary>Which token can I use to pay?</summary><p>USDT only, on a supported network: Ethereum, Base, Polygon, Avalanche or NullNet. Network availability and contract addresses should be confirmed inside the app before sending.</p></details>
+   <details class="rule"><summary>Which token can I use to pay?</summary><p>USDT only, on a supported network: Ethereum, Base, Polygon, Avalanche, BNB Smart Chain or NullNet. Network availability and contract addresses should be confirmed inside the app before sending.</p></details>
    <details class="rule"><summary>How do withdrawals work?</summary><p>Withdrawals are stated to be in USDT on supported networks. Timing, minimum amounts, fees, eligibility and any reward split are governed by the current withdrawal policy. Review it before you trade.</p></details>
    <details class="rule"><summary>Do crypto markets close?</summary><p>Crypto markets generally trade 24 hours a day, 7 days a week, 365 days a year, without the scheduled daily sessions and weekly closes typical of many FX and futures markets. Individual exchanges or the Blastrr platform may have maintenance or service interruptions, and continuous trading does not mean prices or liquidity are constant.</p></details>
    <details class="rule"><summary>How is the standard plan discount applied?</summary><p>The current standard discount is applied automatically to plan prices. BlastrrPass reward codes can add an additional discount at checkout, up to 100% off in total.</p></details>

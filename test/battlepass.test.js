@@ -70,4 +70,6 @@ test('BlastrrPass dashboard presents missions, rewards, leaderboard, and profile
   assert.match(appHtml, /id="battlepass-level-segments"/);
   assert.match(appJs, /function claimAllBattlePassRewards/);
   assert.match(appJs, /function selectBattlePassTab/);
+  assert.match(appJs, /class="battlepass-task battlepass-reward-item"/);
+  assert.match(appJs, /class="battlepass-reward-code"/);
 });

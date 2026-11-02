@@ -730,14 +730,19 @@ let connectedWallet = null;
                 const unlocked = Boolean(level.unlocked);
                 const code = level.reward_code;
                 const button = code
-                    ? `<button class="btn-wallet" type="button" data-use-reward="${escapeHTML(code)}" ${level.reward_redeemed ? 'disabled' : ''}>${level.reward_redeemed ? 'Used' : 'Use discount'}</button>`
-                    : `<button class="btn-wallet" type="button" data-claim-level="${Number(level.level)}" ${unlocked ? '' : 'disabled'}>${unlocked ? `Claim for ${Number(level.points_cost)} points` : 'Locked'}</button>`;
-                return `<article class="battlepass-level ${unlocked ? 'is-unlocked' : ''}">
-                    <span class="battlepass-level-number">LEVEL ${Number(level.level)}</span>
-                    <strong>+${Number(level.discount_bonus_pct)}% discount</strong>
-                    <small>${Number(level.xp_required).toLocaleString()} XP · ${Number(level.points_cost)} points</small>
-                    ${code ? `<code class="battlepass-reward-code">${escapeHTML(code)}</code>` : ''}
-                    ${button}
+                    ? `<button class="battlepass-task-action" type="button" data-use-reward="${escapeHTML(code)}" ${level.reward_redeemed ? 'disabled' : ''}>${level.reward_redeemed ? 'Used' : 'Use discount'}</button>`
+                    : `<button class="battlepass-task-action" type="button" data-claim-level="${Number(level.level)}" ${unlocked ? '' : 'disabled'}>${unlocked ? 'Claim reward' : 'Locked'}</button>`;
+                const status = code
+                    ? level.reward_redeemed ? 'Discount used' : 'Discount claimed · ready to use'
+                    : unlocked ? 'Reward unlocked · ready to claim' : `Unlock at ${Number(level.xp_required).toLocaleString()} XP`;
+                return `<article class="battlepass-task battlepass-reward-item">
+                    <div class="battlepass-task-copy">
+                        <div class="battlepass-task-heading">
+                            <strong>Level ${Number(level.level)} · +${Number(level.discount_bonus_pct)}% discount</strong>
+                            <span class="battlepass-task-awards"><span><i class="battlepass-gem" aria-hidden="true">◆</i> ${Number(level.points_cost)} points</span><span class="battlepass-award-divider"></span><span><i class="battlepass-xp-mark" aria-hidden="true">XP</i> ${Number(level.xp_required).toLocaleString()}</span></span>
+                        </div>
+                        <div class="battlepass-task-action-row"><span class="battlepass-task-status ${code ? 'is-claimed' : unlocked ? 'is-ready' : ''}">${status}</span>${code ? `<code class="battlepass-reward-code">${escapeHTML(code)}</code>` : ''}${button}</div>
+                    </div>
                 </article>`;
             }).join('');
             container.onclick = event => {

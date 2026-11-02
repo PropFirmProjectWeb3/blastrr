@@ -501,9 +501,26 @@ let connectedWallet = null;
                 loadAdminAccounts();
                 loadAdminTickets();
                 loadAdminReviews();
+                if (document.getElementById('admin-creators-panel')?.hidden === false) loadAdminPromoManagement();
             }
             else if (viewId === 'leaderboardView') loadLeaderboard(currentLeaderboardMode);
             else if (viewId === 'accountsView' && connectedWallet) loadUserAccounts(connectedWallet);
+        }
+
+        function switchAdminSection(panelId) {
+            const creatorsSelected = panelId === 'admin-creators-panel';
+            const operationsPanel = document.getElementById('admin-operations-panel');
+            const creatorsPanel = document.getElementById('admin-creators-panel');
+            const operationsTab = document.getElementById('admin-operations-tab');
+            const creatorsTab = document.getElementById('admin-creators-tab');
+            if (!operationsPanel || !creatorsPanel) return;
+            operationsPanel.hidden = creatorsSelected;
+            creatorsPanel.hidden = !creatorsSelected;
+            operationsTab?.classList.toggle('active', !creatorsSelected);
+            creatorsTab?.classList.toggle('active', creatorsSelected);
+            operationsTab?.setAttribute('aria-selected', String(!creatorsSelected));
+            creatorsTab?.setAttribute('aria-selected', String(creatorsSelected));
+            if (creatorsSelected) loadAdminPromoManagement();
         }
 
         function switchLeaderboardMode(mode) {
@@ -1377,6 +1394,144 @@ let connectedWallet = null;
             }
         }
 
+        async function loadAdminCreatorSearch(username) {
+            const container = document.getElementById('admin-creator-search-results');
+            if (!container) return;
+            container.innerHTML = '<p class="account-chart-empty">Searching creator profiles...</p>';
+            try {
+                const authorization = await signedTradeAuthorization();
+                const response = await fetch('/api/admin/referrals/search', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ ...authorization, username })
+                });
+                const data = await readAdminApiResponse(response, '/api/admin/referrals/search');
+                if (!response.ok) throw new Error(data.error || 'Unable to search creator profiles.');
+                if (!data.users?.length) {
+                    container.innerHTML = '<p class="account-chart-empty">No creator profiles matched that username.</p>';
+                    return;
+                }
+                container.innerHTML = data.users.map((user, index) => `
+                    <article class="admin-creator-card" data-creator-wallet="${escapeHTML(user.wallet_address)}">
+                        <div>
+                            <strong>@${escapeHTML(user.username)}</strong><br>
+                            <code>${escapeHTML(user.wallet_address)}</code>
+                        </div>
+                        <div class="admin-creator-rate">
+                            <div class="form-group">
+                                <label for="admin-referral-pct-${index}">Commission rate (%)</label>
+                                <input id="admin-referral-pct-${index}" type="number" min="0" max="100" step="0.01" value="${Number(user.referral_pct ?? 2)}">
+                            </div>
+                            <button class="btn-wallet" type="button" data-save-referral-rate>Save</button>
+                        </div>
+                    </article>
+                `).join('');
+                container.onclick = event => {
+                    const button = event.target.closest('[data-save-referral-rate]');
+                    const card = button?.closest('[data-creator-wallet]');
+                    const input = card?.querySelector('input[type="number"]');
+                    if (card && input) saveAdminReferralRate(card.dataset.creatorWallet, input.value, button);
+                };
+            } catch (err) {
+                console.error(err);
+                container.innerHTML = `<p class="support-feedback">${escapeHTML(err.message)}</p>`;
+            }
+        }
+
+        async function saveAdminReferralRate(wallet, referralPct, button) {
+            if (button) button.disabled = true;
+            try {
+                const authorization = await signedTradeAuthorization();
+                const response = await fetch('/api/admin/referrals/commission', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ ...authorization, user_wallet: wallet, referral_pct: referralPct })
+                });
+                const data = await readAdminApiResponse(response, '/api/admin/referrals/commission');
+                if (!response.ok) throw new Error(data.error || 'Unable to update the commission rate.');
+                await loadAdminCreatorSearch(document.getElementById('admin-creator-search')?.value.trim());
+            } catch (err) {
+                console.error(err);
+                alert(err.message);
+                if (button) button.disabled = false;
+            }
+        }
+
+        async function loadAdminPromoManagement() {
+            await Promise.all([loadAdminPromoPlans(), loadAdminPromoCodes()]);
+        }
+
+        async function loadAdminPromoPlans() {
+            const select = document.getElementById('admin-promo-plan');
+            if (!select) return;
+            try {
+                const response = await fetch('/api/plans');
+                const data = await response.json();
+                if (!response.ok) throw new Error(data.error || 'Unable to load account plans.');
+                const plans = data.plans || [];
+                select.innerHTML = plans.length
+                    ? `<option value="">Select a plan</option>${plans.map(plan => `<option value="${Number(plan.id)}">${escapeHTML(plan.name)} · $${Number(plan.simulated_capital).toLocaleString()} capital</option>`).join('')}`
+                    : '<option value="">No active plans available</option>';
+            } catch (err) {
+                console.error(err);
+                select.innerHTML = '<option value="">Plans unavailable</option>';
+                const feedback = document.getElementById('admin-promo-feedback');
+                if (feedback) feedback.textContent = err.message;
+            }
+        }
+
+        async function loadAdminPromoCodes() {
+            const container = document.getElementById('admin-promo-code-list');
+            if (!container) return;
+            try {
+                const authorization = await signedTradeAuthorization();
+                const response = await fetch('/api/admin/promo-codes/list', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(authorization)
+                });
+                const data = await readAdminApiResponse(response, '/api/admin/promo-codes/list');
+                if (!response.ok) throw new Error(data.error || 'Unable to load free account codes.');
+                if (!data.codes?.length) {
+                    container.innerHTML = '<p class="account-chart-empty">No free account codes generated.</p>';
+                    return;
+                }
+                container.innerHTML = data.codes.map(code => `
+                    <article class="promo-code-card">
+                        <div class="promo-code-card-header">
+                            <code>${escapeHTML(code.code)}</code>
+                            <span class="promo-code-status ${code.claimed_at ? 'claimed' : ''}">${code.claimed_at ? 'Claimed' : 'Available'}</span>
+                        </div>
+                        <p class="support-review-meta">${escapeHTML(code.plan_name)} · Created ${escapeHTML(new Date(code.created_at).toLocaleString())}</p>
+                        ${code.claimed_at ? `<p class="support-review-meta">Claimed by <code>${escapeHTML(code.claimed_by)}</code> · ${escapeHTML(new Date(code.claimed_at).toLocaleString())}</p>` : ''}
+                    </article>
+                `).join('');
+            } catch (err) {
+                console.error(err);
+                container.innerHTML = `<p class="support-feedback">${escapeHTML(err.message)}</p>`;
+            }
+        }
+
+        async function createAdminPromoCode(planId) {
+            const feedback = document.getElementById('admin-promo-feedback');
+            if (feedback) feedback.textContent = '';
+            try {
+                const authorization = await signedTradeAuthorization();
+                const response = await fetch('/api/admin/promo-codes/create', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ ...authorization, plan_id: planId })
+                });
+                const data = await readAdminApiResponse(response, '/api/admin/promo-codes/create');
+                if (!response.ok) throw new Error(data.error || 'Unable to generate a free account code.');
+                if (feedback) feedback.textContent = `Generated ${data.code} for ${data.plan_name}. Share this code with its recipient.`;
+                await loadAdminPromoCodes();
+            } catch (err) {
+                console.error(err);
+                if (feedback) feedback.textContent = err.message;
+            }
+        }
+
         async function processAdminReview(accountId, action) {
             try {
                 const authorization = await signedTradeAuthorization();
@@ -1780,9 +1935,11 @@ let connectedWallet = null;
                     const dUser = document.getElementById('disp-username');
                     const dCode = document.getElementById('disp-code');
                     const dLink = document.getElementById('disp-link');
+                    const dReferralPct = document.getElementById('disp-referral-pct');
                     if (dUser) dUser.innerText = data.user.username;
                     if (dCode) dCode.innerText = data.user.discount_code;
                     if (dLink) dLink.value = `https://blastrr.com/?ref=${data.user.discount_code}`;
+                    if (dReferralPct) dReferralPct.innerText = `${Number(data.user.referral_pct ?? 2)}%`;
 
                     const pUser = document.getElementById('prof-username');
                     const pCode = document.getElementById('prof-code');
@@ -1802,11 +1959,47 @@ let connectedWallet = null;
                     if (dispBox) dispBox.style.display = 'none';
                     if (editBtn) editBtn.style.display = 'none';
                 }
+
                 const reviewUsername = document.getElementById('review-username');
                 if (reviewUsername) reviewUsername.value = currentUserProfile?.username || '';
                 await loadUserReview(wallet);
                 loadLeaderboard(currentLeaderboardMode);
             } catch (err) { console.error(err); }
+        }
+
+        async function claimFreeAccountCode() {
+            const input = document.getElementById('free-account-code');
+            const feedback = document.getElementById('free-account-feedback');
+            const button = document.getElementById('claim-free-account');
+            const code = input?.value.trim();
+            if (!connectedWallet) {
+                if (feedback) feedback.textContent = 'Connect your wallet before claiming a code.';
+                return;
+            }
+            if (!code) {
+                if (feedback) feedback.textContent = 'Enter a free account code.';
+                return;
+            }
+            if (button) button.disabled = true;
+            if (feedback) feedback.textContent = 'Claiming your account...';
+            try {
+                const response = await walletFetch('/api/promo/claim', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ code })
+                });
+                const data = await response.json();
+                if (!response.ok) throw new Error(data.error || 'Unable to claim this code.');
+                if (feedback) feedback.textContent = `${data.plan_name} account added to your wallet.`;
+                if (input) input.value = '';
+                await loadUserAccounts(connectedWallet);
+                switchView('accountsView');
+            } catch (err) {
+                console.error(err);
+                if (feedback) feedback.textContent = err.message;
+            } finally {
+                if (button) button.disabled = false;
+            }
         }
 
         function supportStatusLabel(status) {
@@ -2019,7 +2212,7 @@ let connectedWallet = null;
                 tbody.innerHTML = '';
 
                 if (!data.referrals || data.referrals.length === 0) {
-                    tbody.innerHTML = '<tr><td colspan="4" style="text-align: center; color: #6b7280; padding: 24px;">No sales recorded yet.</td></tr>';
+                    tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; color: #6b7280; padding: 24px;">No sales recorded yet.</td></tr>';
                     return;
                 }
 
@@ -2028,9 +2221,10 @@ let connectedWallet = null;
                     const dateStr = new Date(ref.created_at).toLocaleString();
                     tbody.innerHTML += `
                         <tr>
-                            <td><strong>${buyerName}</strong></td>
-                            <td>${ref.plan_name}</td>
-                            <td><span style="color: #34d399; font-weight: bold;">+$${ref.commission_earned.toFixed(2)} USDT</span></td>
+                            <td><strong>${escapeHTML(buyerName)}</strong></td>
+                            <td>${escapeHTML(ref.plan_name)}</td>
+                            <td><span style="color: #34d399; font-weight: bold;">+$${Number(ref.commission_earned).toFixed(2)} USDT</span></td>
+                            <td>${Number(ref.commission_pct ?? 2)}%</td>
                             <td style="color: #9ca3af; font-size: 12.5px;">${dateStr}</td>
                         </tr>
                     `;
@@ -2129,6 +2323,25 @@ let connectedWallet = null;
 
         document.getElementById('support-ticket-form')?.addEventListener('submit', submitSupportTicket);
         document.getElementById('user-review-form')?.addEventListener('submit', submitUserReview);
+        document.getElementById('admin-creator-search-form')?.addEventListener('submit', event => {
+            event.preventDefault();
+            loadAdminCreatorSearch(document.getElementById('admin-creator-search')?.value.trim() || '');
+        });
+        document.getElementById('admin-promo-code-form')?.addEventListener('submit', async event => {
+            event.preventDefault();
+            const form = event.currentTarget;
+            const button = form.querySelector('button[type="submit"]');
+            const planId = Number(document.getElementById('admin-promo-plan')?.value);
+            if (!planId) {
+                const feedback = document.getElementById('admin-promo-feedback');
+                if (feedback) feedback.textContent = 'Choose an account plan first.';
+                return;
+            }
+            if (button) button.disabled = true;
+            await createAdminPromoCode(planId);
+            if (button) button.disabled = false;
+        });
+        document.getElementById('claim-free-account')?.addEventListener('click', claimFreeAccountCode);
         document.getElementById('review-account')?.addEventListener('change', renderSelectedUserReview);
         document.getElementById('user-ticket-list')?.addEventListener('click', event => {
             const button = event.target.closest('[data-user-ticket-reply]');

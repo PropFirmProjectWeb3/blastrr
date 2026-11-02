@@ -20,6 +20,7 @@ function initTables() {
       wallet_address TEXT PRIMARY KEY,
       username TEXT UNIQUE,
       discount_code TEXT UNIQUE,
+      referral_pct REAL NOT NULL DEFAULT 2,
       referred_by TEXT,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     )`);
@@ -121,7 +122,18 @@ function initTables() {
       plan_id INTEGER,
       paid_amount REAL,
       commission_earned REAL,
+      commission_pct REAL DEFAULT 2,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    )`);
+
+    db.run(`CREATE TABLE IF NOT EXISTS promo_codes (
+      code TEXT PRIMARY KEY,
+      plan_id INTEGER NOT NULL,
+      created_by TEXT NOT NULL,
+      claimed_by TEXT,
+      claimed_at DATETIME,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY(plan_id) REFERENCES plans(id)
     )`);
 
     db.run(`CREATE TABLE IF NOT EXISTS daily_account_summaries (
@@ -170,6 +182,31 @@ function initTables() {
     db.run('CREATE INDEX IF NOT EXISTS idx_support_tickets_wallet_updated ON support_tickets(wallet_address, updated_at DESC)');
     db.run('CREATE INDEX IF NOT EXISTS idx_support_tickets_status_updated ON support_tickets(status, updated_at DESC)');
     db.run('CREATE INDEX IF NOT EXISTS idx_support_ticket_messages_ticket ON support_ticket_messages(ticket_id, created_at)');
+    db.run('CREATE INDEX IF NOT EXISTS idx_promo_codes_created_at ON promo_codes(created_at DESC)');
+
+    db.all("PRAGMA table_info(users)", (err, columns) => {
+      if (err) {
+        console.error('Unable to inspect users schema', err.message);
+        return;
+      }
+      if (!columns.some(column => column.name === 'referral_pct')) {
+        db.run('ALTER TABLE users ADD COLUMN referral_pct REAL NOT NULL DEFAULT 2', (alterErr) => {
+          if (alterErr) console.error('Unable to add users.referral_pct', alterErr.message);
+        });
+      }
+    });
+
+    db.all("PRAGMA table_info(referrals)", (err, columns) => {
+      if (err) {
+        console.error('Unable to inspect referrals schema', err.message);
+        return;
+      }
+      if (!columns.some(column => column.name === 'commission_pct')) {
+        db.run('ALTER TABLE referrals ADD COLUMN commission_pct REAL DEFAULT 2', (alterErr) => {
+          if (alterErr) console.error('Unable to add referrals.commission_pct', alterErr.message);
+        });
+      }
+    });
 
     db.all("PRAGMA table_info(accounts)", (err, columns) => {
       if (err) {

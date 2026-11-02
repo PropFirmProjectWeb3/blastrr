@@ -906,6 +906,85 @@ app.post('/api/user/profile', sensitiveLimiter, requireTradeSignature, (req, res
   );
 });
 
+app.post('/api/promo/claim', sensitiveLimiter, requireWalletSession, (req, res) => {
+  const code = typeof req.body?.code === 'string' ? req.body.code.trim().toUpperCase() : '';
+  if (!/^FREE-[A-F0-9]{20}$/.test(code)) {
+    return res.status(400).json({ error: 'Enter a valid free account code.' });
+  }
+
+  const rollback = (status, error) => db.run('ROLLBACK', () => res.status(status).json({ error }));
+  db.serialize(() => {
+    db.run('BEGIN IMMEDIATE', (beginErr) => {
+      if (beginErr) return res.status(500).json({ error: 'Unable to start code redemption.' });
+      db.get(
+        `SELECT c.plan_id, c.claimed_by, c.claimed_at, p.name AS plan_name,
+                p.simulated_capital
+         FROM promo_codes c JOIN plans p ON p.id = c.plan_id
+         WHERE c.code = ?`,
+        [code],
+        (codeErr, promo) => {
+          if (codeErr) return rollback(500, 'Unable to check this free account code.');
+          if (!promo) return rollback(404, 'Free account code not found.');
+          if (promo.claimed_at || promo.claimed_by) return rollback(409, 'This free account code has already been claimed.');
+
+          db.get(
+            'SELECT wallet_address FROM users WHERE LOWER(wallet_address) = LOWER(?)',
+            [req.walletAddress],
+            (userErr, user) => {
+              if (userErr) return rollback(500, 'Unable to prepare your account.');
+              const walletAddress = user?.wallet_address || req.walletAddress;
+              const createAccount = () => {
+                const accountId = `acc_${crypto.randomBytes(8).toString('hex')}`;
+                db.run(
+                  `UPDATE promo_codes SET claimed_by = ?, claimed_at = CURRENT_TIMESTAMP
+                   WHERE code = ? AND claimed_at IS NULL AND claimed_by IS NULL`,
+                  [walletAddress, code],
+                  function(claimErr) {
+                    if (claimErr) return rollback(500, 'Unable to claim this free account code.');
+                    if (this.changes !== 1) return rollback(409, 'This free account code has already been claimed.');
+                    db.run(
+                      `INSERT INTO accounts (id, wallet_address, plan_id, initial_balance, current_balance,
+                         current_equity, high_water_mark, daily_starting_balance, risk_day, status)
+                       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'ACTIVE')`,
+                      [
+                        accountId, walletAddress, promo.plan_id, promo.simulated_capital,
+                        promo.simulated_capital, promo.simulated_capital, promo.simulated_capital,
+                        promo.simulated_capital, new Date().toISOString().slice(0, 10)
+                      ],
+                      (accountErr) => {
+                        if (accountErr) return rollback(500, 'Unable to provision the free account.');
+                        db.run('COMMIT', (commitErr) => {
+                          if (commitErr) return rollback(500, 'Unable to commit free account provisioning.');
+                          res.json({
+                            success: true,
+                            account_id: accountId,
+                            plan_name: promo.plan_name,
+                            message: 'Free account provisioned successfully.'
+                          });
+                        });
+                      }
+                    );
+                  }
+                );
+              };
+
+              if (user) return createAccount();
+              db.run(
+                'INSERT INTO users (wallet_address) VALUES (?)',
+                [walletAddress],
+                (insertUserErr) => {
+                  if (insertUserErr) return rollback(500, 'Unable to prepare your account.');
+                  createAccount();
+                }
+              );
+            }
+          );
+        }
+      );
+    });
+  });
+});
+
 function attachTicketMessages(tickets, callback) {
   if (!tickets.length) return callback(null, tickets);
   const ids = tickets.map(ticket => ticket.id);
@@ -1225,6 +1304,76 @@ app.post('/api/admin/reviews/action', sensitiveLimiter, requireTradeSignature, r
   );
 });
 
+app.post('/api/admin/referrals/search', sensitiveLimiter, requireTradeSignature, requireAdminWallet, (req, res) => {
+  const username = typeof req.body?.username === 'string' ? req.body.username.trim() : '';
+  if (username.length < 2 || username.length > 24) {
+    return res.status(400).json({ error: 'Enter at least 2 characters of a username to search.' });
+  }
+  db.all(
+    `SELECT wallet_address, username, referral_pct
+     FROM users
+     WHERE username IS NOT NULL AND username LIKE ? COLLATE NOCASE
+     ORDER BY username COLLATE NOCASE LIMIT 50`,
+    [`%${username}%`],
+    (err, users) => {
+      if (err) return res.status(500).json({ error: 'Unable to search creator profiles.' });
+      res.json({ users: users || [] });
+    }
+  );
+});
+
+app.post('/api/admin/referrals/commission', sensitiveLimiter, requireTradeSignature, requireAdminWallet, (req, res) => {
+  const wallet = req.body?.user_wallet;
+  const referralPct = Number(req.body?.referral_pct);
+  if (typeof wallet !== 'string' || !ethers.isAddress(wallet) ||
+      !Number.isFinite(referralPct) || referralPct < 0 || referralPct > 100) {
+    return res.status(400).json({ error: 'Choose a valid user wallet and a commission rate from 0 to 100%.' });
+  }
+  const normalizedPct = Math.round(referralPct * 100) / 100;
+  db.run(
+    'UPDATE users SET referral_pct = ? WHERE LOWER(wallet_address) = LOWER(?) AND username IS NOT NULL',
+    [normalizedPct, wallet],
+    function(updateErr) {
+      if (updateErr) return res.status(500).json({ error: 'Unable to update the creator commission rate.' });
+      if (this.changes !== 1) return res.status(404).json({ error: 'Creator profile not found.' });
+      res.json({ success: true, referral_pct: normalizedPct });
+    }
+  );
+});
+
+app.post('/api/admin/promo-codes/list', sensitiveLimiter, requireTradeSignature, requireAdminWallet, (req, res) => {
+  db.all(
+    `SELECT c.code, c.created_at, c.claimed_by, c.claimed_at, p.name AS plan_name
+     FROM promo_codes c JOIN plans p ON p.id = c.plan_id
+     ORDER BY c.created_at DESC LIMIT 100`,
+    [],
+    (err, codes) => {
+      if (err) return res.status(500).json({ error: 'Unable to load free account codes.' });
+      res.json({ codes: codes || [] });
+    }
+  );
+});
+
+app.post('/api/admin/promo-codes/create', sensitiveLimiter, requireTradeSignature, requireAdminWallet, (req, res) => {
+  const planId = Number(req.body?.plan_id);
+  if (!Number.isInteger(planId) || planId <= 0) {
+    return res.status(400).json({ error: 'Choose an account plan for this code.' });
+  }
+  db.get('SELECT id, name FROM plans WHERE id = ? AND active = 1', [planId], (planErr, plan) => {
+    if (planErr) return res.status(500).json({ error: 'Unable to load the selected account plan.' });
+    if (!plan) return res.status(404).json({ error: 'The selected account plan is not available.' });
+    const code = `FREE-${crypto.randomBytes(10).toString('hex').toUpperCase()}`;
+    db.run(
+      'INSERT INTO promo_codes (code, plan_id, created_by) VALUES (?, ?, ?)',
+      [code, plan.id, req.body.wallet_address.toLowerCase()],
+      (insertErr) => {
+        if (insertErr) return res.status(500).json({ error: 'Unable to generate a free account code.' });
+        res.json({ success: true, code, plan_name: plan.name });
+      }
+    );
+  });
+});
+
 app.get('/api/user/referrals', requireWalletSession, (req, res) => {
   const wallet = req.query.wallet;
   if (typeof wallet !== 'string' || wallet.toLowerCase() !== req.walletAddress) {
@@ -1232,7 +1381,7 @@ app.get('/api/user/referrals', requireWalletSession, (req, res) => {
   }
 
   db.all(
-    `SELECT r.created_at, r.paid_amount, r.commission_earned, p.name as plan_name, u.username as buyer_username
+    `SELECT r.created_at, r.paid_amount, r.commission_earned, r.commission_pct, p.name as plan_name, u.username as buyer_username
      FROM referrals r
      JOIN plans p ON r.plan_id = p.id
      LEFT JOIN users u ON LOWER(r.referee_wallet) = LOWER(u.wallet_address)
@@ -1438,6 +1587,7 @@ app.post('/api/accounts/purchase', sensitiveLimiter, async (req, res) => {
 
       let finalPrice = plan.base_price_usdt;
       let referrerWallet = null;
+      let referralCommissionPct = 2;
 
       if (promo_code) {
         const referrer = await new Promise((resolve) => {
@@ -1445,6 +1595,7 @@ app.post('/api/accounts/purchase', sensitiveLimiter, async (req, res) => {
         });
         if (referrer) {
           referrerWallet = referrer.wallet_address;
+          referralCommissionPct = Number(referrer.referral_pct ?? 2);
           finalPrice = plan.price_usdt;
         }
       }
@@ -1485,11 +1636,11 @@ app.post('/api/accounts/purchase', sensitiveLimiter, async (req, res) => {
                 db.run('COMMIT', (commitErr) => {
                   if (commitErr) return res.status(500).json({ error: 'Unable to commit account provisioning.' });
                   if (referrerWallet && referrerWallet.toLowerCase() !== wallet_address.toLowerCase()) {
-                    const commissionEarned = finalPrice * 0.02;
+                    const commissionEarned = finalPrice * referralCommissionPct / 100;
                     db.run(
-                      `INSERT INTO referrals (referrer_wallet, referee_wallet, plan_id, paid_amount, commission_earned)
-                       VALUES (?, ?, ?, ?, ?)`,
-                      [referrerWallet, wallet_address, Number(plan_id), finalPrice, commissionEarned]
+                      `INSERT INTO referrals (referrer_wallet, referee_wallet, plan_id, paid_amount, commission_earned, commission_pct)
+                       VALUES (?, ?, ?, ?, ?, ?)`,
+                      [referrerWallet, wallet_address, Number(plan_id), finalPrice, commissionEarned, referralCommissionPct]
                     );
                   }
                   res.json({ success: true, account_id: accountId, message: "Account provisioned successfully." });

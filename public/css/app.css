@@ -306,6 +306,25 @@
         .admin-account-flag { color: #fbbf24; font-size: 12px; }
         .admin-account-card details summary { color: #c084fc; cursor: pointer; font-weight: 700; padding: 10px 0; }
         .admin-trade-table { font-size: 12px; }
+        .admin-section-tabs { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 20px; }
+        .admin-section-tab { border: 1px solid var(--surface-border); border-radius: 8px; padding: 9px 14px; background: rgba(15, 23, 34, 0.8); color: #cbd5e1; cursor: pointer; font: inherit; font-weight: 700; }
+        .admin-section-tab.active { border-color: rgba(196, 181, 253, 0.4); background: rgba(124, 107, 190, 0.5); color: #fff; }
+        .admin-section-panel[hidden] { display: none !important; }
+        .admin-search-form, .promo-claim-controls { display: flex; flex-wrap: wrap; align-items: end; gap: 12px; }
+        .admin-search-form .form-group { flex: 1 1 240px; margin-bottom: 12px; }
+        .admin-search-form > button { min-height: 42px; margin-bottom: 12px; }
+        .admin-creator-card, .promo-code-card { padding: 14px; border: 1px solid var(--surface-border); border-radius: 10px; background: rgba(15, 23, 34, 0.65); }
+        .admin-creator-card { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 14px; }
+        .admin-creator-rate { display: flex; align-items: end; gap: 8px; }
+        .admin-creator-rate .form-group { margin: 0; }
+        .admin-creator-rate input { width: 120px; }
+        .promo-code-card { overflow-wrap: anywhere; }
+        .promo-code-card-header { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; }
+        .promo-code-status { color: #6ee7b7; font-weight: 700; }
+        .promo-code-status.claimed { color: #fbbf24; }
+        .promo-claim-card { margin-top: 22px; }
+        .promo-claim-controls input { flex: 1 1 240px; min-height: 42px; padding: 10px 12px; border: 1px solid var(--surface-border); border-radius: 8px; background: rgba(8, 13, 21, 0.8); color: var(--text-primary); font: inherit; }
+        .admin-promo-management { margin-top: 22px; }
         .support-card, .review-card, .admin-support-review, .admin-review-management { margin-top: 22px; }
         .support-note { color: #a5b0c0; font-size: 13px; line-height: 1.55; }
         .support-card textarea, .support-ticket-card textarea { width: 100%; min-height: 110px; resize: vertical; padding: 12px; border-radius: 8px; background: rgba(8, 13, 21, 0.8); color: var(--text-primary); border: 1px solid var(--surface-border); font: inherit; }

@@ -219,7 +219,7 @@
                 
                 <div id="profile-setup-box">
                     <p style="color: #9ca3af; font-size: 14px; margin-bottom: 20px; line-height: 1.5;">
-                        Configure your unique username and custom promo code. Your username will identify you on the leaderboards, and you'll earn a <strong style="color: #c084fc;">fixed 2% cash commission</strong> on every plan purchase made with your code!
+                        Configure your unique username and custom promo code. Your username will identify you on the leaderboards, and you'll earn your assigned referral commission on plan purchases made with your code.
                     </p>
                     <div class="form-group">
                         <label>Unique Username</label>
@@ -237,6 +237,7 @@
                         <div>
                             <p style="margin: 4px 0;"><strong>Username:</strong> <span id="disp-username" style="color: #c084fc; font-weight: 600;">-</span></p>
                             <p style="margin: 4px 0;"><strong>Your Promo Code:</strong> <code id="disp-code" style="background: rgba(5, 7, 11, 0.9); padding: 4px 10px; border-radius: 6px; color: #34d399; border: 1px solid rgba(52, 211, 153, 0.2);">-</code></p>
+                            <p style="margin: 4px 0;"><strong>Your referral commission:</strong> <span id="disp-referral-pct" style="color: #c084fc; font-weight: 600;">2%</span></p>
                         </div>
                         <button class="btn-share-x" onclick="shareCreatorCodeOnX()">Share Promo Code on X</button>
                     </div>
@@ -262,16 +263,26 @@
                                 <tr>
                                     <th>Buyer Username</th>
                                     <th>Plan Purchased</th>
-                                    <th>Commission Earned (2%)</th>
+                                    <th>Commission Earned</th>
+                                    <th>Rate</th>
                                     <th>Date</th>
                                 </tr>
                             </thead>
                             <tbody id="ref-transactions-list">
-                                <tr><td colspan="4" style="text-align: center; color: #6b7280; padding: 24px;">No sales recorded yet.</td></tr>
+                                <tr><td colspan="5" style="text-align: center; color: #6b7280; padding: 24px;">No sales recorded yet.</td></tr>
                             </tbody>
                         </table>
                     </div>
                 </div>
+            </div>
+            <div class="card promo-claim-card">
+                <div class="card-title">Claim a free account</div>
+                <p class="support-note">Enter a one-time promotional code from the Blastrr team to add its account plan to your wallet.</p>
+                <div class="promo-claim-controls">
+                    <input type="text" id="free-account-code" maxlength="25" autocomplete="off" placeholder="Enter your free account code">
+                    <button id="claim-free-account" class="btn-wallet" type="button">Claim code</button>
+                </div>
+                <p id="free-account-feedback" class="support-feedback" role="status" aria-live="polite"></p>
             </div>
             <div class="card support-card">
                 <div class="card-title">Account support tickets</div>
@@ -365,6 +376,11 @@
 
         <!-- 6. ADMIN CONTROL VIEW -->
         <section id="adminView" class="view-panel">
+            <div class="admin-section-tabs" role="tablist" aria-label="Admin sections">
+                <button id="admin-operations-tab" class="admin-section-tab active" role="tab" aria-selected="true" onclick="switchAdminSection('admin-operations-panel')">Operations</button>
+                <button id="admin-creators-tab" class="admin-section-tab" role="tab" aria-selected="false" onclick="switchAdminSection('admin-creators-panel')">Creators &amp; Promos</button>
+            </div>
+            <div id="admin-operations-panel" class="admin-section-panel">
             <div class="card" style="border-color: rgba(220, 38, 38, 0.3);">
                 <div class="card-title admin-payout-title">Admin Withdrawal &amp; Payout Queue</div>
                 <div class="table-responsive">
@@ -404,6 +420,40 @@
                 <p class="support-note">Publish a review to show it on the public homepage. Hide it to remove it from public display.</p>
                 <div id="admin-review-list" class="support-card-list">
                     <p class="account-chart-empty">Loading reviews...</p>
+                </div>
+            </div>
+            </div>
+            <div id="admin-creators-panel" class="admin-section-panel" role="tabpanel" hidden>
+                <div class="card">
+                    <div class="card-title">Creator referral commissions</div>
+                    <p class="support-note">Search creator profiles by username and set their commission rate from 0% to 100%. The new rate applies to future referrals only.</p>
+                    <form id="admin-creator-search-form" class="admin-search-form">
+                        <div class="form-group">
+                            <label for="admin-creator-search">Username</label>
+                            <input id="admin-creator-search" type="search" minlength="2" maxlength="24" placeholder="Search username">
+                        </div>
+                        <button class="btn-wallet" type="submit">Search creators</button>
+                    </form>
+                    <div id="admin-creator-search-results" class="admin-account-list">
+                        <p class="account-chart-empty">Search for a username to manage its commission.</p>
+                    </div>
+                </div>
+                <div class="card admin-promo-management">
+                    <div class="card-title">One-time free account codes</div>
+                    <p class="support-note">Choose a plan to create a code that can be redeemed once for a free account.</p>
+                    <form id="admin-promo-code-form" class="admin-search-form">
+                        <div class="form-group">
+                            <label for="admin-promo-plan">Account plan</label>
+                            <select id="admin-promo-plan" required>
+                                <option value="">Loading plans...</option>
+                            </select>
+                        </div>
+                        <button class="btn-wallet" type="submit">Generate code</button>
+                    </form>
+                    <p id="admin-promo-feedback" class="support-feedback" role="status" aria-live="polite"></p>
+                    <div id="admin-promo-code-list" class="support-card-list">
+                        <p class="account-chart-empty">Loading free account codes...</p>
+                    </div>
                 </div>
             </div>
         </section>

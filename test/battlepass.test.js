@@ -52,9 +52,14 @@ test('profile rewards and level discounts are wallet-bound and checkout applies 
 
 test('leaderboards and public profile cards include BlastrrPass level and XP', () => {
   assert.equal((serverJs.match(/AS battlepass_xp/g) || []).length, 3);
+  assert.equal((serverJs.match(/b\.profile_image_url, COALESCE\(b\.xp/g) || []).length, 3);
   assert.match(appHtml, /<th>Battle Pass Rank<\/th>/);
   assert.match(appHtml, /<th>XP<\/th>/);
+  assert.match(appHtml, /id="profile-battlepass-avatar"/);
   assert.match(appJs, /const battlePassRank = battlePassLevel \? `Level \$\{battlePassLevel\}` : 'Unranked'/);
+  assert.match(appJs, /class="battlepass-avatar-wrap leaderboard-avatar"/);
+  assert.match(appJs, /row\.profile_image_url, row\.username/);
+  assert.match(appJs, /setBattlePassAvatar\(document\.getElementById\('profile-battlepass-avatar'\), battlePassProfile\.profile_image_url, username\)/);
   assert.match(appJs, /loadPublicBattlePassProfile/);
   assert.match(appJs, /platform\.twitter\.com\/widgets\.js/);
   assert.match(homeHtml, /standardDiscountPct=Number\(data\.standard_discount_pct\?\?90\)/);
@@ -79,4 +84,12 @@ test('Blastrr logo is used as the site favicon', () => {
   assert.match(appHtml, /href="\/favicon\.png"/);
   assert.match(homeHtml, /href="\/favicon\.png"/);
   assert.equal(fs.existsSync('public/favicon.png'), true);
+});
+
+test('battle pass profile images are verified as loadable direct image URLs before saving', () => {
+  assert.match(appHtml, /Google Images search\/result page links are not image URLs/);
+  assert.match(appJs, /function validateBattlePassImageUrl\(imageUrl\)/);
+  assert.match(appJs, /if \(imageUrl\) await validateBattlePassImageUrl\(imageUrl\)/);
+  assert.match(appJs, /Open the image itself and copy its direct image address/);
+  assert.doesNotMatch(appJs, /image\.referrerPolicy = 'no-referrer'/);
 });

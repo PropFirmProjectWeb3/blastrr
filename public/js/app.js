@@ -535,17 +535,39 @@ let connectedWallet = null;
             const image = document.createElement('img');
             image.src = imageUrl || defaultImageUrl;
             image.alt = imageUrl ? `${username || 'Trader'} profile` : 'Blastrr';
-            image.referrerPolicy = 'no-referrer';
             image.addEventListener('error', () => {
                 if (imageUrl) {
                     imageUrl = '';
                     image.src = defaultImageUrl;
                     image.alt = 'Blastrr';
+                    const feedback = document.getElementById('battlepass-profile-feedback');
+                    if (feedback) feedback.textContent = 'The saved image could not be loaded. Showing the Blastrr default image instead.';
                 } else {
                     image.remove();
                 }
             });
             container.append(image);
+        }
+
+        function validateBattlePassImageUrl(imageUrl) {
+            return new Promise((resolve, reject) => {
+                const image = new Image();
+                const timeout = setTimeout(() => {
+                    image.src = '';
+                    reject(new Error('The image took too long to load. Check the direct image URL and try again.'));
+                }, 15000);
+                image.onload = () => {
+                    clearTimeout(timeout);
+                    if (image.naturalWidth > 0) resolve();
+                    else reject(new Error('That URL did not load a usable image. Use the direct image address, not a Google Images results page.'));
+                };
+                image.onerror = () => {
+                    clearTimeout(timeout);
+                    reject(new Error('That URL did not load as an image. Open the image itself and copy its direct image address, not the Google Images page URL.'));
+                };
+                image.referrerPolicy = 'strict-origin-when-cross-origin';
+                image.src = imageUrl;
+            });
         }
 
         async function loadBattlePass() {
@@ -608,6 +630,7 @@ let connectedWallet = null;
             const imageInput = document.getElementById('battlepass-profile-image');
             if (imageInput && document.activeElement !== imageInput) imageInput.value = battlePassProfile.profile_image_url || '';
             setBattlePassAvatar(document.getElementById('battlepass-avatar-wrap'), battlePassProfile.profile_image_url, username);
+            setBattlePassAvatar(document.getElementById('profile-battlepass-avatar'), battlePassProfile.profile_image_url, username);
             renderBattlePassTasks();
             renderBattlePassLevels();
             selectBattlePassTab(battlePassActiveTab);
@@ -868,6 +891,7 @@ let connectedWallet = null;
             const imageUrl = document.getElementById('battlepass-profile-image')?.value.trim() || '';
             if (feedback) feedback.textContent = '';
             try {
+                if (imageUrl) await validateBattlePassImageUrl(imageUrl);
                 const response = await walletFetch('/api/battlepass/profile', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -1111,10 +1135,10 @@ let connectedWallet = null;
                 const rankDisplay = `#${index + 1}`;
                 const badgeText = currentLeaderboardMode === 'PAYOUTS' ? 'PAID' : 'PnL';
 
-                tbody.innerHTML += `
+                tbody.insertAdjacentHTML('beforeend', `
                     <tr>
                         <td><strong style="color: ${index < 3 ? '#c084fc' : '#f3f4f6'}">${rankDisplay}</strong></td>
-                        <td><span style="color: #c084fc; font-weight: bold;">@${row.username}</span> ${isUser ? '<small style="color:#34d399; margin-left:6px;">(You)</small>' : ''}</td>
+                        <td><div class="leaderboard-trader"><div class="battlepass-avatar-wrap leaderboard-avatar" aria-hidden="true"></div><span style="color: #c084fc; font-weight: bold;">@${row.username}</span> ${isUser ? '<small style="color:#34d399; margin-left:6px;">(You)</small>' : ''}</div></td>
                         <td><code style="background: rgba(5,7,11,0.9); padding: 4px 8px; border-radius: 4px; color: #34d399;">${row.discount_code}</code></td>
                         <td><span class="battlepass-rank-badge">${battlePassRank}</span></td>
                         <td>${compactXp}</td>
@@ -1129,7 +1153,8 @@ let connectedWallet = null;
                             </div>
                         </td>
                     </tr>
-                `;
+                `);
+                setBattlePassAvatar(tbody.lastElementChild?.querySelector('.leaderboard-avatar'), row.profile_image_url, row.username);
             });
 
             if (userFoundRank && myRankLabel) {

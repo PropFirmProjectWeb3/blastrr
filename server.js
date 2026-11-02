@@ -1170,7 +1170,7 @@ app.get('/api/leaderboard', (req, res) => {
 
   if (mode === 'DAILY') {
     query = `
-      SELECT u.username, u.discount_code, u.wallet_address, COALESCE(b.xp, 0) AS battlepass_xp, SUM(t.pnl) as metric_value
+      SELECT u.username, u.discount_code, u.wallet_address, b.profile_image_url, COALESCE(b.xp, 0) AS battlepass_xp, SUM(t.pnl) as metric_value
       FROM users u
       LEFT JOIN battlepass_users b ON LOWER(b.wallet_address) = LOWER(u.wallet_address)
       JOIN accounts a ON LOWER(u.wallet_address) = LOWER(a.wallet_address)
@@ -1182,7 +1182,7 @@ app.get('/api/leaderboard', (req, res) => {
     `;
   } else if (mode === 'MONTHLY') {
     query = `
-      SELECT u.username, u.discount_code, u.wallet_address, COALESCE(b.xp, 0) AS battlepass_xp, SUM(t.pnl) as metric_value
+      SELECT u.username, u.discount_code, u.wallet_address, b.profile_image_url, COALESCE(b.xp, 0) AS battlepass_xp, SUM(t.pnl) as metric_value
       FROM users u
       LEFT JOIN battlepass_users b ON LOWER(b.wallet_address) = LOWER(u.wallet_address)
       JOIN accounts a ON LOWER(u.wallet_address) = LOWER(a.wallet_address)
@@ -1194,7 +1194,7 @@ app.get('/api/leaderboard', (req, res) => {
     `;
   } else if (mode === 'PAYOUTS') {
     query = `
-      SELECT u.username, u.discount_code, u.wallet_address, COALESCE(b.xp, 0) AS battlepass_xp, SUM(w.amount) as metric_value
+      SELECT u.username, u.discount_code, u.wallet_address, b.profile_image_url, COALESCE(b.xp, 0) AS battlepass_xp, SUM(w.amount) as metric_value
       FROM users u
       LEFT JOIN battlepass_users b ON LOWER(b.wallet_address) = LOWER(u.wallet_address)
       JOIN (

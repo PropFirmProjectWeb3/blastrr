@@ -307,6 +307,7 @@
                         <div class="form-group">
                             <label for="battlepass-profile-image">Profile image URL</label>
                             <input id="battlepass-profile-image" type="url" maxlength="2048" placeholder="https://example.com/profile-image.jpg">
+                            <small class="battlepass-image-hint">Use a direct image address. Google Images search/result page links are not image URLs.</small>
                         </div>
                         <button class="battlepass-secondary-button" type="submit">Save image</button>
                         <p id="battlepass-profile-feedback" class="support-feedback" role="status" aria-live="polite"></p>
@@ -340,10 +341,13 @@
 
                 <div id="profile-display-box" style="display: none; margin-top: 20px; border-top: 1px solid rgba(255, 255, 255, 0.06); padding-top: 24px;">
                     <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
-                        <div>
+                        <div class="profile-display-identity">
+                            <div id="profile-battlepass-avatar" class="battlepass-avatar-wrap profile-battlepass-avatar" aria-label="Profile image"></div>
+                            <div>
                             <p style="margin: 4px 0;"><strong>Username:</strong> <span id="disp-username" style="color: #c084fc; font-weight: 600;">-</span></p>
                             <p style="margin: 4px 0;"><strong>Your Promo Code:</strong> <code id="disp-code" style="background: rgba(5, 7, 11, 0.9); padding: 4px 10px; border-radius: 6px; color: #34d399; border: 1px solid rgba(52, 211, 153, 0.2);">-</code></p>
                             <p style="margin: 4px 0;"><strong>Your referral commission:</strong> <span id="disp-referral-pct" style="color: #c084fc; font-weight: 600;">2%</span></p>
+                            </div>
                         </div>
                         <button class="btn-share-x" onclick="shareCreatorCodeOnX()">Share Promo Code on X</button>
                     </div>

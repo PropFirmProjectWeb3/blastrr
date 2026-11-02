@@ -410,7 +410,7 @@
         td { padding: 13px 14px; border-bottom: 1px solid rgba(203, 213, 225, 0.06); color: #e2e8f0; }
 
         .logo { display: flex; align-items: center; gap: 10px; text-decoration: none; white-space: nowrap; }
-        .logo .brand-mark { display: grid; place-items: center; flex: 0 0 34px; width: 34px; height: 34px; border-radius: 11px; background: linear-gradient(145deg, #bd91ff, #6424e8); color: #fff; box-shadow: 0 0 28px rgba(142,72,255,.35); font-size: 20px; clip-path: polygon(40% 0, 100% 0, 64% 43%, 91% 43%, 23% 100%, 40% 55%, 12% 55%); }
+        .logo .brand-mark { display: block; flex: 0 0 34px; width: 34px; height: 34px; border: 1px solid rgba(189, 145, 255, 0.4); border-radius: 11px; box-shadow: 0 0 28px rgba(142,72,255,.35); object-fit: cover; }
 
         @media (max-width: 1250px) {
             .hamburger-btn { display: inline-flex; align-items: center; justify-content: center; }

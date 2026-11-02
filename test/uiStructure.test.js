@@ -28,12 +28,13 @@ test('trading terminal displays a responsive 24/7 crypto market status card', ()
   assert.doesNotMatch(appHtml, /<aside class="market-hours-status"/);
 });
 
-test('trading terminal uses the homepage Blastrr wordmark and lightning mark styling', () => {
-  assert.match(appHtml, /<a class="logo" href="index\.html" aria-label="Blastrr home">[\s\S]*?<span class="brand-mark" aria-hidden="true">ϟ<\/span>[\s\S]*?<span>BLASTRR<\/span>/);
-  assert.match(landingHtml, /<a class="brand" href="index\.html" aria-label="Blastrr home"><span class="brand-mark">ϟ<\/span><span>BLASTRR<\/span><\/a>/);
+test('trading terminal and homepage use the Blastrr logo image', () => {
+  assert.match(appHtml, /<a class="logo" href="index\.html" aria-label="Blastrr home">[\s\S]*?<img class="brand-mark" src="\/favicon\.png" alt="" aria-hidden="true">[\s\S]*?<span>BLASTRR<\/span>/);
+  assert.match(landingHtml, /<a class="brand" href="index\.html" aria-label="Blastrr home"><img class="brand-mark" src="\/favicon\.png" alt=""><span>BLASTRR<\/span><\/a>/);
+  assert.match(landingHtml, /<a class="brand" href="index\.html"><img class="brand-mark" src="\/favicon\.png" alt=""><span>BLASTRR<\/span><\/a>/);
   assert.match(appCss, /\.logo\s*\{[^}]*font-size:\s*20px;[^}]*font-weight:\s*950;[^}]*letter-spacing:\s*0\.08em/);
-  assert.match(appCss, /\.logo \.brand-mark\s*\{[^}]*background:\s*linear-gradient\(145deg,\s*#bd91ff,\s*#6424e8\)[^}]*clip-path:\s*polygon\(40% 0,\s*100% 0,\s*64% 43%,\s*91% 43%,\s*23% 100%,\s*40% 55%,\s*12% 55%\)/);
-  assert.match(landingHtml, /\.brand-mark\{[^}]*background:linear-gradient\(145deg,#bd91ff,#6424e8\)[^}]*clip-path:polygon\(40% 0,100% 0,64% 43%,91% 43%,23% 100%,40% 55%,12% 55%\)/);
+  assert.match(appCss, /\.logo \.brand-mark\s*\{[^}]*object-fit:\s*cover/);
+  assert.match(landingHtml, /\.brand-mark\{object-fit:cover;clip-path:none\}/);
 });
 
 test('homepage focuses on crypto markets without promoting derivatives products', () => {

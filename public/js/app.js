@@ -556,12 +556,20 @@ let connectedWallet = null;
             const fallback = document.createElement('span');
             fallback.textContent = (username || 'B').charAt(0).toUpperCase();
             container.append(fallback);
-            if (!imageUrl) return;
+            const defaultImageUrl = '/favicon.png';
             const image = document.createElement('img');
-            image.src = imageUrl;
-            image.alt = `${username || 'Trader'} profile`;
+            image.src = imageUrl || defaultImageUrl;
+            image.alt = imageUrl ? `${username || 'Trader'} profile` : 'Blastrr';
             image.referrerPolicy = 'no-referrer';
-            image.addEventListener('error', () => image.remove(), { once: true });
+            image.addEventListener('error', () => {
+                if (imageUrl) {
+                    imageUrl = '';
+                    image.src = defaultImageUrl;
+                    image.alt = 'Blastrr';
+                } else {
+                    image.remove();
+                }
+            });
             container.append(image);
         }
 

@@ -72,4 +72,11 @@ test('BlastrrPass dashboard presents missions, rewards, leaderboard, and profile
   assert.match(appJs, /function selectBattlePassTab/);
   assert.match(appJs, /class="battlepass-task battlepass-reward-item"/);
   assert.match(appJs, /class="battlepass-reward-code"/);
+  assert.match(appJs, /const defaultImageUrl = '\/favicon\.png'/);
+});
+
+test('Blastrr logo is used as the site favicon', () => {
+  assert.match(appHtml, /href="\/favicon\.png"/);
+  assert.match(homeHtml, /href="\/favicon\.png"/);
+  assert.equal(fs.existsSync('public/favicon.png'), true);
 });

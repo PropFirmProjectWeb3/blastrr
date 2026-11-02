@@ -36,6 +36,75 @@
         .wallet-login-button:hover:not(:disabled), .wallet-login-button:focus-visible { background: transparent; box-shadow: 0 0 22px rgba(168, 85, 247, 0.55); outline: none; }
         .wallet-login-button:disabled { cursor: wait; opacity: 0.7; }
         .wallet-login-status { min-height: 20px; margin: 14px 0 0; color: #c4b5fd; font-size: 12px; }
+        .disclaimer-gate[hidden] { display: none; }
+        .disclaimer-gate {
+            position: fixed;
+            inset: 0;
+            z-index: 2100;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 18px;
+            overflow-y: auto;
+            background: rgba(0, 0, 0, 0.96);
+        }
+        .disclaimer-dialog {
+            display: flex;
+            width: min(100%, 900px);
+            height: min(94vh, 900px);
+            flex-direction: column;
+            padding: 24px;
+            border: 1px solid rgba(168, 85, 247, 0.42);
+            border-radius: 18px;
+            background:
+                radial-gradient(ellipse at 10% 0%, rgba(116, 55, 223, 0.15), transparent 38%),
+                rgba(8, 6, 12, 0.99);
+            box-shadow: 0 0 42px rgba(106, 45, 170, 0.2);
+            color: var(--text-primary);
+        }
+        .disclaimer-header { flex: 0 0 auto; padding-bottom: 16px; }
+        .disclaimer-header .wallet-login-eyebrow { margin-top: 0; }
+        .disclaimer-header h1 { margin: 8px 0; color: #f8fafc; font-family: "Orbitron", ui-sans-serif, sans-serif; font-size: clamp(20px, 3vw, 29px); font-style: italic; }
+        .disclaimer-header .wallet-login-copy { max-width: none; }
+        .disclaimer-scroll-area {
+            min-height: 0;
+            flex: 1 1 auto;
+            padding: 18px;
+            overflow-y: auto;
+            border: 1px solid rgba(190, 153, 255, 0.14);
+            border-radius: 12px;
+            background: rgba(0, 0, 0, 0.3);
+            color: #d3cede;
+            font-size: 13px;
+            line-height: 1.65;
+            overscroll-behavior: contain;
+        }
+        .disclaimer-scroll-area h2 { margin: 20px 0 8px; color: #e9d5ff; font-size: 15px; }
+        .disclaimer-scroll-area h2:first-child { margin-top: 0; }
+        .disclaimer-scroll-area p { margin: 0 0 12px; }
+        .disclaimer-scroll-area li { margin: 0 0 8px; padding-left: 4px; }
+        .disclaimer-scroll-area ul, .disclaimer-scroll-area ol { padding-left: 24px; }
+        .disclaimer-end-marker { padding-top: 8px; color: #c4b5fd; }
+        .disclaimer-controls { flex: 0 0 auto; padding-top: 12px; }
+        .disclaimer-controls .wallet-login-status { margin: 0 0 10px; text-align: left; }
+        .disclaimer-checkbox { display: flex; align-items: flex-start; gap: 10px; margin: 10px 0; color: #e9e3f2; font-size: 13px; line-height: 1.5; text-align: left; cursor: pointer; }
+        .disclaimer-checkbox input { width: 17px; height: 17px; flex: 0 0 17px; margin: 1px 0 0; accent-color: #a855f7; }
+        .disclaimer-checkbox input:disabled { cursor: not-allowed; opacity: 0.55; }
+        .disclaimer-remember { color: #b7aec5; font-size: 12px; }
+        .disclaimer-controls .wallet-login-button { width: 100%; margin-top: 8px; }
+        .disclaimer-controls .wallet-login-button:disabled { cursor: not-allowed; box-shadow: none; }
+        .disclaimer-cancel-button { width: 100%; min-height: 40px; margin-top: 8px; border: 0; background: transparent; color: #b7aec5; cursor: pointer; font: inherit; font-size: 12px; }
+        .disclaimer-cancel-button:hover, .disclaimer-cancel-button:focus-visible { color: #fff; text-decoration: underline; }
+        .disclaimer-controls #disclaimer-feedback { margin: 8px 0 0; }
+        @media (max-width: 600px) {
+            .disclaimer-gate { align-items: stretch; padding: 8px; }
+            .disclaimer-dialog { width: 100%; height: calc(100dvh - 16px); padding: 14px; border-radius: 14px; }
+            .disclaimer-header { padding-bottom: 10px; }
+            .disclaimer-header .wallet-login-copy { font-size: 12px; }
+            .disclaimer-scroll-area { padding: 13px; font-size: 12px; }
+            .disclaimer-scroll-area h2 { font-size: 14px; }
+            .disclaimer-checkbox { font-size: 12px; }
+        }
         
         body { 
             font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; 

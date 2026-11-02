@@ -35,6 +35,8 @@ let connectedWallet = null;
         let walletSessionGeneration = 0;
         let dashboardInitialized = false;
         let dashboardAuthenticated = false;
+        let disclaimerGateMode = 'login';
+        let pendingPurchaseDisclaimer = null;
         let battlePassProfile = null;
         let battlePassTasks = [];
         let battlePassLevels = [];
@@ -44,6 +46,7 @@ let connectedWallet = null;
                 const closingTradeIds = new Set();
         
         const TREASURY_WALLET = "0x8632fa855d5dc6b59a3cf892d72cf4a94f182aae";
+        const DISCLAIMER_VERSION = '2026-11-02-v1';
 
         function escapeHTML(value) {
             return String(value ?? '').replace(/[&<>"']/g, character => ({
@@ -142,6 +145,13 @@ let connectedWallet = null;
         }
 
         window.addEventListener('DOMContentLoaded', async () => {
+            const disclaimerScrollArea = document.getElementById('disclaimer-scroll-area');
+            disclaimerScrollArea?.addEventListener('scroll', updateDisclaimerScrollState);
+            document.getElementById('disclaimer-accept-terms')?.addEventListener('change', updateDisclaimerContinueState);
+            document.getElementById('disclaimer-simulated-funds')?.addEventListener('change', updateDisclaimerContinueState);
+            document.getElementById('disclaimer-continue-button')?.addEventListener('click', acceptDisclaimer);
+            document.getElementById('disclaimer-cancel-purchase')?.addEventListener('click', () => resolvePurchaseDisclaimer(false));
+
             const provider = getProvider();
             if (provider?.on) {
                 provider.on('accountsChanged', (accounts) => {
@@ -1224,25 +1234,174 @@ let connectedWallet = null;
 
         function lockDashboard(message = 'Sign a message with your wallet to unlock your trading dashboard.') {
             dashboardAuthenticated = false;
+            resolvePurchaseDisclaimer(false);
             document.body.classList.add('auth-locked');
-            const header = document.querySelector('header');
+            const header = document.querySelector('body > header');
             const main = document.querySelector('main');
             const gate = document.getElementById('wallet-login-gate');
+            const disclaimerGate = document.getElementById('disclaimer-gate');
             if (header) header.hidden = true;
             if (main) main.hidden = true;
             if (gate) gate.hidden = false;
+            if (disclaimerGate) disclaimerGate.hidden = true;
             setWalletLoginStatus(message);
+        }
+
+        function showDisclaimerGate(mode = 'login') {
+            disclaimerGateMode = mode;
+            if (mode === 'login') {
+                dashboardAuthenticated = false;
+                document.body.classList.add('auth-locked');
+            }
+            const header = document.querySelector('body > header');
+            const main = document.querySelector('main');
+            const loginGate = document.getElementById('wallet-login-gate');
+            const disclaimerGate = document.getElementById('disclaimer-gate');
+            const scrollArea = document.getElementById('disclaimer-scroll-area');
+            if (header) header.hidden = true;
+            if (main) main.hidden = true;
+            if (loginGate) loginGate.hidden = true;
+            if (disclaimerGate) disclaimerGate.hidden = false;
+            if (scrollArea) scrollArea.scrollTop = 0;
+            ['disclaimer-accept-terms', 'disclaimer-simulated-funds'].forEach(id => {
+                const checkbox = document.getElementById(id);
+                if (checkbox) {
+                    checkbox.checked = false;
+                    checkbox.disabled = true;
+                }
+            });
+            const remember = document.getElementById('disclaimer-remember');
+            if (remember) remember.checked = true;
+            const rememberLabel = document.querySelector('.disclaimer-remember');
+            if (rememberLabel) rememberLabel.hidden = mode === 'purchase';
+            const cancelButton = document.getElementById('disclaimer-cancel-purchase');
+            if (cancelButton) cancelButton.hidden = mode !== 'purchase';
+            const title = document.getElementById('disclaimer-title');
+            if (title) title.textContent = mode === 'purchase' ? 'Review Terms Before Purchase' : 'Important Disclaimers & Terms';
+            const copy = document.querySelector('.disclaimer-header .wallet-login-copy');
+            if (copy) copy.textContent = mode === 'purchase'
+                ? 'Review the terms for this purchase. You must reach the end and confirm both acknowledgements each time you buy.'
+                : 'Read to the end and confirm both acknowledgements to unlock your dashboard.';
+            const continueButton = document.getElementById('disclaimer-continue-button');
+            if (continueButton) continueButton.textContent = mode === 'purchase' ? 'Agree and continue to checkout' : 'Agree and continue';
+            const hint = document.getElementById('disclaimer-scroll-hint');
+            if (hint) hint.textContent = 'Scroll to the end of the terms to enable the acknowledgements.';
+            const feedback = document.getElementById('disclaimer-feedback');
+            if (feedback) feedback.textContent = '';
+            updateDisclaimerScrollState();
+            updateDisclaimerContinueState();
+        }
+
+        function updateDisclaimerScrollState() {
+            const scrollArea = document.getElementById('disclaimer-scroll-area');
+            if (!scrollArea) return;
+            const reachedEnd = scrollArea.scrollTop + scrollArea.clientHeight >= scrollArea.scrollHeight - 4;
+            if (!reachedEnd) return;
+            ['disclaimer-accept-terms', 'disclaimer-simulated-funds'].forEach(id => {
+                const checkbox = document.getElementById(id);
+                if (checkbox) checkbox.disabled = false;
+            });
+            const hint = document.getElementById('disclaimer-scroll-hint');
+            if (hint) hint.textContent = 'You have reached the end. Confirm both acknowledgements to continue.';
+        }
+
+        function updateDisclaimerContinueState() {
+            const reachedEnd = document.getElementById('disclaimer-accept-terms')?.disabled === false &&
+                document.getElementById('disclaimer-simulated-funds')?.disabled === false;
+            const acceptedTerms = document.getElementById('disclaimer-accept-terms')?.checked === true;
+            const acknowledgedSimulation = document.getElementById('disclaimer-simulated-funds')?.checked === true;
+            const button = document.getElementById('disclaimer-continue-button');
+            if (button) button.disabled = !(reachedEnd && acceptedTerms && acknowledgedSimulation);
+        }
+
+        async function acceptDisclaimer() {
+            const button = document.getElementById('disclaimer-continue-button');
+            const feedback = document.getElementById('disclaimer-feedback');
+            const owner = connectedWallet?.toLowerCase();
+            if (!owner || !button || button.disabled) return;
+            button.disabled = true;
+            if (feedback) feedback.textContent = 'Saving your selection...';
+            try {
+                if (disclaimerGateMode === 'purchase') {
+                    if (connectedWallet?.toLowerCase() !== owner) return;
+                    resolvePurchaseDisclaimer(true);
+                    return;
+                }
+                if (document.getElementById('disclaimer-remember')?.checked) {
+                    const response = await walletFetch('/api/user/disclaimer-consent', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            version: DISCLAIMER_VERSION,
+                            accepted_terms: true,
+                            simulated_funds: true
+                        })
+                    });
+                    const data = await response.json();
+                    if (!response.ok) throw new Error(data.error || 'Unable to remember your selection.');
+                }
+                if (connectedWallet?.toLowerCase() !== owner) return;
+                await continueAfterDisclaimer();
+            } catch (error) {
+                console.error('Disclaimer acceptance failed:', error);
+                if (feedback) feedback.textContent = error.message || 'Unable to save your selection. Please try again.';
+                updateDisclaimerContinueState();
+            }
+        }
+
+        async function continueAfterDisclaimer() {
+            disclaimerGateMode = 'login';
+            unlockDashboard();
+            setWalletLoginStatus('');
+            await initializeDashboard();
+            checkRole(connectedWallet);
+            loadUserAccounts(connectedWallet);
+            loadUserProfile(connectedWallet);
+            loadUserTickets(connectedWallet);
+            loadBattlePass();
         }
 
         function unlockDashboard() {
             dashboardAuthenticated = true;
             document.body.classList.remove('auth-locked');
-            const header = document.querySelector('header');
+            const header = document.querySelector('body > header');
             const main = document.querySelector('main');
             const gate = document.getElementById('wallet-login-gate');
+            const disclaimerGate = document.getElementById('disclaimer-gate');
             if (header) header.hidden = false;
             if (main) main.hidden = false;
             if (gate) gate.hidden = true;
+            if (disclaimerGate) disclaimerGate.hidden = true;
+        }
+
+        function requestPurchaseDisclaimer() {
+            return new Promise(resolve => {
+                pendingPurchaseDisclaimer = resolve;
+                showDisclaimerGate('purchase');
+            });
+        }
+
+        function resolvePurchaseDisclaimer(accepted) {
+            if (!pendingPurchaseDisclaimer) return;
+            const resolve = pendingPurchaseDisclaimer;
+            pendingPurchaseDisclaimer = null;
+            disclaimerGateMode = 'login';
+            const gate = document.getElementById('disclaimer-gate');
+            if (gate) gate.hidden = true;
+            const rememberLabel = document.querySelector('.disclaimer-remember');
+            if (rememberLabel) rememberLabel.hidden = false;
+            const cancelButton = document.getElementById('disclaimer-cancel-purchase');
+            if (cancelButton) cancelButton.hidden = true;
+            if (dashboardAuthenticated &&
+                walletSessionToken &&
+                walletSessionOwner === connectedWallet?.toLowerCase() &&
+                walletSessionExpiresAt > Date.now()) {
+                const header = document.querySelector('body > header');
+                const main = document.querySelector('main');
+                if (header) header.hidden = false;
+                if (main) main.hidden = false;
+            }
+            resolve(accepted);
         }
 
         function resetDashboardToTradeView() {
@@ -1386,14 +1545,22 @@ let connectedWallet = null;
                 return;
             }
             if (connectedWallet?.toLowerCase() !== owner) return;
-            unlockDashboard();
-            setWalletLoginStatus('');
-            await initializeDashboard();
-            checkRole(connectedWallet);
-            loadUserAccounts(connectedWallet);
-            loadUserProfile(connectedWallet);
-            loadUserTickets(connectedWallet);
-            loadBattlePass();
+            try {
+                const consentResponse = await walletFetch('/api/user/disclaimer-consent');
+                const consent = await consentResponse.json();
+                if (!consentResponse.ok) throw new Error(consent.error || 'Unable to check disclaimer acceptance.');
+                if (connectedWallet?.toLowerCase() !== owner) return;
+                if (consent.accepted && consent.version === DISCLAIMER_VERSION) {
+                    await continueAfterDisclaimer();
+                } else {
+                    showDisclaimerGate();
+                }
+            } catch (error) {
+                if (connectedWallet?.toLowerCase() === owner) {
+                    console.error('Disclaimer status check failed:', error);
+                    lockDashboard(error.message || 'Unable to check disclaimer acceptance. Sign in again to continue.');
+                }
+            }
         }
 
         function isRiskLockedAccount(account) {
@@ -2967,6 +3134,17 @@ let connectedWallet = null;
             if (!connectedWallet) { alert("Connect wallet first!"); return; }
             const amount = Number(priceUsdt);
             if (!Number.isFinite(amount) || amount < 0) { alert("Invalid plan price."); return; }
+            const owner = connectedWallet.toLowerCase();
+            if (!dashboardAuthenticated || !walletSessionToken ||
+                walletSessionOwner !== owner || walletSessionExpiresAt <= Date.now()) {
+                lockDashboard('Your wallet session expired. Sign in again before purchasing.');
+                return;
+            }
+            if (!await requestPurchaseDisclaimer() || connectedWallet?.toLowerCase() !== owner) return;
+            await completePlanPurchase(planId, amount);
+        }
+
+        async function completePlanPurchase(planId, amount) {
             if (amount === 0) {
                 if (!confirm('Confirm this free account purchase?')) return;
                 try {
@@ -2976,7 +3154,10 @@ let connectedWallet = null;
                         body: JSON.stringify({
                             wallet_address: connectedWallet,
                             plan_id: Number(planId),
-                            promo_code: activePromoCode
+                            promo_code: activePromoCode,
+                            disclaimer_version: DISCLAIMER_VERSION,
+                            terms_accepted: true,
+                            simulated_funds_acknowledged: true
                         })
                     });
                     const data = await response.json();
@@ -3033,7 +3214,10 @@ let connectedWallet = null;
                         plan_id: planId, 
                         tx_hash: txHash, 
                         chain_id: selectedChainId,
-                        promo_code: activePromoCode 
+                        promo_code: activePromoCode,
+                        disclaimer_version: DISCLAIMER_VERSION,
+                        terms_accepted: true,
+                        simulated_funds_acknowledged: true
                     })
                 });
                 const data = await res.json();

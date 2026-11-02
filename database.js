@@ -44,6 +44,13 @@ function initTables() {
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     )`);
 
+    db.run(`CREATE TABLE IF NOT EXISTS wallet_disclaimer_acceptances (
+      wallet_address TEXT NOT NULL,
+      version TEXT NOT NULL,
+      accepted_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      PRIMARY KEY (wallet_address, version)
+    )`);
+
     db.run(`CREATE TABLE IF NOT EXISTS purchases (
       tx_hash TEXT PRIMARY KEY,
       chain_id INTEGER NOT NULL,

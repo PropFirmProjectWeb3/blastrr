@@ -113,9 +113,25 @@ test('terminal stays black and locked until a signed wallet session is establish
   assert.match(appHtml, /<header hidden>/);
   assert.match(appHtml, /<main hidden>/);
   assert.match(appHtml, /onclick="connectWallet\(\)">Connect wallet &amp; sign in/);
+  assert.match(appHtml, /id="disclaimer-gate"[^>]*hidden/);
+  assert.match(appHtml, /id="disclaimer-scroll-area"/);
+  assert.match(appHtml, /id="disclaimer-accept-terms" type="checkbox" disabled/);
+  assert.match(appHtml, /id="disclaimer-simulated-funds" type="checkbox" disabled/);
+  assert.match(appHtml, /id="disclaimer-remember" type="checkbox" checked/);
+  assert.match(appHtml, /id="disclaimer-cancel-purchase"/);
+  assert.match(appHtml, /Testimonials &amp; User Submissions/);
   assert.match(appCss, /body\.auth-locked[^}]*background:\s*#000/);
   assert.match(appJs, /if \(!dashboardAuthenticated \|\| !walletSessionToken \|\|[\s\S]*?lockDashboard\(\);[\s\S]*?return;/);
-  assert.match(appJs, /await ensureWalletSession\(\);[\s\S]*?unlockDashboard\(\);[\s\S]*?await initializeDashboard\(\);/);
+  assert.match(appJs, /await ensureWalletSession\(\);[\s\S]*?walletFetch\('\/api\/user\/disclaimer-consent'\)[\s\S]*?if \(consent\.accepted && consent\.version === DISCLAIMER_VERSION\)[\s\S]*?continueAfterDisclaimer\(\)/);
+  assert.match(appJs, /scrollArea\.scrollTop \+ scrollArea\.clientHeight >= scrollArea\.scrollHeight - 4/);
+  assert.match(appJs, /accepted_terms: true,[\s\S]*?simulated_funds: true/);
+  assert.match(appJs, /async function buyPlan\(planId, priceUsdt\)[\s\S]*?requestPurchaseDisclaimer\(\)[\s\S]*?completePlanPurchase\(planId, amount\)/);
+  assert.match(appJs, /walletSessionOwner !== owner \|\| walletSessionExpiresAt <= Date\.now\(\)/);
+  assert.match(appJs, /disclaimer_version: DISCLAIMER_VERSION,[\s\S]*?terms_accepted: true,[\s\S]*?simulated_funds_acknowledged: true/);
+  assert.match(serverJs, /app\.get\('\/api\/user\/disclaimer-consent', requireWalletSession/);
+  assert.match(serverJs, /app\.post\('\/api\/user\/disclaimer-consent', sensitiveLimiter, requireWalletSession/);
+  assert.match(serverJs, /wallet_disclaimer_acceptances/);
+  assert.match(serverJs, /req\.body\?\.disclaimer_version !== DISCLAIMER_VERSION[\s\S]*?req\.body\?\.terms_accepted !== true[\s\S]*?req\.body\?\.simulated_funds_acknowledged !== true/);
   assert.match(appJs, /if \(dashboardAuthenticated && \(!walletSessionToken \|\| walletSessionExpiresAt <= Date\.now\(\)\)\)/);
 });
 

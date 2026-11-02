@@ -19,6 +19,52 @@
         <button id="wallet-login-button" class="wallet-login-button" type="button" onclick="connectWallet()">Connect wallet &amp; sign in</button>
         <p id="wallet-login-status" class="wallet-login-status" role="status" aria-live="polite"></p>
     </section>
+    <section id="disclaimer-gate" class="disclaimer-gate" aria-labelledby="disclaimer-title" hidden>
+        <div class="disclaimer-dialog">
+            <div class="disclaimer-header">
+                <p class="wallet-login-eyebrow">BEFORE YOU CONTINUE</p>
+                <h1 id="disclaimer-title">Important Disclaimers &amp; Terms</h1>
+                <p class="wallet-login-copy">Read to the end and confirm both acknowledgements to unlock your dashboard.</p>
+            </div>
+            <div id="disclaimer-scroll-area" class="disclaimer-scroll-area" tabindex="0" aria-label="Important Disclaimers and Terms">
+                <h2>Educational &amp; General Information Only</h2>
+                <p>The materials and content provided by Blastrr, whether on our website, through distributed documents, interactive media, or other communications, are intended solely for educational, testing, and general informational purposes (the “Information”). This Information should not be viewed as an offer or solicitation to buy or sell futures, forex, cryptocurrencies, derivatives, or any financial products of any kind, nor does it constitute any type of trading or investment advice, recommendation, strategy, or endorsement of any financial instruments, companies, or funds. Users are encouraged to do their own research, should not interpret such Information as personalized financial advice, and should consult with a qualified financial adviser before making any real-world financial decisions. The Information provided is not targeted at any specific jurisdiction and should not be used in any manner that would contravene local laws or regulations.</p>
+
+                <h2>Strictly Simulated Funds &amp; No Promise of Payment</h2>
+                <p><strong>All activities, balances, accounts, and evaluations provided by Blastrr utilize purely virtual, simulated funds within a simulated environment.</strong></p>
+                <ul>
+                    <li><strong>No Real Capital Invested:</strong> No real capital or live financial assets are deposited, risked, or invested by users on the Blastrr platform.</li>
+                    <li><strong>No Guarantee or Promise of Payment:</strong> Participation in any evaluation, simulation, demo, or tier does not create an entitlement to real-world financial payouts, rewards, compensation, or monetary remuneration. Any references to rewards, virtual metrics, or performance outcomes are entirely simulated and carry no monetary guarantee, implicit or explicit.</li>
+                </ul>
+
+                <h2>Hypothetical &amp; Simulated Performance Disclaimers</h2>
+                <p>Hypothetical or simulated performance results have inherent structural limitations, including:</p>
+                <ol>
+                    <li><strong>No Actual Trading:</strong> Unlike an actual performance record, simulated results do not represent real-world market execution.</li>
+                    <li><strong>Execution Discrepancies:</strong> Because trades are executed in a simulated sandbox environment, results may under- or over-compensate for the impact of market liquidity, slippage, latency, and spread fluctuations.</li>
+                    <li><strong>Absence of Financial Risk:</strong> Hypothetical trading involves zero real-world financial risk. No hypothetical trading record can completely account for the psychological impact or risk management constraints present when trading actual capital.</li>
+                    <li><strong>Hindsight Bias:</strong> Simulated performance metrics are often prepared with the benefit of hindsight and should not be expected to mirror live market conditions.</li>
+                </ol>
+                <p>No representation is being made that any account will or is likely to achieve profits or losses similar to those shown. Past simulated results do not imply or guarantee future performance.</p>
+
+                <h2>General Financial Risk Disclosure</h2>
+                <p>Engaging in live trading of futures, forex, digital assets, and financial derivatives involves substantial risk and is not suitable for all individuals. It is possible to lose all invested capital. Past trading or simulation results do not guarantee future performance. Blastrr does not warrant the accuracy or completeness of the Information provided and assumes no responsibility for any decisions, actions, or losses resulting from reliance on this platform or content.</p>
+
+                <h2>Testimonials &amp; User Submissions</h2>
+                <p>Testimonials, feedback, or metrics presented across Blastrr platforms or third-party review channels represent individual user experiences within the simulated environment. They are not representative of all participants, nor do they constitute a promise, projection, or guarantee of success, performance, or financial reward.</p>
+                <p class="disclaimer-end-marker"><strong>End of Important Disclaimers &amp; Terms</strong></p>
+            </div>
+            <div class="disclaimer-controls">
+                <p id="disclaimer-scroll-hint" class="wallet-login-status" role="status">Scroll to the end of the terms to enable the acknowledgements.</p>
+                <label class="disclaimer-checkbox"><input id="disclaimer-accept-terms" type="checkbox" disabled> <span>I have read and agree to the Important Disclaimers &amp; Terms.</span></label>
+                <label class="disclaimer-checkbox"><input id="disclaimer-simulated-funds" type="checkbox" disabled> <span>I understand that all Blastrr accounts, balances, activity, and evaluations use simulated funds and do not guarantee payment or financial rewards.</span></label>
+                <label class="disclaimer-checkbox disclaimer-remember"><input id="disclaimer-remember" type="checkbox" checked> <span>Remember my selection for this wallet.</span></label>
+                <button id="disclaimer-continue-button" class="wallet-login-button" type="button" disabled>Agree and continue</button>
+                <button id="disclaimer-cancel-purchase" class="disclaimer-cancel-button" type="button" hidden>Cancel purchase</button>
+                <p id="disclaimer-feedback" class="wallet-login-status" role="status" aria-live="polite"></p>
+            </div>
+        </div>
+    </section>
 
     <header hidden>
         <a class="logo" href="index.html" aria-label="Blastrr home">

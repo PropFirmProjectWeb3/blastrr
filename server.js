@@ -22,6 +22,7 @@ const app = express();
 const PORT = process.env.PORT || 4480;
 
 const TREASURY_WALLET = '0x8632fa855d5dc6b59a3cf892d72cf4a94f182aae';
+const DISCLAIMER_VERSION = '2026-11-02-v1';
 
 // --- SUPPORTED EVM CHAINS CONFIGURATION ---
 const SUPPORTED_EVM_CHAINS = {
@@ -864,6 +865,35 @@ app.post('/api/auth/wallet-session', sensitiveLimiter, requireTradeSignature, (r
   const expiresAt = now + WALLET_SESSION_DURATION_MS;
   walletSessions.set(token, { walletAddress: req.body.wallet_address.toLowerCase(), expiresAt });
   res.json({ token, expires_at: expiresAt });
+});
+
+app.get('/api/user/disclaimer-consent', requireWalletSession, (req, res) => {
+  db.get(
+    'SELECT version FROM wallet_disclaimer_acceptances WHERE LOWER(wallet_address) = LOWER(?) AND version = ?',
+    [req.walletAddress, DISCLAIMER_VERSION],
+    (err, acceptance) => {
+      if (err) return res.status(500).json({ error: 'Unable to load disclaimer acceptance.' });
+      res.json({ accepted: Boolean(acceptance), version: DISCLAIMER_VERSION });
+    }
+  );
+});
+
+app.post('/api/user/disclaimer-consent', sensitiveLimiter, requireWalletSession, (req, res) => {
+  if (req.body?.version !== DISCLAIMER_VERSION ||
+      req.body?.accepted_terms !== true ||
+      req.body?.simulated_funds !== true) {
+    return res.status(400).json({ error: 'Confirm both required acknowledgements to continue.' });
+  }
+  db.run(
+    `INSERT INTO wallet_disclaimer_acceptances (wallet_address, version)
+     VALUES (?, ?)
+     ON CONFLICT(wallet_address, version) DO UPDATE SET accepted_at = CURRENT_TIMESTAMP`,
+    [req.walletAddress.toLowerCase(), DISCLAIMER_VERSION],
+    (err) => {
+      if (err) return res.status(500).json({ error: 'Unable to remember disclaimer acceptance.' });
+      res.json({ success: true, version: DISCLAIMER_VERSION });
+    }
+  );
 });
 
 app.get('/api/plans', (req, res) => {
@@ -2155,6 +2185,11 @@ app.get('/api/accounts/details', requireWalletSession, (req, res) => {
 app.post('/api/accounts/purchase', sensitiveLimiter, requireWalletSession, async (req, res) => {
   const { wallet_address, plan_id, tx_hash, chain_id } = req.body;
   const promoCode = typeof req.body?.promo_code === 'string' ? req.body.promo_code.trim().toUpperCase() : '';
+  if (req.body?.disclaimer_version !== DISCLAIMER_VERSION ||
+      req.body?.terms_accepted !== true ||
+      req.body?.simulated_funds_acknowledged !== true) {
+    return res.status(400).json({ error: 'Confirm the current disclaimers and simulated-funds acknowledgement before purchasing.' });
+  }
   if (typeof wallet_address !== 'string' || !ethers.isAddress(wallet_address) ||
       !Number.isInteger(Number(plan_id)) || Number(plan_id) <= 0 ||
       (req.body?.promo_code != null && (typeof req.body.promo_code !== 'string' || req.body.promo_code.length > 32))) {

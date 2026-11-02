@@ -58,10 +58,10 @@ test('homepage focuses on crypto markets without promoting derivatives products'
   assert.match(landingHtml, /without the scheduled daily sessions and weekly closes typical of many FX and futures markets/);
 });
 
-test('terminal surfaces use the glass and slate theme', () => {
-  assert.match(appCss, /--surface-glass: rgba\(20, 27, 38, 0\.72\)/);
+test('terminal surfaces use the purple glass theme', () => {
+  assert.match(appCss, /--surface-glass: rgba\(24, 18, 37, 0\.76\)/);
   assert.match(appCss, /backdrop-filter: blur\(20px\) saturate\(130%\)/);
-  assert.match(appCss, /background: rgba\(30, 41, 59, 0\.46\)/);
+  assert.match(appCss, /background: rgba\(30, 19, 46, 0\.52\)/);
   assert.match(appCss, /header #nav-menu \{[\s\S]*?backdrop-filter: blur\(24px\) saturate\(145%\)/);
   assert.match(appCss, /\.hamburger-btn\.menu-open \.hamburger-glyph::before \{ transform: rotate\(45deg\); \}/);
   assert.match(appCss, /\.hamburger-btn\.menu-open \.hamburger-glyph::after \{ transform: rotate\(-45deg\); \}/);
@@ -101,9 +101,11 @@ test('mobile navigation has readable, touch-sized links and accessible expanded 
   assert.match(appCss, /header #nav-menu \.nav-tab \{[^}]*min-height: 50px[^}]*font-size: 16px/);
   assert.match(appCss, /header #nav-menu \.nav-tab \{[^}]*min-height: 54px[^}]*font-size: 16px/);
   assert.match(appCss, /max-height: calc\(100vh - 76px\)/);
-  assert.match(appCss, /@media \(max-width: 700px\) \{[\s\S]*?header \{ flex-wrap: wrap; row-gap: 10px; gap: 10px; padding: 12px; \}[\s\S]*?\.header-actions \{ order: 2; flex: 1 0 100%;[\s\S]*?\.hamburger-btn \{ position: absolute; top: 12px; right: 12px;[\s\S]*?background: rgba\(11, 16, 24, 0\.98\)/);
+  assert.match(appCss, /@media \(max-width: 700px\) \{[\s\S]*?header \{ flex-wrap: wrap; row-gap: 10px; gap: 10px; padding: 12px; \}[\s\S]*?\.header-actions \{ order: 2; flex: 1 0 100%;[\s\S]*?\.hamburger-btn \{ position: absolute; top: 12px; right: 12px;[\s\S]*?background: rgba\(12, 9, 20, 0\.98\)/);
   assert.match(appCss, /header #nav-menu \.nav-tab:not\(\.active\) \{ color: #e2e8f0; background: transparent; \}/);
-  assert.match(appCss, /header #nav-menu \.nav-tab\.active,[\s\S]*?background: transparent;[\s\S]*?border-color: rgba\(168, 85, 247, 0\.85\);[\s\S]*?box-shadow: 0 0 12px rgba\(168, 85, 247, 0\.5\)/);
+  assert.match(appCss, /\.nav-tab:hover, \.nav-tab:focus-visible \{[^}]*box-shadow: 0 0 12px rgba\(168, 85, 247, 0\.5\)/);
+  assert.match(appCss, /\.nav-tab\.active \{[^}]*box-shadow: 0 0 12px rgba\(168, 85, 247, 0\.5\)/);
+  assert.match(appCss, /button:not\(\.nav-tab\):not\(\.admin-section-tab\)/);
 });
 
 test('terminal stays black and locked until a signed wallet session is established', () => {
@@ -127,8 +129,9 @@ test('BlastrrPass content and reward fields wrap without mobile overflow', () =>
 });
 
 test('homepage and terminal buttons use a transparent purple-glow treatment', () => {
-  const transparentButtonRule = /button, input\[type="button"\], input\[type="submit"\], input\[type="reset"\], \.btn\s*\{[\s\S]*?background: transparent !important;[\s\S]*?border: 1px solid rgba\(168, 85, 247, 0\.78\) !important;[\s\S]*?box-shadow: 0 0 12px rgba\(168, 85, 247, 0\.28\)/;
+  const transparentButtonRule = /button:not\(\.nav-tab\):not\(\.admin-section-tab\), input\[type="button"\], input\[type="submit"\], input\[type="reset"\], \.btn\s*\{[\s\S]*?background: transparent !important;[\s\S]*?border: 1px solid rgba\(168, 85, 247, 0\.78\) !important;[\s\S]*?box-shadow: 0 0 12px rgba\(168, 85, 247, 0\.28\)/;
   assert.match(appCss, transparentButtonRule);
+  assert.match(appCss, /\.nav-tab \{[\s\S]*?background: transparent;[\s\S]*?border-color: transparent;/);
   assert.match(landingHtml, /button,input\[type="button"\],input\[type="submit"\],input\[type="reset"\],\.btn\{background:transparent!important;[\s\S]*?border:1px solid rgba\(168,85,247,\.78\)!important;[\s\S]*?box-shadow:0 0 12px rgba\(168,85,247,\.28\)/);
 });
 

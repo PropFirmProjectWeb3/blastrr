@@ -6,6 +6,7 @@ const databaseJs = fs.readFileSync('database.js', 'utf8');
 const serverJs = fs.readFileSync('server.js', 'utf8');
 const appHtml = fs.readFileSync('public/app.html', 'utf8');
 const appJs = fs.readFileSync('public/js/app.js', 'utf8');
+const appCss = fs.readFileSync('public/css/app.css', 'utf8');
 const homeHtml = fs.readFileSync('public/index.html', 'utf8');
 
 test('BlastrrPass seeds twelve levels and keeps earning XP after level 12', () => {
@@ -112,4 +113,13 @@ test('terminal buy-plan cards show funded status, purchase reward styling, and a
   assert.match(appJs, /purchase-plan-reward/);
   assert.match(appJs, /Profit consistency<\/span><strong>\$\{Number\(plan\.max_single_day_profit_pct\)\}% max single-day profit/);
   assert.match(appJs, /Trading availability<\/span><strong>24\/7\/365/);
+});
+
+test('dashboard and admin use purple glass surfaces with nav glow limited to active, hover, and focus states', () => {
+  assert.match(appCss, /--surface-glass:\s*rgba\(24,\s*18,\s*37/);
+  assert.match(appCss, /radial-gradient\(ellipse at 14% -10%, rgba\(116, 55, 223/);
+  assert.match(appCss, /\.nav-tab:hover, \.nav-tab:focus-visible/);
+  assert.match(appCss, /\.nav-tab\.active/);
+  assert.match(appCss, /button:not\(\.nav-tab\):not\(\.admin-section-tab\)/);
+  assert.match(appCss, /\.admin-section-tab:hover, \.admin-section-tab:focus-visible, \.admin-section-tab\.active/);
 });

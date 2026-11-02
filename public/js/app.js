@@ -14,6 +14,8 @@ let connectedWallet = null;
         let liveMarketChartGeneration = 0;
         let livePriceRequestGeneration = 0;
         let activePromoCode = null;
+        let battlePassDiscountBonusPct = 0;
+        let standardDiscountPct = 90;
         let plansData = [];
         let planLoadAttempts = 0;
         let livePriceInterval = null;
@@ -31,6 +33,10 @@ let connectedWallet = null;
         let walletSessionExpiresAt = 0;
         let walletSessionPromise = null;
         let walletSessionGeneration = 0;
+        let battlePassProfile = null;
+        let battlePassTasks = [];
+        let battlePassLevels = [];
+        let adminBattlePassTasks = [];
                 let marketsData = [];
                 const closingTradeIds = new Set();
         
@@ -143,6 +149,12 @@ let connectedWallet = null;
             }, 5000);
 
             const urlParams = new URLSearchParams(window.location.search);
+            const sharedProfile = urlParams.get('passprofile');
+            if (sharedProfile) {
+                document.getElementById('battlepass-user-content')?.setAttribute('hidden', '');
+                switchView('blastrrPassView');
+                loadPublicBattlePassProfile(sharedProfile);
+            }
             const refCode = urlParams.get('ref');
             if (refCode) {
                 const promoInput = document.getElementById('applied-promo');
@@ -502,25 +514,467 @@ let connectedWallet = null;
                 loadAdminTickets();
                 loadAdminReviews();
                 if (document.getElementById('admin-creators-panel')?.hidden === false) loadAdminPromoManagement();
+                if (document.getElementById('admin-battlepass-panel')?.hidden === false) loadAdminBattlePass();
             }
             else if (viewId === 'leaderboardView') loadLeaderboard(currentLeaderboardMode);
             else if (viewId === 'accountsView' && connectedWallet) loadUserAccounts(connectedWallet);
+            else if (viewId === 'blastrrPassView' && connectedWallet) loadBattlePass();
         }
 
         function switchAdminSection(panelId) {
-            const creatorsSelected = panelId === 'admin-creators-panel';
-            const operationsPanel = document.getElementById('admin-operations-panel');
-            const creatorsPanel = document.getElementById('admin-creators-panel');
-            const operationsTab = document.getElementById('admin-operations-tab');
-            const creatorsTab = document.getElementById('admin-creators-tab');
-            if (!operationsPanel || !creatorsPanel) return;
-            operationsPanel.hidden = creatorsSelected;
-            creatorsPanel.hidden = !creatorsSelected;
-            operationsTab?.classList.toggle('active', !creatorsSelected);
-            creatorsTab?.classList.toggle('active', creatorsSelected);
-            operationsTab?.setAttribute('aria-selected', String(!creatorsSelected));
-            creatorsTab?.setAttribute('aria-selected', String(creatorsSelected));
-            if (creatorsSelected) loadAdminPromoManagement();
+            const sections = [
+                ['admin-operations-panel', 'admin-operations-tab'],
+                ['admin-creators-panel', 'admin-creators-tab'],
+                ['admin-battlepass-panel', 'admin-battlepass-tab']
+            ];
+            if (!sections.some(([id]) => id === panelId)) return;
+            sections.forEach(([id, tabId]) => {
+                const selected = id === panelId;
+                const panel = document.getElementById(id);
+                const tab = document.getElementById(tabId);
+                if (panel) panel.hidden = !selected;
+                tab?.classList.toggle('active', selected);
+                tab?.setAttribute('aria-selected', String(selected));
+            });
+            if (panelId === 'admin-creators-panel') loadAdminPromoManagement();
+            if (panelId === 'admin-battlepass-panel') loadAdminBattlePass();
+        }
+
+        function battlePassLevelForXp(xp) {
+            return Math.min(12, Math.floor(Math.max(0, Number(xp) || 0) / 10000));
+        }
+
+        function compactBattlePassXp(xp) {
+            const value = Math.max(0, Number(xp) || 0);
+            return value >= 1000 ? `${Math.floor(value / 1000)}k` : String(value);
+        }
+
+        function setBattlePassAvatar(container, imageUrl, username) {
+            if (!container) return;
+            container.replaceChildren();
+            const fallback = document.createElement('span');
+            fallback.textContent = (username || 'B').charAt(0).toUpperCase();
+            container.append(fallback);
+            if (!imageUrl) return;
+            const image = document.createElement('img');
+            image.src = imageUrl;
+            image.alt = `${username || 'Trader'} profile`;
+            image.referrerPolicy = 'no-referrer';
+            image.addEventListener('error', () => image.remove(), { once: true });
+            container.append(image);
+        }
+
+        async function loadBattlePass() {
+            const note = document.getElementById('battlepass-wallet-note');
+            if (!connectedWallet) {
+                if (note) note.textContent = 'Connect your wallet to view your XP, points, tasks, and level rewards.';
+                return;
+            }
+            if (note) note.textContent = 'Loading your BlastrrPass...';
+            try {
+                const response = await walletFetch(`/api/battlepass?wallet=${encodeURIComponent(connectedWallet)}`);
+                const data = await response.json();
+                if (!response.ok) throw new Error(data.error || 'Unable to load your BlastrrPass.');
+                battlePassProfile = data.profile;
+                battlePassTasks = data.tasks || [];
+                battlePassLevels = data.levels || [];
+                if (note) note.textContent = '';
+                renderBattlePass();
+            } catch (error) {
+                console.error(error);
+                if (note) note.textContent = error.message || 'Unable to load your BlastrrPass.';
+            }
+        }
+
+        function renderBattlePass() {
+            if (!battlePassProfile) return;
+            const profileCard = document.getElementById('battlepass-profile-card');
+            const profileForm = document.getElementById('battlepass-profile-form');
+            const username = battlePassProfile.username || connectedWallet || 'Trader';
+            const shareButton = document.getElementById('battlepass-share');
+            const xp = Number(battlePassProfile.xp || 0);
+            const points = Number(battlePassProfile.points || 0);
+            const level = Number(battlePassProfile.level ?? battlePassLevelForXp(xp));
+            const rank = level ? `Level ${level}` : 'Unranked';
+            if (profileCard) profileCard.hidden = false;
+            if (profileForm) profileForm.hidden = false;
+            if (shareButton) {
+                shareButton.disabled = !battlePassProfile.username;
+                shareButton.title = battlePassProfile.username ? '' : 'Set up a profile username before sharing.';
+            }
+            document.getElementById('battlepass-username').textContent = `@${username}`;
+            document.getElementById('battlepass-rank').textContent = rank;
+            document.getElementById('battlepass-xp').textContent = xp.toLocaleString();
+            document.getElementById('battlepass-points').textContent = points.toLocaleString();
+            const progress = document.getElementById('battlepass-progress');
+            const progressLabel = document.getElementById('battlepass-progress-label');
+            const withinLevel = Math.min(10000, Math.max(0, xp - level * 10000));
+            if (progress) progress.style.width = `${level >= 12 ? 100 : (withinLevel / 10000) * 100}%`;
+            if (progressLabel) {
+                progressLabel.textContent = level >= 12
+                    ? `${xp.toLocaleString()} XP · maximum level reached; keep earning XP`
+                    : `${withinLevel.toLocaleString()} / 10,000 XP to level ${level + 1}`;
+            }
+            const imageInput = document.getElementById('battlepass-profile-image');
+            if (imageInput && document.activeElement !== imageInput) imageInput.value = battlePassProfile.profile_image_url || '';
+            setBattlePassAvatar(document.getElementById('battlepass-avatar-wrap'), battlePassProfile.profile_image_url, username);
+            renderBattlePassTasks();
+            renderBattlePassLevels();
+        }
+
+        function renderBattlePassTasks() {
+            const groups = {
+                DAILY: document.getElementById('battlepass-daily-tasks'),
+                WEEKLY: document.getElementById('battlepass-weekly-tasks'),
+                MONTHLY: document.getElementById('battlepass-monthly-tasks')
+            };
+            Object.values(groups).forEach(container => { if (container) container.replaceChildren(); });
+            for (const [cadence, container] of Object.entries(groups)) {
+                if (!container) continue;
+                const tasks = battlePassTasks.filter(task => task.cadence === cadence);
+                if (!tasks.length) {
+                    container.innerHTML = '<p class="account-chart-empty">No tasks in this period yet.</p>';
+                    continue;
+                }
+                container.innerHTML = tasks.map(task => {
+                    const url = typeof task.action_url === 'string' ? task.action_url : '';
+                    const safeUrl = escapeHTML(url);
+                    let xPostUrl = '';
+                    try {
+                        const parsedUrl = new URL(url);
+                        if (['x.com', 'www.x.com', 'twitter.com', 'www.twitter.com'].includes(parsedUrl.hostname.toLowerCase()) &&
+                            /^\/[^/]+\/status\/\d+/.test(parsedUrl.pathname)) xPostUrl = safeUrl;
+                    } catch { /* Invalid action links are not rendered. */ }
+                    const action = task.task_type === 'SOCIAL_CLICK' && url
+                        ? `<a class="battlepass-task-action" href="${safeUrl}" target="_blank" rel="noopener noreferrer" data-task-link="${Number(task.id)}">${task.claimed ? 'Open task again' : 'Open task &amp; earn reward'}</a>`
+                        : '';
+                    const state = task.claimed ? 'Earned this period' : task.eligible ? 'Reward ready to claim' : 'Complete the activity to unlock';
+                    const claimButton = task.task_type !== 'SOCIAL_CLICK' && !task.claimed
+                        ? `<button class="btn-wallet" type="button" data-task-claim="${Number(task.id)}" ${task.eligible ? '' : 'disabled'}>${task.eligible ? 'Claim reward' : 'Not ready'}</button>`
+                        : '';
+                    const embed = xPostUrl
+                        ? `<blockquote class="twitter-tweet"><a href="${xPostUrl}" target="_blank" rel="noopener noreferrer">View post on X</a></blockquote>`
+                        : '';
+                    return `<article class="battlepass-task" data-battlepass-task="${Number(task.id)}">
+                        <div class="battlepass-task-copy"><div class="battlepass-task-heading"><strong>${escapeHTML(task.title)}</strong><span class="battlepass-task-status ${task.claimed ? 'is-claimed' : task.eligible ? 'is-ready' : ''}">${state}</span></div>
+                        <p>${escapeHTML(task.description)}</p><small>+${Number(task.xp_reward)} XP · +${Number(task.points_reward)} points</small>${embed}${action}</div>${claimButton}</article>`;
+                }).join('');
+                container.onclick = event => {
+                    const button = event.target.closest('[data-task-claim]');
+                    const link = event.target.closest('[data-task-link]');
+                    if (button && !button.disabled) claimBattlePassTask(button.dataset.taskClaim, button);
+                    if (link && !link.closest('[data-battlepass-task]')?.querySelector('.battlepass-task-status.is-claimed')) {
+                        claimBattlePassTask(link.dataset.taskLink);
+                    }
+                };
+            }
+            if (battlePassTasks.some(task => task.task_type === 'SOCIAL_CLICK' && /(?:x\.com|twitter\.com)\/[^/]+\/status\/\d+/i.test(task.action_url || ''))) {
+                const embedScriptId = 'battlepass-x-embed-script';
+                if (window.twttr?.widgets?.load) {
+                    window.twttr.widgets.load(document.getElementById('battlepass-user-content'));
+                } else if (!document.getElementById(embedScriptId)) {
+                    const script = document.createElement('script');
+                    script.id = embedScriptId;
+                    script.async = true;
+                    script.src = 'https://platform.twitter.com/widgets.js';
+                    script.addEventListener('load', () => window.twttr?.widgets?.load?.(document.getElementById('battlepass-user-content')), { once: true });
+                    document.head.append(script);
+                }
+            }
+        }
+
+        function renderBattlePassLevels() {
+            const container = document.getElementById('battlepass-level-list');
+            if (!container) return;
+            container.innerHTML = battlePassLevels.map(level => {
+                const unlocked = Boolean(level.unlocked);
+                const code = level.reward_code;
+                const button = code
+                    ? `<button class="btn-wallet" type="button" data-use-reward="${escapeHTML(code)}" ${level.reward_redeemed ? 'disabled' : ''}>${level.reward_redeemed ? 'Used' : 'Use discount'}</button>`
+                    : `<button class="btn-wallet" type="button" data-claim-level="${Number(level.level)}" ${unlocked ? '' : 'disabled'}>${unlocked ? `Claim for ${Number(level.points_cost)} points` : 'Locked'}</button>`;
+                return `<article class="battlepass-level ${unlocked ? 'is-unlocked' : ''}">
+                    <span class="battlepass-level-number">LEVEL ${Number(level.level)}</span>
+                    <strong>+${Number(level.discount_bonus_pct)}% discount</strong>
+                    <small>${Number(level.xp_required).toLocaleString()} XP · ${Number(level.points_cost)} points</small>
+                    ${code ? `<code class="battlepass-reward-code">${escapeHTML(code)}</code>` : ''}
+                    ${button}
+                </article>`;
+            }).join('');
+            container.onclick = event => {
+                const claimButton = event.target.closest('[data-claim-level]');
+                const useButton = event.target.closest('[data-use-reward]');
+                if (claimButton && !claimButton.disabled) claimBattlePassLevel(claimButton.dataset.claimLevel);
+                if (useButton && !useButton.disabled) usePromoCode(useButton.dataset.useReward);
+            };
+        }
+
+        async function claimBattlePassTask(taskId, button) {
+            if (!connectedWallet) return;
+            if (button) button.disabled = true;
+            try {
+                const response = await walletFetch('/api/battlepass/tasks/claim', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ task_id: Number(taskId) })
+                });
+                const data = await response.json();
+                if (!response.ok) throw new Error(data.error || 'Unable to claim this task reward.');
+                await loadBattlePass();
+            } catch (error) {
+                console.error(error);
+                const note = document.getElementById('battlepass-wallet-note');
+                if (note) note.textContent = error.message;
+                if (button) button.disabled = false;
+            }
+        }
+
+        async function claimBattlePassLevel(level) {
+            const feedback = document.getElementById('battlepass-reward-feedback');
+            if (feedback) feedback.textContent = '';
+            try {
+                const response = await walletFetch('/api/battlepass/rewards/claim', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ level: Number(level) })
+                });
+                const data = await response.json();
+                if (!response.ok) throw new Error(data.error || 'Unable to claim this level reward.');
+                if (feedback) feedback.textContent = `Reward claimed. Use code ${data.code} at checkout for an additional discount.`;
+                await loadBattlePass();
+            } catch (error) {
+                console.error(error);
+                if (feedback) feedback.textContent = error.message;
+            }
+        }
+
+        async function loadPublicBattlePassProfile(username) {
+            const container = document.getElementById('battlepass-shared-profile');
+            if (!container) return;
+            container.hidden = false;
+            container.textContent = 'Loading BlastrrPass profile...';
+            try {
+                const response = await fetch(`/api/battlepass/profile?username=${encodeURIComponent(username)}`);
+                const data = await response.json();
+                if (!response.ok) throw new Error(data.error || 'Unable to load this public profile.');
+                const profile = data.profile;
+                const level = Number(profile.level || 0);
+                const xp = Number(profile.xp || 0);
+                const shareUrl = new URL(window.location.href);
+                shareUrl.searchParams.set('passprofile', profile.username);
+                container.innerHTML = `<div class="card-title">BlastrrPass profile</div>
+                    <div class="battlepass-profile-card">
+                        <div id="battlepass-public-avatar" class="battlepass-avatar-wrap"></div>
+                        <div class="battlepass-profile-details"><strong>@${escapeHTML(profile.username)}</strong>
+                        <span>${level ? `Level ${level}` : 'Unranked'}</span><span>${xp.toLocaleString()} XP (${compactBattlePassXp(xp)})</span></div>
+                        <button class="btn-share-x" type="button" id="battlepass-public-share">Share profile on X</button>
+                    </div>`;
+                setBattlePassAvatar(document.getElementById('battlepass-public-avatar'), profile.profile_image_url, profile.username);
+                document.getElementById('battlepass-public-share')?.addEventListener('click', () => {
+                    const text = `I'm Level ${level} in BlastrrPass with ${xp.toLocaleString()} XP!`;
+                    window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent(shareUrl.toString())}`, '_blank', 'noopener,noreferrer');
+                });
+            } catch (error) {
+                console.error(error);
+                container.textContent = error.message;
+            }
+        }
+
+        function shareBattlePassProfile() {
+            if (!battlePassProfile?.username) return;
+            const url = new URL(window.location.href);
+            url.search = '';
+            url.searchParams.set('passprofile', battlePassProfile.username);
+            const level = battlePassLevelForXp(battlePassProfile.xp);
+            const xp = Number(battlePassProfile.xp || 0);
+            const text = `I'm ${level ? `Level ${level}` : 'starting out'} in BlastrrPass with ${xp.toLocaleString()} XP (${compactBattlePassXp(xp)})!`;
+            window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent(url.toString())}`, '_blank', 'noopener,noreferrer');
+        }
+
+        async function saveBattlePassProfileImage(event) {
+            event.preventDefault();
+            const feedback = document.getElementById('battlepass-profile-feedback');
+            const imageUrl = document.getElementById('battlepass-profile-image')?.value.trim() || '';
+            if (feedback) feedback.textContent = '';
+            try {
+                const response = await walletFetch('/api/battlepass/profile', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ profile_image_url: imageUrl })
+                });
+                const data = await response.json();
+                if (!response.ok) throw new Error(data.error || 'Unable to save the profile image.');
+                battlePassProfile.profile_image_url = data.profile_image_url;
+                if (feedback) feedback.textContent = 'Profile image saved.';
+                renderBattlePass();
+            } catch (error) {
+                console.error(error);
+                if (feedback) feedback.textContent = error.message;
+            }
+        }
+
+        async function loadAdminBattlePass() {
+            const levels = document.getElementById('admin-battlepass-level-rewards');
+            if (!levels) return;
+            levels.innerHTML = '<p class="account-chart-empty">Loading BlastrrPass settings...</p>';
+            try {
+                const authorization = await signedTradeAuthorization();
+                const response = await fetch('/api/admin/battlepass/load', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(authorization)
+                });
+                const data = await readAdminApiResponse(response, '/api/admin/battlepass/load');
+                if (!response.ok) throw new Error(data.error || 'Unable to load BlastrrPass settings.');
+                document.getElementById('admin-standard-discount').value = data.settings.standard_discount_pct;
+                renderAdminBattlePassPlans(data.plans || []);
+                renderAdminBattlePassLevels(data.levels || []);
+                renderAdminBattlePassTasks(data.tasks || []);
+            } catch (error) {
+                console.error(error);
+                levels.innerHTML = `<p class="support-feedback">${escapeHTML(error.message)}</p>`;
+            }
+        }
+
+        function renderAdminBattlePassPlans(plans) {
+            const container = document.getElementById('admin-battlepass-plan-rewards');
+            if (!container) return;
+            container.innerHTML = plans.length ? plans.map(plan => `<article class="battlepass-admin-row" data-plan-id="${Number(plan.plan_id)}">
+                <strong>${escapeHTML(plan.name)} · $${Number(plan.simulated_capital).toLocaleString()}</strong>
+                <label>XP <input type="number" min="0" step="1" value="${Number(plan.xp_reward)}" data-plan-xp></label>
+                <label>Points <input type="number" min="0" step="1" value="${Number(plan.points_reward)}" data-plan-points></label>
+                <button class="btn-wallet" type="button" data-save-plan-reward>Save</button>
+            </article>`).join('') : '<p class="account-chart-empty">No active plans.</p>';
+            container.onclick = event => {
+                const button = event.target.closest('[data-save-plan-reward]');
+                const row = button?.closest('[data-plan-id]');
+                if (!row) return;
+                saveAdminBattlePass('/api/admin/battlepass/plan-rewards/save', {
+                    plan_id: Number(row.dataset.planId),
+                    xp_reward: Number(row.querySelector('[data-plan-xp]').value),
+                    points_reward: Number(row.querySelector('[data-plan-points]').value)
+                }, button);
+            };
+        }
+
+        function renderAdminBattlePassLevels(levels) {
+            const container = document.getElementById('admin-battlepass-level-rewards');
+            if (!container) return;
+            container.innerHTML = levels.map(level => `<article class="battlepass-admin-row" data-level="${Number(level.level)}">
+                <strong>Level ${Number(level.level)} · ${Number(level.xp_required).toLocaleString()} XP</strong>
+                <label>Extra discount (%) <input type="number" min="0" max="100" step="0.01" value="${Number(level.discount_bonus_pct)}" data-level-discount></label>
+                <label>Points cost <input type="number" min="0" step="1" value="${Number(level.points_cost)}" data-level-points></label>
+                <button class="btn-wallet" type="button" data-save-level-reward>Save</button>
+            </article>`).join('');
+            container.onclick = event => {
+                const button = event.target.closest('[data-save-level-reward]');
+                const row = button?.closest('[data-level]');
+                if (!row) return;
+                saveAdminBattlePass('/api/admin/battlepass/levels/save', {
+                    level: Number(row.dataset.level),
+                    discount_bonus_pct: Number(row.querySelector('[data-level-discount]').value),
+                    points_cost: Number(row.querySelector('[data-level-points]').value)
+                }, button);
+            };
+        }
+
+        function renderAdminBattlePassTasks(tasks) {
+            adminBattlePassTasks = tasks;
+            const builtIn = document.getElementById('admin-battlepass-built-in-tasks');
+            const custom = document.getElementById('admin-battlepass-custom-tasks');
+            const builtIns = tasks.filter(task => Number(task.is_builtin) === 1);
+            const customTasks = tasks.filter(task => Number(task.is_builtin) !== 1);
+            if (builtIn) {
+                builtIn.innerHTML = builtIns.map(task => `<article class="battlepass-admin-row" data-task-id="${Number(task.id)}">
+                    <strong>${escapeHTML(task.title)}</strong><label>XP <input type="number" min="0" step="1" value="${Number(task.xp_reward)}" data-task-xp></label>
+                    <label>Points <input type="number" min="0" step="1" value="${Number(task.points_reward)}" data-task-points></label>
+                    <button class="btn-wallet" type="button" data-save-built-in-task>Save</button>
+                </article>`).join('');
+                builtIn.onclick = event => {
+                    const button = event.target.closest('[data-save-built-in-task]');
+                    const row = button?.closest('[data-task-id]');
+                    if (row) saveAdminBattlePass('/api/admin/battlepass/tasks/rewards', {
+                        task_id: Number(row.dataset.taskId),
+                        xp_reward: Number(row.querySelector('[data-task-xp]').value),
+                        points_reward: Number(row.querySelector('[data-task-points]').value)
+                    }, button);
+                };
+            }
+            if (!custom) return;
+            custom.innerHTML = customTasks.length ? customTasks.map(task => `<article class="battlepass-admin-task" data-task-id="${Number(task.id)}">
+                <div class="battlepass-admin-task-fields">
+                    <label>Title <input type="text" maxlength="100" value="${escapeHTML(task.title)}" data-custom-title></label>
+                    <label>Description <input type="text" maxlength="500" value="${escapeHTML(task.description)}" data-custom-description></label>
+                    <label>Type <select data-custom-type><option value="SOCIAL_CLICK" ${task.task_type === 'SOCIAL_CLICK' ? 'selected' : ''}>Social action</option><option value="WITHDRAWAL" ${task.task_type === 'WITHDRAWAL' ? 'selected' : ''}>Paid withdrawal</option></select></label>
+                    <label>Period <select data-custom-cadence>${['DAILY', 'WEEKLY', 'MONTHLY'].map(cadence => `<option value="${cadence}" ${task.cadence === cadence ? 'selected' : ''}>${cadence.toLowerCase()}</option>`).join('')}</select></label>
+                    <label>Action URL <input type="url" maxlength="2048" value="${escapeHTML(task.action_url)}" data-custom-url></label>
+                    <label>XP <input type="number" min="0" step="1" value="${Number(task.xp_reward)}" data-custom-xp></label>
+                    <label>Points <input type="number" min="0" step="1" value="${Number(task.points_reward)}" data-custom-points></label>
+                </div>
+                <label class="battlepass-active-toggle"><input type="checkbox" data-custom-active ${task.active ? 'checked' : ''}> Active</label>
+                <button class="btn-wallet" type="button" data-save-custom-task>Save task</button>
+            </article>`).join('') : '<p class="account-chart-empty">No custom tasks yet.</p>';
+            custom.onclick = event => {
+                const button = event.target.closest('[data-save-custom-task]');
+                const row = button?.closest('[data-task-id]');
+                if (!row) return;
+                saveAdminBattlePass('/api/admin/battlepass/tasks/save', {
+                    task_id: Number(row.dataset.taskId),
+                    title: row.querySelector('[data-custom-title]').value,
+                    description: row.querySelector('[data-custom-description]').value,
+                    task_type: row.querySelector('[data-custom-type]').value,
+                    cadence: row.querySelector('[data-custom-cadence]').value,
+                    action_url: row.querySelector('[data-custom-url]').value,
+                    xp_reward: Number(row.querySelector('[data-custom-xp]').value),
+                    points_reward: Number(row.querySelector('[data-custom-points]').value),
+                    active: row.querySelector('[data-custom-active]').checked
+                }, button);
+            };
+        }
+
+        async function saveAdminBattlePass(endpoint, values, button) {
+            if (button) button.disabled = true;
+            try {
+                const authorization = await signedTradeAuthorization();
+                const response = await fetch(endpoint, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ ...authorization, ...values })
+                });
+                const data = await readAdminApiResponse(response, endpoint);
+                if (!response.ok) throw new Error(data.error || 'Unable to save BlastrrPass settings.');
+                if (endpoint === '/api/admin/battlepass/settings') {
+                    standardDiscountPct = Number(data.standard_discount_pct);
+                    renderPlans();
+                }
+                if (endpoint === '/api/admin/battlepass/tasks/rewards') {
+                    const task = adminBattlePassTasks.find(item => Number(item.id) === Number(values.task_id));
+                    if (task) {
+                        task.xp_reward = values.xp_reward;
+                        task.points_reward = values.points_reward;
+                    }
+                    renderAdminBattlePassTasks(adminBattlePassTasks);
+                } else if (endpoint === '/api/admin/battlepass/tasks/save') {
+                    const savedTask = { ...values, id: data.task_id, active: values.active === false ? 0 : 1 };
+                    const existingIndex = adminBattlePassTasks.findIndex(task => Number(task.id) === Number(data.task_id));
+                    if (existingIndex < 0) adminBattlePassTasks.push(savedTask);
+                    else adminBattlePassTasks[existingIndex] = savedTask;
+                    renderAdminBattlePassTasks(adminBattlePassTasks);
+                }
+                const feedback = document.getElementById(endpoint.includes('/tasks/')
+                    ? 'admin-battlepass-task-feedback'
+                    : 'admin-battlepass-settings-feedback');
+                if (feedback) feedback.textContent = 'BlastrrPass settings saved.';
+                return true;
+            } catch (error) {
+                console.error(error);
+                const feedback = document.getElementById(endpoint.includes('/tasks/')
+                    ? 'admin-battlepass-task-feedback'
+                    : 'admin-battlepass-settings-feedback');
+                if (feedback) feedback.textContent = error.message;
+                return false;
+            } finally {
+                if (button) button.disabled = false;
+            }
         }
 
         function switchLeaderboardMode(mode) {
@@ -567,7 +1021,7 @@ let connectedWallet = null;
             if (myRankLabel) myRankLabel.style.display = 'none';
 
             if (!dataRows || dataRows.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; color: #6b7280; padding: 24px;">No records available for this leaderboard mode.</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; color: #6b7280; padding: 24px;">No records available for this leaderboard mode.</td></tr>';
                 return;
             }
 
@@ -578,6 +1032,10 @@ let connectedWallet = null;
                 if (isUser) userFoundRank = index + 1;
 
                 const metricColor = row.metric_value >= 0 ? '#34d399' : '#ef4444';
+                const battlePassXp = Number(row.battlepass_xp || 0);
+                const battlePassLevel = Math.min(12, Math.floor(battlePassXp / 10000));
+                const battlePassRank = battlePassLevel ? `Level ${battlePassLevel}` : 'Unranked';
+                const compactXp = battlePassXp >= 1000 ? `${Math.floor(battlePassXp / 1000)}k` : String(battlePassXp);
                 const rankDisplay = `#${index + 1}`;
                 const badgeText = currentLeaderboardMode === 'PAYOUTS' ? 'PAID' : 'PnL';
 
@@ -586,6 +1044,8 @@ let connectedWallet = null;
                         <td><strong style="color: ${index < 3 ? '#c084fc' : '#f3f4f6'}">${rankDisplay}</strong></td>
                         <td><span style="color: #c084fc; font-weight: bold;">@${row.username}</span> ${isUser ? '<small style="color:#34d399; margin-left:6px;">(You)</small>' : ''}</td>
                         <td><code style="background: rgba(5,7,11,0.9); padding: 4px 8px; border-radius: 4px; color: #34d399;">${row.discount_code}</code></td>
+                        <td><span class="battlepass-rank-badge">${battlePassRank}</span></td>
+                        <td>${compactXp}</td>
                         <td>
                             <span style="color: ${metricColor}; font-weight: bold;">$${row.metric_value.toFixed(2)} USDT</span>
                             <small style="font-size:10px; background: rgba(255,255,255,0.06); padding: 2px 6px; border-radius: 4px; margin-left: 6px; color: #9ca3af;">${badgeText}</small>
@@ -620,7 +1080,7 @@ let connectedWallet = null;
 
         function shareRankOnX(rank, username, metricValue) {
             const modeText = currentLeaderboardMode === 'DAILY' ? 'Daily Profit' : (currentLeaderboardMode === 'MONTHLY' ? 'Monthly Profit' : 'Lifetime Payouts');
-            const text = `I'm ranked #${rank} on @BlastrrProp for ${modeText} with $${metricValue.toFixed(2)} USDT! 🚀\n\nTrade live crypto prop accounts with 90% OFF using my code: ${currentUserProfile?.discount_code || 'BLASTRR'}\n\nhttps://blastrr.com/?ref=${currentUserProfile?.discount_code || ''}`;
+            const text = `I'm ranked #${rank} on @BlastrrProp for ${modeText} with $${metricValue.toFixed(2)} USDT! 🚀\n\nTrade live crypto prop accounts with ${standardDiscountPct}% off using my referral code: ${currentUserProfile?.discount_code || 'BLASTRR'}\n\nhttps://blastrr.com/?ref=${currentUserProfile?.discount_code || ''}`;
             window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}`, '_blank');
         }
 
@@ -632,7 +1092,7 @@ let connectedWallet = null;
 
         function shareCreatorCodeOnX() {
             if (!currentUserProfile) return;
-            const text = `Get 90% OFF your @BlastrrProp evaluation trading accounts using my promo code: ${currentUserProfile.discount_code} 🔥\n\nDirect-to-live crypto prop trading terminal with instant executions:\nhttps://blastrr.com/?ref=${currentUserProfile.discount_code}`;
+            const text = `Get ${standardDiscountPct}% OFF your @BlastrrProp evaluation trading accounts using my referral code: ${currentUserProfile.discount_code} 🔥\n\nDirect-to-live crypto prop trading terminal with instant executions:\nhttps://blastrr.com/?ref=${currentUserProfile.discount_code}`;
             window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}`, '_blank');
         }
 
@@ -722,6 +1182,7 @@ let connectedWallet = null;
             loadUserAccounts(connectedWallet);
             loadUserProfile(connectedWallet);
             loadUserTickets(connectedWallet);
+            loadBattlePass();
         }
 
         function isRiskLockedAccount(account) {
@@ -808,6 +1269,10 @@ let connectedWallet = null;
             selectedAccountId = null;
             activeAccount = null;
             currentUserProfile = null;
+            battlePassProfile = null;
+            document.getElementById('battlepass-profile-card')?.setAttribute('hidden', '');
+            document.getElementById('battlepass-profile-form')?.setAttribute('hidden', '');
+            document.getElementById('battlepass-wallet-note').textContent = 'Connect your wallet to view your XP, points, tasks, and level rewards.';
 
             updateWalletUIState(false);
             const adminNav = document.getElementById('admin-nav-item');
@@ -1854,6 +2319,7 @@ let connectedWallet = null;
                 const res = await fetch('/api/plans');
                 const data = await res.json();
                 plansData = data.plans || [];
+                standardDiscountPct = Number(data.standard_discount_pct ?? 90);
                 if (plansData.length === 0 && planLoadAttempts < 5) {
                     planLoadAttempts++;
                     setTimeout(loadPlans, 400);
@@ -1870,18 +2336,15 @@ let connectedWallet = null;
             container.innerHTML = '';
 
             plansData.forEach(plan => {
-                let displayPrice = plan.base_price_usdt;
-                let priceHtml = `$${plan.base_price_usdt.toLocaleString()} USDT`;
-
-                if (activePromoCode) {
-                    displayPrice = plan.price_usdt;
-                    priceHtml = `<span style="text-decoration: line-through; color: #6b7280; font-size: 15px;">$${plan.base_price_usdt.toLocaleString()}</span> <span style="color: #34d399;">$${plan.price_usdt.toLocaleString()} USDT</span>`;
-                }
+                const basePrice = Number(plan.base_price_usdt);
+                const discountPct = Math.min(100, standardDiscountPct + (activePromoCode ? battlePassDiscountBonusPct : 0));
+                const displayPrice = Math.round(basePrice * (100 - discountPct)) / 100;
+                const priceHtml = `<span style="text-decoration: line-through; color: #6b7280; font-size: 15px;">$${basePrice.toLocaleString()} USDT</span> <span style="color: #34d399;">$${displayPrice.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} USDT</span><small style="display:block;color:#a5b0c0;font-size:12px">${discountPct}% off</small>`;
 
                 container.innerHTML += `
                     <div class="card" style="display: flex; flex-direction: column; justify-content: space-between;">
                         <div>
-                            <h3 style="margin:0; color:#c084fc; font-size: 18px; font-weight: 800;">${plan.name}</h3>
+                            <h3 style="margin:0; color:#c084fc; font-size: 18px; font-weight: 800;">${escapeHTML(plan.name)}</h3>
                             <div style="font-size: 24px; font-weight: 800; color: #fff; margin: 12px 0;">${priceHtml}</div>
                             <div style="font-size: 13px; color: #9ca3af; margin: 6px 0;">Simulated Capital: <strong>$${plan.simulated_capital.toLocaleString()}</strong></div>
                             <div style="font-size: 13px; color: #9ca3af; margin: 6px 0;">Profit Target: <strong>$${plan.profit_target.toLocaleString()}</strong></div>
@@ -1896,7 +2359,14 @@ let connectedWallet = null;
 
         async function applyPromo() {
             const code = document.getElementById('applied-promo')?.value.trim();
-            if (!code) return;
+            const feedback = document.getElementById('promo-feedback');
+            if (!code) {
+                activePromoCode = null;
+                battlePassDiscountBonusPct = 0;
+                if (feedback) feedback.textContent = '';
+                renderPlans();
+                return;
+            }
 
             const res = await fetch('/api/promo/validate', {
                 method: 'POST',
@@ -1905,14 +2375,15 @@ let connectedWallet = null;
             });
             const data = await res.json();
 
-            const feedback = document.getElementById('promo-feedback');
             if (data.valid) {
                 activePromoCode = code.toUpperCase();
-                if (feedback) feedback.innerText = `✓ Code '${activePromoCode}' applied! Discount active.`;
+                battlePassDiscountBonusPct = data.type === 'BATTLEPASS' ? Number(data.bonus_discount_pct || 0) : 0;
+                if (feedback) feedback.innerText = `✓ Code '${activePromoCode}' applied! ${Math.min(100, standardDiscountPct + battlePassDiscountBonusPct)}% total discount.`;
                 renderPlans();
             } else {
                 activePromoCode = null;
-                if (feedback) feedback.innerText = `✕ Invalid promo code.`;
+                battlePassDiscountBonusPct = 0;
+                if (feedback) feedback.innerText = `✕ ${data.error || 'Invalid promo code.'}`;
                 renderPlans();
             }
         }
@@ -2260,7 +2731,32 @@ let connectedWallet = null;
 
         async function buyPlan(planId, priceUsdt) {
             if (!connectedWallet) { alert("Connect wallet first!"); return; }
-            
+            const amount = Number(priceUsdt);
+            if (!Number.isFinite(amount) || amount < 0) { alert("Invalid plan price."); return; }
+            if (amount === 0) {
+                if (!confirm('Confirm this free account purchase?')) return;
+                try {
+                    const response = await walletFetch('/api/accounts/purchase', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            wallet_address: connectedWallet,
+                            plan_id: Number(planId),
+                            promo_code: activePromoCode
+                        })
+                    });
+                    const data = await response.json();
+                    if (!response.ok || !data.success) throw new Error(data.error || 'Unable to provision this free account.');
+                    alert("Free account provisioned successfully.");
+                    await loadUserAccounts(connectedWallet);
+                    switchView('tradeView');
+                } catch (error) {
+                    console.error("Free account purchase error:", error);
+                    alert(error.message || "Unable to provision this free account.");
+                }
+                return;
+            }
+
             const selectedChainId = parseInt(document.getElementById('payment-chain-select')?.value || '1');
             const chainConfig = SUPPORTED_EVM_CHAINS[selectedChainId];
             if (!chainConfig) { alert("Invalid network selection."); return; }
@@ -2295,7 +2791,7 @@ let connectedWallet = null;
 
                 alert("Transaction submitted! Verifying on-chain...");
 
-                const res = await fetch('/api/accounts/purchase', {
+                const res = await walletFetch('/api/accounts/purchase', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ 
@@ -2347,4 +2843,41 @@ let connectedWallet = null;
             const button = event.target.closest('[data-user-ticket-reply]');
             const card = button?.closest('[data-ticket-id]');
             if (button && card) submitUserTicketReply(button.dataset.userTicketReply, card);
+        });
+        document.getElementById('battlepass-profile-form')?.addEventListener('submit', saveBattlePassProfileImage);
+        document.getElementById('battlepass-share')?.addEventListener('click', shareBattlePassProfile);
+        document.getElementById('admin-battlepass-settings-form')?.addEventListener('submit', event => {
+            event.preventDefault();
+            saveAdminBattlePass('/api/admin/battlepass/settings', {
+                standard_discount_pct: Number(document.getElementById('admin-standard-discount').value)
+            }, event.currentTarget.querySelector('button[type="submit"]'));
+        });
+        document.getElementById('admin-battlepass-task-form')?.addEventListener('submit', async event => {
+            event.preventDefault();
+            const form = event.currentTarget;
+            const feedback = document.getElementById('admin-battlepass-task-feedback');
+            const button = form.querySelector('button[type="submit"]');
+            const taskType = document.getElementById('admin-battlepass-task-type').value;
+            const actionUrl = document.getElementById('admin-battlepass-task-url').value.trim();
+            if (taskType === 'SOCIAL_CLICK' && !actionUrl) {
+                if (feedback) feedback.textContent = 'Enter an action URL for a social task.';
+                return;
+            }
+            if (feedback) feedback.textContent = '';
+            if (button) button.disabled = true;
+            const success = await saveAdminBattlePass('/api/admin/battlepass/tasks/save', {
+                title: document.getElementById('admin-battlepass-task-title').value,
+                description: document.getElementById('admin-battlepass-task-description').value,
+                task_type: taskType,
+                cadence: document.getElementById('admin-battlepass-task-cadence').value,
+                action_url: actionUrl,
+                xp_reward: Number(document.getElementById('admin-battlepass-task-xp').value),
+                points_reward: Number(document.getElementById('admin-battlepass-task-points').value)
+            }, button);
+            if (success) {
+                if (feedback) feedback.textContent = 'Task created.';
+                form.reset();
+                document.getElementById('admin-battlepass-task-xp').value = '100';
+                document.getElementById('admin-battlepass-task-points').value = '10';
+            }
         });

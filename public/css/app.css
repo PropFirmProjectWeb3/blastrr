@@ -458,3 +458,122 @@
             .account-card-actions { width: 100%; }
             .account-profit-chart { grid-template-columns: 1fr; }
         }
+
+        [hidden] { display: none !important; }
+        .battlepass-profile-card {
+            display: flex;
+            align-items: center;
+            gap: 18px;
+            flex-wrap: wrap;
+            padding: 18px;
+            border: 1px solid rgba(167, 139, 250, 0.28);
+            border-radius: 14px;
+            background: linear-gradient(120deg, rgba(124, 58, 237, 0.12), rgba(15, 23, 42, 0.42));
+        }
+        .battlepass-avatar-wrap {
+            width: 76px;
+            height: 76px;
+            display: grid;
+            place-items: center;
+            flex: 0 0 76px;
+            position: relative;
+            overflow: hidden;
+            border: 2px solid rgba(167, 139, 250, 0.72);
+            border-radius: 50%;
+            background: #111827;
+            color: #c4b5fd;
+            font-size: 30px;
+            font-weight: 800;
+        }
+        .battlepass-avatar-wrap img {
+            position: absolute;
+            inset: 0;
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        .battlepass-profile-details { display: grid; flex: 1 1 220px; gap: 6px; min-width: 180px; }
+        .battlepass-profile-details > strong { color: #fff; font-size: 18px; }
+        .battlepass-profile-details > span { color: #c4b5fd; }
+        .battlepass-progress-track {
+            width: min(100%, 420px);
+            height: 9px;
+            overflow: hidden;
+            border-radius: 99px;
+            background: rgba(148, 163, 184, 0.2);
+        }
+        .battlepass-progress { height: 100%; width: 0; border-radius: inherit; background: linear-gradient(90deg, #8b5cf6, #34d399); transition: width 0.25s ease; }
+        .battlepass-profile-details small { color: #a5b0c0; }
+        .battlepass-image-form { display: flex; align-items: flex-end; gap: 12px; flex-wrap: wrap; margin-top: 16px; }
+        .battlepass-image-form .form-group { flex: 1 1 280px; margin: 0; }
+        .battlepass-group-title { margin: 22px 0 10px; color: #c4b5fd; font-size: 14px; text-transform: uppercase; letter-spacing: 0.08em; }
+        .battlepass-task-list { display: grid; gap: 12px; }
+        .battlepass-task {
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            gap: 16px;
+            padding: 16px;
+            border: 1px solid var(--surface-border);
+            border-radius: 12px;
+            background: rgba(5, 7, 11, 0.38);
+        }
+        .battlepass-task-copy { flex: 1; min-width: 0; }
+        .battlepass-task-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+        .battlepass-task-heading strong { color: #f3f4f6; }
+        .battlepass-task-copy p { margin: 8px 0; color: #a5b0c0; font-size: 13px; }
+        .battlepass-task-copy small { color: #34d399; font-weight: 700; }
+        .battlepass-task-status { color: #fbbf24; font-size: 11px; font-weight: 700; }
+        .battlepass-task-status.is-claimed { color: #94a3b8; }
+        .battlepass-task-status.is-ready { color: #34d399; }
+        .battlepass-task-action { display: inline-block; margin-top: 12px; color: #c4b5fd; font-size: 13px; font-weight: 700; }
+        .battlepass-task .twitter-tweet { max-width: 520px !important; margin: 12px 0 !important; }
+        .battlepass-level-grid, .battlepass-admin-level-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(175px, 1fr)); gap: 12px; }
+        .battlepass-level {
+            display: grid;
+            align-content: start;
+            gap: 10px;
+            padding: 15px;
+            border: 1px solid var(--surface-border);
+            border-radius: 12px;
+            background: rgba(5, 7, 11, 0.38);
+        }
+        .battlepass-level.is-unlocked { border-color: rgba(52, 211, 153, 0.35); }
+        .battlepass-level-number { color: #a5b0c0; font-size: 11px; font-weight: 800; letter-spacing: 0.08em; }
+        .battlepass-level > strong { color: #c4b5fd; }
+        .battlepass-level > small { color: #a5b0c0; }
+        .battlepass-reward-code { overflow-wrap: anywhere; color: #34d399; }
+        .battlepass-rank-badge { color: #c4b5fd; font-size: 12px; font-weight: 700; }
+        .battlepass-admin-list { display: grid; gap: 10px; }
+        .battlepass-admin-row {
+            display: grid;
+            grid-template-columns: minmax(150px, 1.5fr) repeat(2, minmax(115px, 1fr)) auto;
+            align-items: end;
+            gap: 12px;
+            padding: 13px;
+            border: 1px solid var(--surface-border);
+            border-radius: 10px;
+            background: rgba(5, 7, 11, 0.34);
+        }
+        .battlepass-admin-row > strong { align-self: center; }
+        .battlepass-admin-row label, .battlepass-admin-task-fields label { display: grid; gap: 6px; color: #a5b0c0; font-size: 12px; }
+        .battlepass-admin-row input, .battlepass-admin-task-fields input, .battlepass-admin-task-fields select {
+            width: 100%;
+            min-width: 0;
+            padding: 8px;
+            color: #f3f4f6;
+            border: 1px solid var(--surface-border);
+            border-radius: 7px;
+            background: #080c12;
+        }
+        .battlepass-admin-task { display: grid; gap: 12px; padding: 14px; border: 1px solid var(--surface-border); border-radius: 10px; }
+        .battlepass-admin-task-fields { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 10px; }
+        .battlepass-active-toggle { display: inline-flex; align-items: center; gap: 8px; color: #a5b0c0; font-size: 12px; }
+        .admin-task-form { grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); }
+        @media (max-width: 700px) {
+            .battlepass-task { flex-direction: column; }
+            .battlepass-task > button { width: 100%; }
+            .battlepass-admin-row { grid-template-columns: 1fr 1fr; }
+            .battlepass-admin-row > strong { grid-column: 1 / -1; }
+            .battlepass-admin-row > button { grid-column: 1 / -1; }
+        }

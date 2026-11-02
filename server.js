@@ -131,7 +131,14 @@ function seedPlans() {
         function(migrationErr) {
           if (migrationErr) return console.error('Unable to correct untouched Whale account balances:', migrationErr.message);
           if (this.changes) console.log(`Corrected ${this.changes} untouched Whale account balance(s) to $${whalePlan.simulated_capital}.`);
-          console.log(`Synchronized ${defaultPlans.length} plan definitions from config/plans.json.`);
+          db.run(
+            `INSERT OR IGNORE INTO battlepass_plan_rewards (plan_id, xp_reward, points_reward)
+             SELECT id, 1000, 100 FROM plans WHERE active = 1`,
+            (rewardErr) => {
+              if (rewardErr) return console.error('Unable to initialize battle pass plan rewards:', rewardErr.message);
+              console.log(`Synchronized ${defaultPlans.length} plan definitions from config/plans.json.`);
+            }
+          );
         }
       );
       return;
@@ -678,6 +685,93 @@ function requireAdminWallet(req, res, next) {
   );
 }
 
+function getBattlePassLevel(xp) {
+  return Math.min(12, Math.floor(Math.max(0, Number(xp) || 0) / 10000));
+}
+
+function getBattlePassPeriodKey(cadence, date = new Date()) {
+  const year = date.getUTCFullYear();
+  const month = String(date.getUTCMonth() + 1).padStart(2, '0');
+  const day = String(date.getUTCDate()).padStart(2, '0');
+  if (cadence === 'DAILY') return `${year}-${month}-${day}`;
+  if (cadence === 'MONTHLY') return `${year}-${month}`;
+  const monday = new Date(Date.UTC(year, date.getUTCMonth(), date.getUTCDate()));
+  monday.setUTCDate(monday.getUTCDate() - ((monday.getUTCDay() + 6) % 7));
+  return `${monday.getUTCFullYear()}-${String(monday.getUTCMonth() + 1).padStart(2, '0')}-${String(monday.getUTCDate()).padStart(2, '0')}`;
+}
+
+function getBattlePassPeriodEnd(cadence, periodKey) {
+  const [year, month, day] = periodKey.split('-').map(Number);
+  const end = cadence === 'MONTHLY'
+    ? new Date(Date.UTC(year, month, 1))
+    : new Date(Date.UTC(year, month - 1, day + (cadence === 'WEEKLY' ? 7 : 1)));
+  return end.toISOString().slice(0, 10);
+}
+
+function getBattlePassTaskPeriod(task, date = new Date()) {
+  const claimPeriodKey = getBattlePassPeriodKey(task.cadence, date);
+  if (task.task_type !== 'GREEN_DAY' && task.task_type !== 'GREEN_WEEK') {
+    return { claimPeriodKey, activityPeriodKey: claimPeriodKey };
+  }
+  const activityStart = new Date(`${claimPeriodKey}T00:00:00.000Z`);
+  activityStart.setUTCDate(activityStart.getUTCDate() - (task.task_type === 'GREEN_DAY' ? 1 : 7));
+  const activityPeriodKey = activityStart.toISOString().slice(0, 10);
+  return { claimPeriodKey, activityPeriodKey };
+}
+
+function getBattlePassTaskEligibility(task, wallet, periodKey, callback) {
+  if (task.task_type === 'SOCIAL_CLICK') return callback(null, true);
+  const periodEnd = getBattlePassPeriodEnd(task.cadence, periodKey);
+  if (task.task_type === 'GREEN_DAY' || task.task_type === 'GREEN_WEEK') {
+    const startComparison = task.task_type === 'GREEN_DAY' ? '= ?' : '>= ? AND d.day < ?';
+    const params = task.task_type === 'GREEN_DAY'
+      ? [wallet, periodKey]
+      : [wallet, periodKey, periodEnd];
+    return db.get(
+      `SELECT COALESCE(SUM(d.profit), 0) AS profit
+       FROM daily_account_summaries d
+       JOIN accounts a ON a.id = d.account_id
+       WHERE LOWER(a.wallet_address) = LOWER(?) AND d.day ${startComparison}`,
+      params,
+      (err, row) => err
+        ? callback(new Error('Unable to verify trading activity for this task.'))
+        : callback(null, Number(row?.profit || 0) > 0)
+    );
+  }
+  if (task.task_type === 'WITHDRAWAL') {
+    return db.get(
+      `SELECT EXISTS(
+         SELECT 1 FROM withdrawals w
+         WHERE LOWER(w.wallet_address) = LOWER(?) AND w.status = 'PAID'
+           AND date(COALESCE(w.paid_at, w.created_at)) >= date(?) AND date(COALESCE(w.paid_at, w.created_at)) < date(?)
+         UNION ALL
+         SELECT 1 FROM referral_withdrawals rw
+         WHERE LOWER(rw.wallet_address) = LOWER(?) AND rw.status = 'PAID'
+           AND date(COALESCE(rw.paid_at, rw.created_at)) >= date(?) AND date(COALESCE(rw.paid_at, rw.created_at)) < date(?)
+       ) AS eligible`,
+      [wallet, periodKey, periodEnd, wallet, periodKey, periodEnd],
+      (err, row) => err
+        ? callback(new Error('Unable to verify withdrawal activity for this task.'))
+        : callback(null, Number(row?.eligible) === 1)
+    );
+  }
+  if (task.task_type === 'TRADE_DAY') {
+    return db.get(
+      `SELECT EXISTS(
+         SELECT 1 FROM trades t
+         JOIN accounts a ON a.id = t.account_id
+         WHERE LOWER(a.wallet_address) = LOWER(?) AND t.status = 'CLOSED'
+           AND date(t.closed_at) >= date(?) AND date(t.closed_at) < date(?)
+       ) AS eligible`,
+      [wallet, periodKey, periodEnd],
+      (err, row) => err
+        ? callback(new Error('Unable to verify trading activity for this task.'))
+        : callback(null, Number(row?.eligible) === 1)
+    );
+  }
+  callback(new Error('This battle pass task has an unsupported task type.'));
+}
+
 // --- ON-CHAIN SECURE VERIFICATION FUNCTION ---
 async function verifyMultiChainPurchase(txHash, chainId, expectedBuyerWallet, expectedAmountUsdt, treasuryWallet) {
     const chainConfig = SUPPORTED_EVM_CHAINS[chainId];
@@ -766,9 +860,298 @@ app.post('/api/auth/wallet-session', sensitiveLimiter, requireTradeSignature, (r
 });
 
 app.get('/api/plans', (req, res) => {
-  db.all("SELECT * FROM plans WHERE active = 1 ORDER BY id", [], (err, rows) => {
-    if (err) return res.status(500).json({ error: err.message });
-    res.json({ plans: rows });
+  db.get('SELECT standard_discount_pct FROM battlepass_settings WHERE id = 1', [], (settingsErr, settings) => {
+    if (settingsErr) return res.status(500).json({ error: 'Unable to load current purchase discounts.' });
+    const discountPct = Number(settings?.standard_discount_pct ?? 90);
+    db.all("SELECT * FROM plans WHERE active = 1 ORDER BY id", [], (err, rows) => {
+      if (err) return res.status(500).json({ error: err.message });
+      res.json({
+        plans: rows,
+        standard_discount_pct: discountPct
+      });
+    });
+  });
+});
+
+app.post('/api/admin/battlepass/load', sensitiveLimiter, requireTradeSignature, requireAdminWallet, (req, res) => {
+  db.get('SELECT standard_discount_pct FROM battlepass_settings WHERE id = 1', [], (settingsErr, settings) => {
+    if (settingsErr || !settings) return res.status(500).json({ error: 'Unable to load battle pass settings.' });
+    db.all('SELECT level, xp_required, discount_bonus_pct, points_cost FROM battlepass_levels ORDER BY level', [], (levelsErr, levels) => {
+      if (levelsErr) return res.status(500).json({ error: 'Unable to load battle pass levels.' });
+      db.all(
+        `SELECT p.id AS plan_id, p.name, p.simulated_capital,
+                COALESCE(r.xp_reward, 1000) AS xp_reward,
+                COALESCE(r.points_reward, 100) AS points_reward
+         FROM plans p LEFT JOIN battlepass_plan_rewards r ON r.plan_id = p.id
+         WHERE p.active = 1 ORDER BY p.id`,
+        [],
+        (plansErr, plans) => {
+          if (plansErr) return res.status(500).json({ error: 'Unable to load plan battle pass rewards.' });
+          db.all('SELECT * FROM battlepass_tasks ORDER BY active DESC, cadence, id', [], (tasksErr, tasks) => {
+            if (tasksErr) return res.status(500).json({ error: 'Unable to load battle pass tasks.' });
+            res.json({ settings, levels: levels || [], plans: plans || [], tasks: tasks || [] });
+          });
+        }
+      );
+    });
+  });
+});
+
+app.get('/api/battlepass', requireWalletSession, (req, res) => {
+  const wallet = req.query.wallet;
+  if (typeof wallet !== 'string' || !ethers.isAddress(wallet) || wallet.toLowerCase() !== req.walletAddress) {
+    return res.status(403).json({ error: 'Wallet session does not match the requested battle pass.' });
+  }
+  db.run(
+    'INSERT OR IGNORE INTO battlepass_users (wallet_address) VALUES (?)',
+    [req.walletAddress],
+    (insertErr) => {
+      if (insertErr) return res.status(500).json({ error: 'Unable to prepare your battle pass profile.' });
+      db.get(
+        `SELECT b.wallet_address, b.xp, b.points, b.profile_image_url, u.username
+         FROM battlepass_users b LEFT JOIN users u ON LOWER(u.wallet_address) = LOWER(b.wallet_address)
+         WHERE LOWER(b.wallet_address) = LOWER(?)`,
+        [req.walletAddress],
+        (profileErr, profile) => {
+          if (profileErr || !profile) return res.status(500).json({ error: 'Unable to load your battle pass profile.' });
+          const currentLevel = getBattlePassLevel(profile.xp);
+          db.all('SELECT * FROM battlepass_levels ORDER BY level', [], (levelsErr, levels) => {
+            if (levelsErr) return res.status(500).json({ error: 'Unable to load battle pass levels.' });
+            db.all(
+              'SELECT level, code, discount_bonus_pct, redeemed_at FROM battlepass_reward_codes WHERE LOWER(wallet_address) = LOWER(?)',
+              [req.walletAddress],
+              (rewardsErr, rewards) => {
+              if (rewardsErr) return res.status(500).json({ error: 'Unable to load your battle pass rewards.' });
+              const rewardByLevel = new Map((rewards || []).map(reward => [Number(reward.level), reward]));
+              db.all(
+                `SELECT t.*,
+                        (SELECT c.period_key FROM battlepass_task_claims c
+                         WHERE c.task_id = t.id AND LOWER(c.wallet_address) = LOWER(?)
+                           AND c.cadence = t.cadence
+                         ORDER BY c.created_at DESC LIMIT 1) AS last_period_key
+                 FROM battlepass_tasks t WHERE t.active = 1
+                 ORDER BY CASE t.cadence WHEN 'DAILY' THEN 1 WHEN 'WEEKLY' THEN 2 ELSE 3 END, t.id`,
+                [req.walletAddress],
+                (tasksErr, tasks) => {
+                  if (tasksErr) return res.status(500).json({ error: 'Unable to load battle pass tasks.' });
+                  for (const task of tasks || []) {
+                    const taskPeriod = getBattlePassTaskPeriod(task);
+                    task.claimed = task.last_period_key === taskPeriod.claimPeriodKey;
+                    delete task.last_period_key;
+                  }
+                  const eligibleTasks = tasks || [];
+                  let taskIndex = 0;
+                  const checkTaskEligibility = () => {
+                    if (taskIndex >= eligibleTasks.length) {
+                      return res.json({
+                        profile: {
+                          ...profile,
+                          xp: Number(profile.xp),
+                          points: Number(profile.points),
+                          level: currentLevel
+                        },
+                        levels: (levels || []).map(level => ({
+                          ...level,
+                          reward_code: rewardByLevel.get(Number(level.level))?.code || null,
+                          reward_redeemed: Boolean(rewardByLevel.get(Number(level.level))?.redeemed_at),
+                          unlocked: currentLevel >= Number(level.level)
+                        })),
+                        tasks: eligibleTasks
+                      });
+                    }
+                    const task = eligibleTasks[taskIndex++];
+                    const period = getBattlePassTaskPeriod(task);
+                    if (task.claimed) {
+                      task.eligible = false;
+                      return checkTaskEligibility();
+                    }
+                    getBattlePassTaskEligibility(task, req.walletAddress, period.activityPeriodKey, (eligibilityErr, eligible) => {
+                      if (eligibilityErr) return res.status(500).json({ error: eligibilityErr.message });
+                      task.eligible = eligible;
+                      checkTaskEligibility();
+                    });
+                  };
+                  checkTaskEligibility();
+                }
+              );
+            });
+          });
+        }
+      );
+    }
+  );
+});
+
+app.get('/api/battlepass/profile', (req, res) => {
+  const username = typeof req.query.username === 'string' ? req.query.username.trim() : '';
+  if (!/^[a-z0-9_]{3,24}$/i.test(username)) {
+    return res.status(400).json({ error: 'A valid battle pass username is required.' });
+  }
+  db.get(
+    `SELECT u.username, b.xp, b.profile_image_url
+     FROM users u LEFT JOIN battlepass_users b ON LOWER(b.wallet_address) = LOWER(u.wallet_address)
+     WHERE LOWER(u.username) = LOWER(?)`,
+    [username],
+    (err, profile) => {
+      if (err) return res.status(500).json({ error: 'Unable to load this public battle pass profile.' });
+      if (!profile) return res.status(404).json({ error: 'Battle pass profile not found.' });
+      const xp = Number(profile.xp || 0);
+      res.json({
+        profile: {
+          username: profile.username,
+          xp,
+            level: getBattlePassLevel(xp),
+            profile_image_url: profile.profile_image_url
+          }
+      });
+    }
+  );
+});
+
+app.post('/api/battlepass/profile', sensitiveLimiter, requireWalletSession, (req, res) => {
+  const imageUrl = typeof req.body?.profile_image_url === 'string' ? req.body.profile_image_url.trim() : '';
+  if (imageUrl.length > 2048) return res.status(400).json({ error: 'Profile image URL must be 2,048 characters or fewer.' });
+  if (imageUrl) {
+    try {
+      const parsed = new URL(imageUrl);
+      if (!['http:', 'https:'].includes(parsed.protocol)) throw new Error('Unsupported profile image URL scheme.');
+    } catch {
+      return res.status(400).json({ error: 'Enter a valid HTTP or HTTPS profile image URL.' });
+    }
+  }
+  db.run(
+    `INSERT INTO battlepass_users (wallet_address, profile_image_url)
+     VALUES (?, ?)
+     ON CONFLICT(wallet_address) DO UPDATE SET profile_image_url = excluded.profile_image_url,
+       updated_at = CURRENT_TIMESTAMP`,
+    [req.walletAddress, imageUrl || null],
+    (err) => {
+      if (err) return res.status(500).json({ error: 'Unable to update your battle pass profile.' });
+      res.json({ success: true, profile_image_url: imageUrl || null });
+    }
+  );
+});
+
+app.post('/api/battlepass/tasks/claim', sensitiveLimiter, requireWalletSession, (req, res) => {
+  const taskId = Number(req.body?.task_id);
+  if (!Number.isInteger(taskId) || taskId <= 0) return res.status(400).json({ error: 'Choose a valid battle pass task.' });
+  db.get('SELECT id, task_type, cadence, xp_reward, points_reward FROM battlepass_tasks WHERE id = ? AND active = 1', [taskId], (taskErr, task) => {
+    if (taskErr) return res.status(500).json({ error: 'Unable to load this battle pass task.' });
+    if (!task) return res.status(404).json({ error: 'This battle pass task is no longer available.' });
+    if ((task.task_type === 'GREEN_DAY' && task.cadence !== 'DAILY') ||
+        (task.task_type === 'GREEN_WEEK' && task.cadence !== 'WEEKLY')) {
+      return res.status(409).json({ error: 'This task has an invalid completion schedule.' });
+    }
+    const taskPeriod = getBattlePassTaskPeriod(task);
+    const periodKey = taskPeriod.claimPeriodKey;
+    getBattlePassTaskEligibility(task, req.walletAddress, taskPeriod.activityPeriodKey, (eligibilityErr, eligible) => {
+      if (eligibilityErr) return res.status(500).json({ error: eligibilityErr.message });
+      if (!eligible) return res.status(409).json({ error: 'This task reward is not available yet.' });
+    const claimId = `bpt_${crypto.randomBytes(10).toString('hex')}`;
+    db.serialize(() => {
+      db.run('BEGIN IMMEDIATE', (beginErr) => {
+        if (beginErr) return res.status(500).json({ error: 'Unable to start task reward.' });
+        const rollback = (status, error) => db.run('ROLLBACK', () => res.status(status).json({ error }));
+        db.run(
+          `INSERT INTO battlepass_task_claims (id, wallet_address, task_id, cadence, period_key)
+           VALUES (?, ?, ?, ?, ?)`,
+          [claimId, req.walletAddress, task.id, task.cadence, periodKey],
+          (claimErr) => {
+            if (claimErr) {
+              if (claimErr.code === 'SQLITE_CONSTRAINT') return rollback(409, 'You have already earned this task reward for the current period.');
+              return rollback(500, 'Unable to record this task reward.');
+            }
+            db.run('INSERT OR IGNORE INTO battlepass_users (wallet_address) VALUES (?)', [req.walletAddress], (userErr) => {
+              if (userErr) return rollback(500, 'Unable to load your battle pass balance.');
+              db.run(
+                `UPDATE battlepass_users SET xp = xp + ?, points = points + ?, updated_at = CURRENT_TIMESTAMP
+                 WHERE LOWER(wallet_address) = LOWER(?)`,
+                [task.xp_reward, task.points_reward, req.walletAddress],
+                (balanceErr) => {
+                  if (balanceErr) return rollback(500, 'Unable to add your task reward.');
+                  db.run(
+                    `INSERT INTO battlepass_events (id, wallet_address, event_type, reference_id, xp, points)
+                     VALUES (?, ?, 'TASK', ?, ?, ?)`,
+                    [`bpe_${crypto.randomBytes(10).toString('hex')}`, req.walletAddress, `${req.walletAddress}:${task.id}:${periodKey}`, task.xp_reward, task.points_reward],
+                    (eventErr) => {
+                      if (eventErr) return rollback(500, 'Unable to record your task reward history.');
+                      db.run('COMMIT', (commitErr) => {
+                        if (commitErr) return rollback(500, 'Unable to complete task reward.');
+                        res.json({
+                          success: true,
+                          xp_awarded: task.xp_reward,
+                          points_awarded: task.points_reward,
+                          period_key: periodKey
+                        });
+                      });
+                    }
+                  );
+                }
+              );
+            });
+          }
+        );
+      });
+    });
+    });
+  });
+});
+
+app.post('/api/battlepass/rewards/claim', sensitiveLimiter, requireWalletSession, (req, res) => {
+  const level = Number(req.body?.level);
+  if (!Number.isInteger(level) || level < 1 || level > 12) {
+    return res.status(400).json({ error: 'Choose a valid battle pass level reward.' });
+  }
+  db.get('SELECT xp, points FROM battlepass_users WHERE LOWER(wallet_address) = LOWER(?)', [req.walletAddress], (userErr, user) => {
+    if (userErr) return res.status(500).json({ error: 'Unable to load your battle pass balance.' });
+    if (!user) return res.status(404).json({ error: 'Battle pass profile not found.' });
+    if (getBattlePassLevel(user.xp) < level) return res.status(403).json({ error: 'Earn more XP to unlock this level reward.' });
+    db.get('SELECT * FROM battlepass_levels WHERE level = ?', [level], (levelErr, reward) => {
+      if (levelErr) return res.status(500).json({ error: 'Unable to load this level reward.' });
+      if (!reward) return res.status(404).json({ error: 'Battle pass level not found.' });
+      if (Number(user.points) < Number(reward.points_cost)) {
+        return res.status(400).json({ error: `You need ${reward.points_cost} points to claim this level reward.` });
+      }
+      const code = `PASS-${crypto.randomBytes(10).toString('hex').toUpperCase()}`;
+      db.serialize(() => {
+        db.run('BEGIN IMMEDIATE', (beginErr) => {
+          if (beginErr) return res.status(500).json({ error: 'Unable to start level reward claim.' });
+          const rollback = (status, error) => db.run('ROLLBACK', () => res.status(status).json({ error }));
+          db.run(
+            `INSERT INTO battlepass_reward_codes (code, wallet_address, level, discount_bonus_pct)
+             VALUES (?, ?, ?, ?)`,
+            [code, req.walletAddress, level, reward.discount_bonus_pct],
+            (insertErr) => {
+              if (insertErr) {
+                if (insertErr.code === 'SQLITE_CONSTRAINT') return rollback(409, 'This level reward has already been claimed.');
+                return rollback(500, 'Unable to create your level discount code.');
+              }
+              db.run(
+                `UPDATE battlepass_users SET points = points - ?, updated_at = CURRENT_TIMESTAMP
+                 WHERE LOWER(wallet_address) = LOWER(?) AND points >= ?`,
+                [reward.points_cost, req.walletAddress, reward.points_cost],
+                function(updateErr) {
+                  if (updateErr) return rollback(500, 'Unable to deduct reward points.');
+                  if (this.changes !== 1) return rollback(409, 'Your points changed; refresh and try again.');
+                  db.run(
+                    `INSERT INTO battlepass_events (id, wallet_address, event_type, reference_id, xp, points)
+                     VALUES (?, ?, 'LEVEL_REWARD', ?, 0, ?)`,
+                    [`bpe_${crypto.randomBytes(10).toString('hex')}`, req.walletAddress, `${req.walletAddress}:level:${level}`, -Number(reward.points_cost)],
+                    (eventErr) => {
+                      if (eventErr) return rollback(500, 'Unable to record your level reward claim.');
+                      db.run('COMMIT', (commitErr) => {
+                        if (commitErr) return rollback(500, 'Unable to complete level reward claim.');
+                        res.json({ success: true, code, discount_bonus_pct: Number(reward.discount_bonus_pct) });
+                      });
+                    }
+                  );
+                }
+              );
+            }
+          );
+        });
+      });
+    });
   });
 });
 
@@ -787,8 +1170,9 @@ app.get('/api/leaderboard', (req, res) => {
 
   if (mode === 'DAILY') {
     query = `
-      SELECT u.username, u.discount_code, u.wallet_address, SUM(t.pnl) as metric_value
+      SELECT u.username, u.discount_code, u.wallet_address, COALESCE(b.xp, 0) AS battlepass_xp, SUM(t.pnl) as metric_value
       FROM users u
+      LEFT JOIN battlepass_users b ON LOWER(b.wallet_address) = LOWER(u.wallet_address)
       JOIN accounts a ON LOWER(u.wallet_address) = LOWER(a.wallet_address)
       JOIN trades t ON a.id = t.account_id
       WHERE t.status = 'CLOSED' AND u.username IS NOT NULL AND strftime('%Y-%m-%d', t.closed_at) = strftime('%Y-%m-%d', 'now')
@@ -798,8 +1182,9 @@ app.get('/api/leaderboard', (req, res) => {
     `;
   } else if (mode === 'MONTHLY') {
     query = `
-      SELECT u.username, u.discount_code, u.wallet_address, SUM(t.pnl) as metric_value
+      SELECT u.username, u.discount_code, u.wallet_address, COALESCE(b.xp, 0) AS battlepass_xp, SUM(t.pnl) as metric_value
       FROM users u
+      LEFT JOIN battlepass_users b ON LOWER(b.wallet_address) = LOWER(u.wallet_address)
       JOIN accounts a ON LOWER(u.wallet_address) = LOWER(a.wallet_address)
       JOIN trades t ON a.id = t.account_id
       WHERE t.status = 'CLOSED' AND u.username IS NOT NULL AND strftime('%Y-%m', t.closed_at) = strftime('%Y-%m', 'now')
@@ -809,8 +1194,9 @@ app.get('/api/leaderboard', (req, res) => {
     `;
   } else if (mode === 'PAYOUTS') {
     query = `
-      SELECT u.username, u.discount_code, u.wallet_address, SUM(w.amount) as metric_value
+      SELECT u.username, u.discount_code, u.wallet_address, COALESCE(b.xp, 0) AS battlepass_xp, SUM(w.amount) as metric_value
       FROM users u
+      LEFT JOIN battlepass_users b ON LOWER(b.wallet_address) = LOWER(u.wallet_address)
       JOIN (
         SELECT wallet_address, amount FROM withdrawals WHERE status = 'PAID'
         UNION ALL
@@ -1374,6 +1760,176 @@ app.post('/api/admin/promo-codes/create', sensitiveLimiter, requireTradeSignatur
   });
 });
 
+app.post('/api/admin/battlepass/settings', sensitiveLimiter, requireTradeSignature, requireAdminWallet, (req, res) => {
+  const discountPct = Number(req.body?.standard_discount_pct);
+  if (!Number.isFinite(discountPct) || discountPct < 0 || discountPct > 100) {
+    return res.status(400).json({ error: 'The standard discount must be between 0 and 100%.' });
+  }
+  db.run(
+    'UPDATE battlepass_settings SET standard_discount_pct = ? WHERE id = 1',
+    [Math.round(discountPct * 100) / 100],
+    function(updateErr) {
+      if (updateErr) return res.status(500).json({ error: 'Unable to update the standard discount.' });
+      if (this.changes !== 1) return res.status(500).json({ error: 'Battle pass settings are unavailable.' });
+      res.json({ success: true, standard_discount_pct: Math.round(discountPct * 100) / 100 });
+    }
+  );
+});
+
+app.post('/api/admin/battlepass/settings/get', sensitiveLimiter, requireTradeSignature, requireAdminWallet, (req, res) => {
+  db.get('SELECT standard_discount_pct FROM battlepass_settings WHERE id = 1', [], (err, settings) => {
+    if (err || !settings) return res.status(500).json({ error: 'Unable to load battle pass settings.' });
+    res.json({ settings });
+  });
+});
+
+app.post('/api/admin/battlepass/levels/list', sensitiveLimiter, requireTradeSignature, requireAdminWallet, (req, res) => {
+  db.all('SELECT level, xp_required, discount_bonus_pct, points_cost FROM battlepass_levels ORDER BY level', [], (err, levels) => {
+    if (err) return res.status(500).json({ error: 'Unable to load battle pass levels.' });
+    res.json({ levels: levels || [] });
+  });
+});
+
+app.post('/api/admin/battlepass/levels/save', sensitiveLimiter, requireTradeSignature, requireAdminWallet, (req, res) => {
+  const level = Number(req.body?.level);
+  const discountPct = Number(req.body?.discount_bonus_pct);
+  const pointsCost = Number(req.body?.points_cost);
+  if (!Number.isInteger(level) || level < 1 || level > 12 ||
+      !Number.isFinite(discountPct) || discountPct < 0 || discountPct > 100 ||
+      !Number.isSafeInteger(pointsCost) || pointsCost < 0) {
+    return res.status(400).json({ error: 'Set a level from 1 to 12, an additional discount from 0 to 100%, and a non-negative point cost.' });
+  }
+  db.run(
+    'UPDATE battlepass_levels SET discount_bonus_pct = ?, points_cost = ? WHERE level = ?',
+    [Math.round(discountPct * 100) / 100, pointsCost, level],
+    function(updateErr) {
+      if (updateErr) return res.status(500).json({ error: 'Unable to update the level reward.' });
+      if (this.changes !== 1) return res.status(404).json({ error: 'Battle pass level not found.' });
+      res.json({ success: true });
+    }
+  );
+});
+
+app.post('/api/admin/battlepass/plan-rewards/list', sensitiveLimiter, requireTradeSignature, requireAdminWallet, (req, res) => {
+  db.all(
+    `SELECT p.id AS plan_id, p.name, p.simulated_capital,
+            COALESCE(r.xp_reward, 1000) AS xp_reward,
+            COALESCE(r.points_reward, 100) AS points_reward
+     FROM plans p LEFT JOIN battlepass_plan_rewards r ON r.plan_id = p.id
+     WHERE p.active = 1 ORDER BY p.id`,
+    [],
+    (err, plans) => {
+      if (err) return res.status(500).json({ error: 'Unable to load plan battle pass rewards.' });
+      res.json({ plans: plans || [] });
+    }
+  );
+});
+
+app.post('/api/admin/battlepass/plan-rewards/save', sensitiveLimiter, requireTradeSignature, requireAdminWallet, (req, res) => {
+  const planId = Number(req.body?.plan_id);
+  const xpReward = Number(req.body?.xp_reward);
+  const pointsReward = Number(req.body?.points_reward);
+  if (!Number.isInteger(planId) || planId <= 0 ||
+      !Number.isSafeInteger(xpReward) || xpReward < 0 ||
+      !Number.isSafeInteger(pointsReward) || pointsReward < 0) {
+    return res.status(400).json({ error: 'Set a valid plan and non-negative XP and point rewards.' });
+  }
+  db.get('SELECT id FROM plans WHERE id = ? AND active = 1', [planId], (planErr, plan) => {
+    if (planErr) return res.status(500).json({ error: 'Unable to load the selected plan.' });
+    if (!plan) return res.status(404).json({ error: 'The selected plan is unavailable.' });
+    db.run(
+      `INSERT INTO battlepass_plan_rewards (plan_id, xp_reward, points_reward) VALUES (?, ?, ?)
+       ON CONFLICT(plan_id) DO UPDATE SET xp_reward = excluded.xp_reward, points_reward = excluded.points_reward`,
+      [planId, xpReward, pointsReward],
+      (saveErr) => {
+        if (saveErr) return res.status(500).json({ error: 'Unable to save plan battle pass rewards.' });
+        res.json({ success: true });
+      }
+    );
+  });
+});
+
+app.post('/api/admin/battlepass/tasks/list', sensitiveLimiter, requireTradeSignature, requireAdminWallet, (req, res) => {
+  db.all('SELECT * FROM battlepass_tasks ORDER BY active DESC, cadence, id', [], (err, tasks) => {
+    if (err) return res.status(500).json({ error: 'Unable to load battle pass tasks.' });
+    res.json({ tasks: tasks || [] });
+  });
+});
+
+app.post('/api/admin/battlepass/tasks/rewards', sensitiveLimiter, requireTradeSignature, requireAdminWallet, (req, res) => {
+  const taskId = Number(req.body?.task_id);
+  const xpReward = Number(req.body?.xp_reward);
+  const pointsReward = Number(req.body?.points_reward);
+  if (!Number.isInteger(taskId) || taskId <= 0 ||
+      !Number.isSafeInteger(xpReward) || xpReward < 0 ||
+      !Number.isSafeInteger(pointsReward) || pointsReward < 0) {
+    return res.status(400).json({ error: 'Set valid non-negative XP and point rewards for a built-in task.' });
+  }
+  db.run(
+    'UPDATE battlepass_tasks SET xp_reward = ?, points_reward = ? WHERE id = ? AND is_builtin = 1',
+    [xpReward, pointsReward, taskId],
+    function(updateErr) {
+      if (updateErr) return res.status(500).json({ error: 'Unable to update built-in task rewards.' });
+      if (this.changes !== 1) return res.status(404).json({ error: 'Built-in battle pass task not found.' });
+      res.json({ success: true });
+    }
+  );
+});
+
+app.post('/api/admin/battlepass/tasks/save', sensitiveLimiter, requireTradeSignature, requireAdminWallet, (req, res) => {
+  const taskId = req.body?.task_id == null || req.body?.task_id === '' ? null : Number(req.body.task_id);
+  const title = typeof req.body?.title === 'string' ? req.body.title.trim() : '';
+  const description = typeof req.body?.description === 'string' ? req.body.description.trim() : '';
+  const actionUrl = typeof req.body?.action_url === 'string' ? req.body.action_url.trim() : '';
+  const taskType = req.body?.task_type;
+  const cadence = req.body?.cadence;
+  const xpReward = Number(req.body?.xp_reward);
+  const pointsReward = Number(req.body?.points_reward);
+  const active = req.body?.active === false ? 0 : 1;
+  const validTypes = ['SOCIAL_CLICK', 'WITHDRAWAL'];
+  const urlValid = (() => {
+    try { return actionUrl.length <= 2048 && new URL(actionUrl).protocol === 'https:'; } catch { return false; }
+  })();
+  if ((taskId != null && (!Number.isInteger(taskId) || taskId <= 0)) ||
+      title.length < 3 || title.length > 100 ||
+      description.length < 3 || description.length > 500 ||
+      !validTypes.includes(taskType) || !['DAILY', 'WEEKLY', 'MONTHLY'].includes(cadence) ||
+      (taskType === 'SOCIAL_CLICK' && !urlValid) ||
+      !Number.isSafeInteger(xpReward) || xpReward < 0 ||
+      !Number.isSafeInteger(pointsReward) || pointsReward < 0) {
+    return res.status(400).json({ error: 'Provide a valid task, cadence, action link (for social tasks), and non-negative XP and point rewards.' });
+  }
+  const values = [title, description, actionUrl || 'https://x.com/', taskType, cadence, xpReward, pointsReward, active];
+  if (taskId == null) {
+    return db.run(
+      `INSERT INTO battlepass_tasks (title, description, action_url, task_type, cadence, xp_reward, points_reward, active)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      values,
+      function(insertErr) {
+        if (insertErr) return res.status(500).json({ error: 'Unable to create the battle pass task.' });
+        res.json({ success: true, task_id: this.lastID });
+      }
+    );
+  }
+  db.get('SELECT is_builtin FROM battlepass_tasks WHERE id = ?', [taskId], (taskErr, task) => {
+    if (taskErr) return res.status(500).json({ error: 'Unable to load the battle pass task.' });
+    if (!task) return res.status(404).json({ error: 'Battle pass task not found.' });
+    if (Number(task.is_builtin) === 1) {
+      return res.status(400).json({ error: 'Built-in activity tasks only allow their XP and point rewards to be changed.' });
+    }
+    db.run(
+      `UPDATE battlepass_tasks SET title = ?, description = ?, action_url = ?, task_type = ?,
+         cadence = ?, xp_reward = ?, points_reward = ?, active = ? WHERE id = ? AND is_builtin = 0`,
+      [...values, taskId],
+      function(updateErr) {
+        if (updateErr) return res.status(500).json({ error: 'Unable to update the battle pass task.' });
+        if (this.changes !== 1) return res.status(404).json({ error: 'Battle pass task not found.' });
+        res.json({ success: true, task_id: taskId });
+      }
+    );
+  });
+});
+
 app.get('/api/user/referrals', requireWalletSession, (req, res) => {
   const wallet = req.query.wallet;
   if (typeof wallet !== 'string' || wallet.toLowerCase() !== req.walletAddress) {
@@ -1445,12 +2001,32 @@ app.post('/api/referrals/withdraw', sensitiveLimiter, requireTradeSignature, (re
 });
 
 app.post('/api/promo/validate', sensitiveLimiter, (req, res) => {
-  const { code } = req.body;
+  const code = typeof req.body?.code === 'string' ? req.body.code.trim().toUpperCase() : '';
   if (!code) return res.json({ valid: false });
-
-  db.get("SELECT * FROM users WHERE discount_code = ?", [code.toUpperCase()], (err, user) => {
-    if (err || !user) return res.json({ valid: false, error: "Invalid promo code." });
-    res.json({ valid: true, referrer_wallet: user.wallet_address, discount_pct: 90 });
+  db.get('SELECT standard_discount_pct FROM battlepass_settings WHERE id = 1', [], (settingsErr, settings) => {
+    if (settingsErr) return res.status(500).json({ error: 'Unable to load current purchase discounts.' });
+    const standardDiscountPct = Number(settings?.standard_discount_pct ?? 90);
+    db.get('SELECT wallet_address FROM users WHERE UPPER(discount_code) = ?', [code], (userErr, user) => {
+      if (userErr) return res.status(500).json({ error: 'Unable to validate the promo code.' });
+      if (user) {
+        return res.json({ valid: true, type: 'CREATOR', discount_pct: standardDiscountPct });
+      }
+      db.get(
+        `SELECT discount_bonus_pct FROM battlepass_reward_codes
+         WHERE UPPER(code) = ? AND redeemed_at IS NULL`,
+        [code],
+        (rewardErr, reward) => {
+          if (rewardErr) return res.status(500).json({ error: 'Unable to validate the reward code.' });
+          if (!reward) return res.json({ valid: false, error: 'Invalid or already-used promo code.' });
+          res.json({
+            valid: true,
+            type: 'BATTLEPASS',
+            discount_pct: Math.min(100, standardDiscountPct + Number(reward.discount_bonus_pct)),
+            bonus_discount_pct: Number(reward.discount_bonus_pct)
+          });
+        }
+      );
+    });
   });
 });
 
@@ -1569,89 +2145,166 @@ app.get('/api/accounts/details', requireWalletSession, (req, res) => {
 });
 
 // --- SECURE PURCHASE ENDPOINT (WITH MULTI-CHAIN ON-CHAIN VERIFICATION) ---
-app.post('/api/accounts/purchase', sensitiveLimiter, async (req, res) => {
-  const { wallet_address, plan_id, tx_hash, chain_id, promo_code } = req.body;
-
+app.post('/api/accounts/purchase', sensitiveLimiter, requireWalletSession, async (req, res) => {
+  const { wallet_address, plan_id, tx_hash, chain_id } = req.body;
+  const promoCode = typeof req.body?.promo_code === 'string' ? req.body.promo_code.trim().toUpperCase() : '';
   if (typeof wallet_address !== 'string' || !ethers.isAddress(wallet_address) ||
       !Number.isInteger(Number(plan_id)) || Number(plan_id) <= 0 ||
-      typeof tx_hash !== 'string' || !/^0x[0-9a-fA-F]{64}$/.test(tx_hash) ||
-      !Number.isInteger(Number(chain_id)) ||
-      (promo_code != null && (typeof promo_code !== 'string' || promo_code.length > 32))) {
-    return res.status(400).json({ error: "Missing required purchase parameters." });
+      (req.body?.promo_code != null && (typeof req.body.promo_code !== 'string' || req.body.promo_code.length > 32))) {
+    return res.status(400).json({ error: 'Missing required purchase parameters.' });
   }
 
-  db.run(`INSERT OR IGNORE INTO users (wallet_address) VALUES (?)`, [wallet_address], (userErr) => {
-    if (userErr) return res.status(500).json({ error: 'Unable to prepare the purchasing account.' });
-    db.get("SELECT * FROM plans WHERE id = ? AND active = 1", [Number(plan_id)], async (err, plan) => {
-      if (err || !plan) return res.status(404).json({ error: "Plan not found." });
-
-      let finalPrice = plan.base_price_usdt;
-      let referrerWallet = null;
-      let referralCommissionPct = 2;
-
-      if (promo_code) {
-        const referrer = await new Promise((resolve) => {
-          db.get("SELECT * FROM users WHERE discount_code = ?", [promo_code.toUpperCase()], (e, r) => resolve(r));
-        });
-        if (referrer) {
-          referrerWallet = referrer.wallet_address;
-          referralCommissionPct = Number(referrer.referral_pct ?? 2);
-          finalPrice = plan.price_usdt;
-        }
-      }
-
-      // --- SECURE ON-CHAIN VERIFICATION ---
-      const verification = await verifyMultiChainPurchase(
-          tx_hash,
-          Number(chain_id),
-          wallet_address,
-          finalPrice,
-          TREASURY_WALLET
-      );
-
-      if (!verification.success) {
-          return res.status(400).json({ error: verification.error });
-      }
-
-      // --- PROVISION ACCOUNT ---
-      const accountId = `acc_${crypto.randomBytes(8).toString('hex')}`;
-      db.serialize(() => {
-        db.run('BEGIN IMMEDIATE');
-        db.run(
-          `INSERT INTO purchases (tx_hash, chain_id, wallet_address, account_id)
-           VALUES (?, ?, ?, ?)`,
-          [tx_hash.toLowerCase(), Number(chain_id), wallet_address, accountId],
-          (purchaseErr) => {
-            if (purchaseErr) {
-              return db.run('ROLLBACK', () => res.status(409).json({ error: 'This transaction has already been used or could not be recorded.' }));
-            }
-            db.run(
-              `INSERT INTO accounts (id, wallet_address, plan_id, initial_balance, current_balance, current_equity, high_water_mark, daily_starting_balance, risk_day, status)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'ACTIVE')`,
-              [accountId, wallet_address, Number(plan_id), plan.simulated_capital, plan.simulated_capital, plan.simulated_capital, plan.simulated_capital, plan.simulated_capital, new Date().toISOString().slice(0, 10)],
-              (accountErr) => {
-                if (accountErr) {
-                  return db.run('ROLLBACK', () => res.status(500).json({ error: 'Unable to provision the purchased account.' }));
-                }
-                db.run('COMMIT', (commitErr) => {
-                  if (commitErr) return res.status(500).json({ error: 'Unable to commit account provisioning.' });
-                  if (referrerWallet && referrerWallet.toLowerCase() !== wallet_address.toLowerCase()) {
-                    const commissionEarned = finalPrice * referralCommissionPct / 100;
-                    db.run(
-                      `INSERT INTO referrals (referrer_wallet, referee_wallet, plan_id, paid_amount, commission_earned, commission_pct)
-                       VALUES (?, ?, ?, ?, ?, ?)`,
-                      [referrerWallet, wallet_address, Number(plan_id), finalPrice, commissionEarned, referralCommissionPct]
-                    );
-                  }
-                  res.json({ success: true, account_id: accountId, message: "Account provisioned successfully." });
-                });
-              }
-            );
-          }
-        );
-      });
-    });
+  const dbGet = (sql, params = []) => new Promise((resolve, reject) => {
+    db.get(sql, params, (err, row) => err ? reject(err) : resolve(row));
   });
+  try {
+    const [plan, settings] = await Promise.all([
+      dbGet('SELECT * FROM plans WHERE id = ? AND active = 1', [Number(plan_id)]),
+      dbGet('SELECT standard_discount_pct FROM battlepass_settings WHERE id = 1')
+    ]);
+    if (!plan) return res.status(404).json({ error: 'Plan not found.' });
+    const standardDiscountPct = Math.max(0, Math.min(100, Number(settings?.standard_discount_pct ?? 90)));
+    let rewardCode = null;
+    let referrerWallet = null;
+    let referralCommissionPct = 2;
+    let bonusDiscountPct = 0;
+    if (promoCode) {
+      const [creator, coupon] = await Promise.all([
+        dbGet('SELECT wallet_address, referral_pct FROM users WHERE UPPER(discount_code) = ?', [promoCode]),
+        dbGet(
+          `SELECT code, wallet_address, discount_bonus_pct FROM battlepass_reward_codes
+           WHERE UPPER(code) = ? AND redeemed_at IS NULL`,
+          [promoCode]
+        )
+      ]);
+      if (creator) {
+        referrerWallet = creator.wallet_address;
+        referralCommissionPct = Number(creator.referral_pct ?? 2);
+      } else if (coupon && coupon.wallet_address.toLowerCase() === wallet_address.toLowerCase()) {
+        rewardCode = coupon;
+        bonusDiscountPct = Number(coupon.discount_bonus_pct);
+      } else {
+        return res.status(400).json({ error: 'Invalid, used, or wallet-bound promo code.' });
+      }
+    }
+
+    const totalDiscountPct = Math.min(100, standardDiscountPct + bonusDiscountPct);
+    const finalPrice = Math.round(Number(plan.base_price_usdt) * (100 - totalDiscountPct)) / 100;
+    const isFreeRedemption = finalPrice === 0;
+    let normalizedTxHash;
+    let purchaseChainId = 0;
+    if (!isFreeRedemption) {
+      if (typeof tx_hash !== 'string' || !/^0x[0-9a-fA-F]{64}$/.test(tx_hash) ||
+          !Number.isInteger(Number(chain_id))) {
+        return res.status(400).json({ error: 'A valid payment transaction and network are required.' });
+      }
+      const verification = await verifyMultiChainPurchase(tx_hash, Number(chain_id), wallet_address, finalPrice, TREASURY_WALLET);
+      if (!verification.success) return res.status(400).json({ error: verification.error });
+      normalizedTxHash = tx_hash.toLowerCase();
+      purchaseChainId = Number(chain_id);
+    } else {
+      normalizedTxHash = rewardCode
+        ? `pass_${rewardCode.code.toLowerCase()}`
+        : `free_${crypto.randomBytes(16).toString('hex')}`;
+    }
+
+    db.run('INSERT OR IGNORE INTO users (wallet_address) VALUES (?)', [wallet_address], (userErr) => {
+      if (userErr) return res.status(500).json({ error: 'Unable to prepare the purchasing account.' });
+      db.get(
+        `SELECT COALESCE(xp_reward, 1000) AS xp_reward, COALESCE(points_reward, 100) AS points_reward
+         FROM battlepass_plan_rewards WHERE plan_id = ?`,
+        [Number(plan_id)],
+        (rewardErr, planReward) => {
+          if (rewardErr) return res.status(500).json({ error: 'Unable to load plan battle pass rewards.' });
+          const xpAward = Number(planReward?.xp_reward ?? 1000);
+          const pointsAward = Number(planReward?.points_reward ?? 100);
+          const accountId = `acc_${crypto.randomBytes(8).toString('hex')}`;
+          db.serialize(() => {
+            db.run('BEGIN IMMEDIATE', (beginErr) => {
+              if (beginErr) return res.status(500).json({ error: 'Unable to start account provisioning.' });
+              const rollback = (status, error) => db.run('ROLLBACK', () => res.status(status).json({ error }));
+              db.run(
+                `INSERT INTO purchases (tx_hash, chain_id, wallet_address, account_id)
+                 VALUES (?, ?, ?, ?)`,
+                [normalizedTxHash, purchaseChainId, wallet_address, accountId],
+                (purchaseErr) => {
+                  if (purchaseErr) return rollback(409, 'This transaction or discount code has already been used.');
+                  const provisionAccount = () => db.run(
+                    `INSERT INTO accounts (id, wallet_address, plan_id, initial_balance, current_balance,
+                       current_equity, high_water_mark, daily_starting_balance, risk_day, status)
+                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'ACTIVE')`,
+                    [
+                      accountId, wallet_address, Number(plan_id), plan.simulated_capital,
+                      plan.simulated_capital, plan.simulated_capital, plan.simulated_capital,
+                      plan.simulated_capital, new Date().toISOString().slice(0, 10)
+                    ],
+                    (accountErr) => {
+                      if (accountErr) return rollback(500, 'Unable to provision the purchased account.');
+                      const commitPurchase = () => db.run('COMMIT', (commitErr) => {
+                        if (commitErr) return rollback(500, 'Unable to commit account provisioning.');
+                        if (referrerWallet && referrerWallet.toLowerCase() !== wallet_address.toLowerCase()) {
+                          const commissionEarned = finalPrice * referralCommissionPct / 100;
+                          db.run(
+                            `INSERT INTO referrals (referrer_wallet, referee_wallet, plan_id, paid_amount, commission_earned, commission_pct)
+                             VALUES (?, ?, ?, ?, ?, ?)`,
+                            [referrerWallet, wallet_address, Number(plan_id), finalPrice, commissionEarned, referralCommissionPct],
+                            referralErr => {
+                              if (referralErr) console.error('Unable to record referral commission:', referralErr.message);
+                            }
+                          );
+                        }
+                        res.json({
+                          success: true,
+                          account_id: accountId,
+                          xp_awarded: isFreeRedemption ? 0 : xpAward,
+                          points_awarded: isFreeRedemption ? 0 : pointsAward,
+                          message: isFreeRedemption ? 'Free battle pass account provisioned successfully.' : 'Payment verified and account provisioned successfully.'
+                        });
+                      });
+                      if (isFreeRedemption) return commitPurchase();
+                      db.run('INSERT OR IGNORE INTO battlepass_users (wallet_address) VALUES (?)', [wallet_address], (battlePassErr) => {
+                        if (battlePassErr) return rollback(500, 'Unable to prepare battle pass purchase rewards.');
+                        db.run(
+                          `UPDATE battlepass_users SET xp = xp + ?, points = points + ?, updated_at = CURRENT_TIMESTAMP
+                           WHERE LOWER(wallet_address) = LOWER(?)`,
+                          [xpAward, pointsAward, wallet_address],
+                          (balanceErr) => {
+                            if (balanceErr) return rollback(500, 'Unable to apply battle pass purchase rewards.');
+                            db.run(
+                              `INSERT INTO battlepass_events (id, wallet_address, event_type, reference_id, xp, points)
+                               VALUES (?, ?, 'PURCHASE', ?, ?, ?)`,
+                              [`bpe_${crypto.randomBytes(10).toString('hex')}`, wallet_address, normalizedTxHash, xpAward, pointsAward],
+                              (eventErr) => eventErr
+                                ? rollback(500, 'Unable to record battle pass purchase rewards.')
+                                : commitPurchase()
+                            );
+                          }
+                        );
+                      });
+                    }
+                  );
+                  if (!rewardCode) return provisionAccount();
+                  db.run(
+                    `UPDATE battlepass_reward_codes SET redeemed_at = CURRENT_TIMESTAMP
+                     WHERE code = ? AND LOWER(wallet_address) = LOWER(?) AND redeemed_at IS NULL`,
+                    [rewardCode.code, wallet_address],
+                    function(redeemErr) {
+                      if (redeemErr) return rollback(500, 'Unable to redeem the battle pass discount code.');
+                      if (this.changes !== 1) return rollback(409, 'This battle pass discount code has already been used.');
+                      provisionAccount();
+                    }
+                  );
+                }
+              );
+            });
+          });
+        }
+      );
+    });
+  } catch (error) {
+    console.error('Unable to calculate purchase price:', error.message);
+    return res.status(500).json({ error: 'Unable to calculate the current purchase price.' });
+  }
 });
 
 // --- SECURE WITHDRAWAL REQUEST ENDPOINT ---
@@ -1873,11 +2526,11 @@ app.post('/api/admin/withdrawals/action', sensitiveLimiter, requireTradeSignatur
         if (wdr.status !== 'PENDING') return rollback(409, 'Request already processed.');
 
         const updateStatus = () => db.run(
-          `UPDATE ${tableName} SET status = ?${isCommission ? '' : ", funds_deducted = CASE WHEN ? = 'PAID' THEN 1 ELSE funds_deducted END"}
+          `UPDATE ${tableName} SET status = ?, paid_at = CASE WHEN ? = 'PAID' THEN CURRENT_TIMESTAMP ELSE paid_at END${isCommission ? '' : ", funds_deducted = CASE WHEN ? = 'PAID' THEN 1 ELSE funds_deducted END"}
            WHERE id = ? AND status = 'PENDING'`,
           isCommission
-            ? [normalizedAction === 'REJECT' ? 'REJECTED' : 'PAID', withdrawal_id]
-            : [normalizedAction === 'REJECT' ? 'REJECTED' : 'PAID', normalizedAction, withdrawal_id],
+            ? [normalizedAction === 'REJECT' ? 'REJECTED' : 'PAID', normalizedAction, withdrawal_id]
+            : [normalizedAction === 'REJECT' ? 'REJECTED' : 'PAID', normalizedAction, normalizedAction, withdrawal_id],
           function(updateErr) {
             if (updateErr) return rollback(500, 'Unable to update withdrawal status.');
             if (this.changes !== 1) return rollback(409, 'Request already processed.');

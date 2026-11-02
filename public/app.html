@@ -20,6 +20,7 @@
             <button class="nav-tab active" onclick="switchView('tradeView')">Trade Terminal</button>
             <button class="nav-tab" onclick="switchView('accountsView')">My Accounts</button>
             <button class="nav-tab" onclick="switchView('leaderboardView')">Leaderboard</button>
+            <button class="nav-tab" onclick="switchView('blastrrPassView')">BlastrrPass</button>
             <button class="nav-tab" onclick="switchView('profileView')">Profile &amp; Promos</button>
             <button class="nav-tab" onclick="switchView('buyView')">Buy Plans</button>
             <button id="admin-nav-item" class="nav-tab admin-tab" onclick="switchView('adminView')">Admin Control</button>
@@ -197,14 +198,61 @@
                                 <th>Rank</th>
                                 <th>Trader Username</th>
                                 <th>Promo Code</th>
+                                <th>Battle Pass Rank</th>
+                                <th>XP</th>
                                 <th id="lb-metric-col-header">Daily Realized Profit</th>
                                 <th>Action</th>
                             </tr>
                         </thead>
                         <tbody id="leaderboard-table-body">
-                            <tr><td colspan="5" style="text-align: center; color: #6b7280; padding: 24px;">Loading leaderboard...</td></tr>
+                            <tr><td colspan="7" style="text-align: center; color: #6b7280; padding: 24px;">Loading leaderboard...</td></tr>
                         </tbody>
                     </table>
+                </div>
+            </div>
+        </section>
+
+        <section id="blastrrPassView" class="view-panel">
+            <div id="battlepass-shared-profile" class="card battlepass-shared-profile" hidden></div>
+            <div id="battlepass-user-content">
+                <div class="card">
+                    <div class="card-title">BlastrrPass</div>
+                    <p id="battlepass-wallet-note" class="support-note">Connect your wallet to view your XP, points, tasks, and level rewards.</p>
+                    <div id="battlepass-profile-card" class="battlepass-profile-card" hidden>
+                        <div id="battlepass-avatar-wrap" class="battlepass-avatar-wrap"><span id="battlepass-avatar-fallback">B</span></div>
+                        <div class="battlepass-profile-details">
+                            <strong id="battlepass-username">Trader</strong>
+                            <span id="battlepass-rank">Unranked</span>
+                            <span><strong id="battlepass-xp">0</strong> XP · <strong id="battlepass-points">0</strong> points</span>
+                            <div class="battlepass-progress-track"><div id="battlepass-progress" class="battlepass-progress"></div></div>
+                            <small id="battlepass-progress-label">0 / 120,000 XP</small>
+                        </div>
+                        <button id="battlepass-share" class="btn-share-x" type="button">Share profile on X</button>
+                    </div>
+                    <form id="battlepass-profile-form" class="battlepass-image-form" hidden>
+                        <div class="form-group">
+                            <label for="battlepass-profile-image">Profile image URL</label>
+                            <input id="battlepass-profile-image" type="url" maxlength="2048" placeholder="https://example.com/profile-image.jpg">
+                        </div>
+                        <button class="btn-wallet" type="submit">Save image</button>
+                        <p id="battlepass-profile-feedback" class="support-feedback" role="status" aria-live="polite"></p>
+                    </form>
+                </div>
+                <div class="card battlepass-tasks-card">
+                    <div class="card-title">Earn XP &amp; points</div>
+                    <p class="support-note">Social tasks award XP and points when you open their action link. Trading rewards become claimable when verified activity is complete.</p>
+                    <h3 class="battlepass-group-title">Daily</h3>
+                    <div id="battlepass-daily-tasks" class="battlepass-task-list"></div>
+                    <h3 class="battlepass-group-title">Weekly</h3>
+                    <div id="battlepass-weekly-tasks" class="battlepass-task-list"></div>
+                    <h3 class="battlepass-group-title">Monthly</h3>
+                    <div id="battlepass-monthly-tasks" class="battlepass-task-list"></div>
+                </div>
+                <div class="card battlepass-levels-card">
+                    <div class="card-title">Level rewards</div>
+                    <p class="support-note">Earn 10,000 XP per level. Claim unlocked discounts with points; discount codes add to the standard purchase discount, up to 100% off.</p>
+                    <div id="battlepass-level-list" class="battlepass-level-grid"></div>
+                    <p id="battlepass-reward-feedback" class="support-feedback" role="status" aria-live="polite"></p>
                 </div>
             </div>
         </section>
@@ -379,6 +427,7 @@
             <div class="admin-section-tabs" role="tablist" aria-label="Admin sections">
                 <button id="admin-operations-tab" class="admin-section-tab active" role="tab" aria-selected="true" onclick="switchAdminSection('admin-operations-panel')">Operations</button>
                 <button id="admin-creators-tab" class="admin-section-tab" role="tab" aria-selected="false" onclick="switchAdminSection('admin-creators-panel')">Creators &amp; Promos</button>
+                <button id="admin-battlepass-tab" class="admin-section-tab" role="tab" aria-selected="false" onclick="switchAdminSection('admin-battlepass-panel')">BlastrrPass</button>
             </div>
             <div id="admin-operations-panel" class="admin-section-panel">
             <div class="card" style="border-color: rgba(220, 38, 38, 0.3);">
@@ -454,6 +503,78 @@
                     <div id="admin-promo-code-list" class="support-card-list">
                         <p class="account-chart-empty">Loading free account codes...</p>
                     </div>
+                </div>
+            </div>
+            <div id="admin-battlepass-panel" class="admin-section-panel" role="tabpanel" hidden>
+                <div class="card">
+                    <div class="card-title">Standard purchase discount</div>
+                    <p class="support-note">This percentage applies to all plan purchases. Battle-pass reward codes add their discount to this standard rate, capped at 100%.</p>
+                    <form id="admin-battlepass-settings-form" class="admin-search-form">
+                        <div class="form-group">
+                            <label for="admin-standard-discount">Standard discount (%)</label>
+                            <input id="admin-standard-discount" type="number" min="0" max="100" step="0.01" required>
+                        </div>
+                        <button class="btn-wallet" type="submit">Save standard discount</button>
+                    </form>
+                    <p id="admin-battlepass-settings-feedback" class="support-feedback" role="status" aria-live="polite"></p>
+                </div>
+                <div class="card admin-battlepass-settings">
+                    <div class="card-title">XP and points per plan purchased</div>
+                    <p class="support-note">Awards are credited once after each verified paid purchase. Free 100%-off reward-code redemptions do not grant purchase XP or points.</p>
+                    <div id="admin-battlepass-plan-rewards" class="battlepass-admin-list"></div>
+                </div>
+                <div class="card admin-battlepass-settings">
+                    <div class="card-title">Level discount rewards</div>
+                    <p class="support-note">All twelve levels unlock at 10,000 XP intervals, up to 120,000 XP. Admins set each reward's additional discount and point cost.</p>
+                    <div id="admin-battlepass-level-rewards" class="battlepass-admin-level-grid"></div>
+                </div>
+                <div class="card admin-battlepass-settings">
+                    <div class="card-title">Fixed activity rewards</div>
+                    <p class="support-note">Green day and week rewards unlock after profitable UTC periods close. Trade-a-day unlocks after a closed trade; paid-withdrawal unlocks when a payout is marked paid. Admins set XP and points for these fixed tasks.</p>
+                    <div id="admin-battlepass-built-in-tasks" class="battlepass-admin-list"></div>
+                </div>
+                <div class="card admin-battlepass-settings">
+                    <div class="card-title">Custom social tasks</div>
+                    <p class="support-note">Create ad hoc social tasks with daily, weekly, or monthly limits and an X post URL to embed. Users earn the reward immediately when opening the task link.</p>
+                    <form id="admin-battlepass-task-form" class="admin-search-form admin-task-form">
+                        <div class="form-group">
+                            <label for="admin-battlepass-task-title">Task title</label>
+                            <input id="admin-battlepass-task-title" type="text" minlength="3" maxlength="100" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="admin-battlepass-task-description">Description</label>
+                            <input id="admin-battlepass-task-description" type="text" minlength="3" maxlength="500" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="admin-battlepass-task-type">Task type</label>
+                            <select id="admin-battlepass-task-type">
+                                <option value="SOCIAL_CLICK">Social action</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="admin-battlepass-task-cadence">Period</label>
+                            <select id="admin-battlepass-task-cadence">
+                                <option value="DAILY">Daily</option>
+                                <option value="WEEKLY">Weekly</option>
+                                <option value="MONTHLY">Monthly</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="admin-battlepass-task-url">X post or action URL</label>
+                            <input id="admin-battlepass-task-url" type="url" maxlength="2048" placeholder="https://x.com/username/status/123456789">
+                        </div>
+                        <div class="form-group">
+                            <label for="admin-battlepass-task-xp">XP award</label>
+                            <input id="admin-battlepass-task-xp" type="number" min="0" step="1" value="100" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="admin-battlepass-task-points">Points award</label>
+                            <input id="admin-battlepass-task-points" type="number" min="0" step="1" value="10" required>
+                        </div>
+                        <button class="btn-wallet" type="submit">Create task</button>
+                    </form>
+                    <p id="admin-battlepass-task-feedback" class="support-feedback" role="status" aria-live="polite"></p>
+                    <div id="admin-battlepass-custom-tasks" class="battlepass-admin-list"></div>
                 </div>
             </div>
         </section>

@@ -104,3 +104,12 @@ test('homepage plan cards use Battle Pass task and reward styling with all confi
   assert.match(homeHtml, /Trading availability<\/span><strong>24\/7\/365<\/strong>/);
   assert.match(homeHtml, /\["Trading availability",\(\)=>"24\/7\/365"\]/);
 });
+
+test('terminal buy-plan cards show funded status, purchase reward styling, and all account rules', () => {
+  assert.match(appJs, /class="card purchase-plan-card/);
+  assert.match(appJs, /purchase-plan-status/);
+  assert.match(appJs, /STRAIGHT TO FUNDED/);
+  assert.match(appJs, /purchase-plan-reward/);
+  assert.match(appJs, /Profit consistency<\/span><strong>\$\{Number\(plan\.max_single_day_profit_pct\)\}% max single-day profit/);
+  assert.match(appJs, /Trading availability<\/span><strong>24\/7\/365/);
+});

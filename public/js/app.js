@@ -2547,20 +2547,38 @@ let connectedWallet = null;
                 const basePrice = Number(plan.base_price_usdt);
                 const discountPct = Math.min(100, standardDiscountPct + (activePromoCode ? battlePassDiscountBonusPct : 0));
                 const displayPrice = Math.round(basePrice * (100 - discountPct)) / 100;
-                const priceHtml = `<span style="text-decoration: line-through; color: #6b7280; font-size: 15px;">$${basePrice.toLocaleString()} USDT</span> <span style="color: #34d399;">$${displayPrice.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} USDT</span><small style="display:block;color:#a5b0c0;font-size:12px">${discountPct}% off</small>`;
+                const capital = Number(plan.simulated_capital);
+                const price = `$${displayPrice.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} USDT`;
+                const oldPrice = `$${basePrice.toLocaleString()} USDT`;
+                const profitTarget = `$${Number(plan.profit_target).toLocaleString()}`;
+                const dailyLossLimit = `$${(capital * Number(plan.daily_loss_pct) / 100).toLocaleString()}`;
+                const maxDrawdown = `$${(capital * Number(plan.max_drawdown_pct) / 100).toLocaleString()}`;
+                const isFeatured = plan.name.replace(/\s+\$[\d,]+.*$/, '') === 'Pro';
 
                 container.innerHTML += `
-                    <div class="card" style="display: flex; flex-direction: column; justify-content: space-between;">
-                        <div>
-                            <h3 style="margin:0; color:#c084fc; font-size: 18px; font-weight: 800;">${escapeHTML(plan.name)}</h3>
-                            <div style="font-size: 24px; font-weight: 800; color: #fff; margin: 12px 0;">${priceHtml}</div>
-                            <div style="font-size: 13px; color: #9ca3af; margin: 6px 0;">Simulated Capital: <strong>$${plan.simulated_capital.toLocaleString()}</strong></div>
-                            <div style="font-size: 13px; color: #9ca3af; margin: 6px 0;">Profit Target: <strong>$${plan.profit_target.toLocaleString()}</strong></div>
-                            <div style="font-size: 13px; color: #9ca3af; margin: 6px 0;">Daily Loss Limit: <strong>$${(plan.simulated_capital * (plan.daily_loss_pct / 100)).toLocaleString()}</strong> (${plan.daily_loss_pct}%)</div>
-                            <div style="font-size: 13px; color: #9ca3af; margin: 6px 0;">Max Drawdown: <strong>$${(plan.simulated_capital * (plan.max_drawdown_pct / 100)).toLocaleString()}</strong> (${plan.max_drawdown_pct}%)</div>
+                    <article class="card purchase-plan-card${isFeatured ? ' is-featured' : ''}">
+                        <div class="purchase-plan-header">
+                            <div>
+                                <h3 class="purchase-plan-name">${escapeHTML(plan.name)}</h3>
+                                <div class="purchase-plan-capital">$${capital.toLocaleString()}</div>
+                                <div class="purchase-plan-caption">SIMULATED CAPITAL</div>
+                            </div>
+                            ${isFeatured ? '<span class="battlepass-period-tag">POPULAR</span>' : ''}
                         </div>
-                        <button class="btn-wallet" style="margin-top:24px; width:100%; padding: 12px;" onclick="buyPlan(${plan.id}, ${displayPrice})">Buy Plan ($${displayPrice})</button>
-                    </div>
+                        <span class="purchase-plan-status" title="Straight-to-funded plan model. Account capital is simulated; eligibility and current terms apply."><span class="purchase-plan-status-icon" aria-hidden="true">↗</span>STRAIGHT TO FUNDED</span>
+                        <section class="purchase-plan-reward" aria-label="Purchase discount reward">
+                            <span class="purchase-plan-reward-label">Purchase reward · discount applied</span>
+                            <div class="purchase-plan-price">${price}<small>${discountPct}% off · <span class="purchase-plan-old-price">${oldPrice}</span></small></div>
+                        </section>
+                        <div class="purchase-plan-rules" aria-label="${escapeHTML(plan.name)} account rules">
+                            <div class="purchase-plan-rule"><span>Profit target</span><strong>${profitTarget}</strong></div>
+                            <div class="purchase-plan-rule"><span>Daily loss limit (${Number(plan.daily_loss_pct)}%)</span><strong>${dailyLossLimit}</strong></div>
+                            <div class="purchase-plan-rule"><span>Max drawdown (${Number(plan.max_drawdown_pct)}%)</span><strong>${maxDrawdown}</strong></div>
+                            <div class="purchase-plan-rule"><span>Profit consistency</span><strong>${Number(plan.max_single_day_profit_pct)}% max single-day profit</strong></div>
+                            <div class="purchase-plan-rule"><span>Trading availability</span><strong>24/7/365</strong></div>
+                        </div>
+                        <button class="btn-wallet" style="width:100%; padding:12px;" onclick="buyPlan(${Number(plan.id)}, ${displayPrice})">Buy Plan (${price})</button>
+                    </article>
                 `;
             });
         }

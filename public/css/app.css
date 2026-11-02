@@ -451,7 +451,7 @@
             .hamburger-btn { position: absolute; top: 12px; right: 12px; min-width: 44px; min-height: 44px; padding: 9px 12px; }
             header #nav-menu { z-index: 1001; padding: 12px; background: rgba(11, 16, 24, 0.98); }
             header #nav-menu .nav-tab { min-height: 54px; padding: 14px 16px; font-size: 16px; }
-            header #nav-menu .nav-tab:not(.active) { color: #e2e8f0; background: rgba(30, 41, 59, 0.82); }
+            header #nav-menu .nav-tab:not(.active) { color: #e2e8f0; background: transparent; }
             #tradingview-widget-container { height: clamp(420px, 62svh, 680px); }
             .order-metrics { grid-template-columns: 1fr; }
             .order-metric { min-height: 96px; }
@@ -763,6 +763,20 @@
         }
         .battlepass-task-action:hover, .battlepass-task-action-row > button:hover:not(:disabled) { background: rgba(148, 163, 184, 0.2); color: #fff; }
         .battlepass-task-action-row > button:disabled { opacity: 0.55; cursor: not-allowed; }
+        header #nav-menu .nav-tab,
+        header #nav-menu .nav-tab.admin-tab {
+            background: transparent;
+            border-color: transparent;
+            box-shadow: none;
+        }
+        header #nav-menu .nav-tab:hover,
+        header #nav-menu .nav-tab.active,
+        header #nav-menu .nav-tab:focus-visible {
+            background: transparent;
+            border-color: rgba(168, 85, 247, 0.85);
+            box-shadow: 0 0 12px rgba(168, 85, 247, 0.5), inset 0 0 8px rgba(168, 85, 247, 0.08);
+            color: #fff;
+        }
         .battlepass-x-preview { flex-basis: 100%; order: 4; color: #b7c0cc; font-size: 10px; }
         .battlepass-x-preview summary { width: fit-content; cursor: pointer; }
         .battlepass-x-preview blockquote { max-width: 520px !important; margin: 10px 0 !important; }

@@ -46,6 +46,11 @@ test('brand and display headings load the matching futuristic font', () => {
   assert.match(appCss, /\.battlepass-page-heading h1 \{[^}]*font-family: "Orbitron"[^}]*font-style: italic/);
 });
 
+test('homepage navigation hover and active states stay transparent with a purple glow', () => {
+  assert.match(landingHtml, /\.navlinks a:hover,\.navlinks a:focus-visible,\.navlinks a:active,\.navlinks a\[aria-current="page"\]\{color:#fff;background:transparent;border-color:rgba\(168,85,247,\.85\);box-shadow:0 0 12px rgba\(168,85,247,\.5\)/);
+  assert.match(landingHtml, /\.navright>\.btn:hover,\.navright>\.btn:focus-visible,\.navright>\.btn:active,\.menu-toggle:hover[\s\S]*?background:transparent;border:1px solid rgba\(168,85,247,\.85\);color:#fff;box-shadow:0 0 12px rgba\(168,85,247,\.5\)/);
+});
+
 test('homepage focuses on crypto markets without promoting derivatives products', () => {
   assert.match(landingHtml, /20 major Binance crypto markets/);
   assert.match(landingHtml, /Crypto trading terminal/);
@@ -97,7 +102,8 @@ test('mobile navigation has readable, touch-sized links and accessible expanded 
   assert.match(appCss, /header #nav-menu \.nav-tab \{[^}]*min-height: 54px[^}]*font-size: 16px/);
   assert.match(appCss, /max-height: calc\(100vh - 76px\)/);
   assert.match(appCss, /@media \(max-width: 700px\) \{[\s\S]*?header \{ flex-wrap: wrap; row-gap: 10px; gap: 10px; padding: 12px; \}[\s\S]*?\.header-actions \{ order: 2; flex: 1 0 100%;[\s\S]*?\.hamburger-btn \{ position: absolute; top: 12px; right: 12px;[\s\S]*?background: rgba\(11, 16, 24, 0\.98\)/);
-  assert.match(appCss, /header #nav-menu \.nav-tab:not\(\.active\) \{ color: #e2e8f0; background: rgba\(30, 41, 59, 0\.82\); \}/);
+  assert.match(appCss, /header #nav-menu \.nav-tab:not\(\.active\) \{ color: #e2e8f0; background: transparent; \}/);
+  assert.match(appCss, /header #nav-menu \.nav-tab\.active,[\s\S]*?background: transparent;[\s\S]*?border-color: rgba\(168, 85, 247, 0\.85\);[\s\S]*?box-shadow: 0 0 12px rgba\(168, 85, 247, 0\.5\)/);
 });
 
 test('NullNet checkout uses the correct chain ID and matching wallet and verification RPC settings', () => {

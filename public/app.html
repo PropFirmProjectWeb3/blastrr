@@ -10,9 +10,17 @@
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;600;700;800;900&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="/css/app.css">
 </head>
-<body>
+<body class="auth-locked">
+    <section id="wallet-login-gate" class="wallet-login-gate" aria-labelledby="wallet-login-title">
+        <img src="/favicon.png" alt="" class="wallet-login-logo">
+        <p class="wallet-login-eyebrow">BLASTRR ACCOUNT ACCESS</p>
+        <h1 id="wallet-login-title">Sign in to continue</h1>
+        <p class="wallet-login-copy">Sign a message with your wallet to unlock your trading dashboard.</p>
+        <button id="wallet-login-button" class="wallet-login-button" type="button" onclick="connectWallet()">Connect wallet &amp; sign in</button>
+        <p id="wallet-login-status" class="wallet-login-status" role="status" aria-live="polite"></p>
+    </section>
 
-    <header>
+    <header hidden>
         <a class="logo" href="index.html" aria-label="Blastrr home">
             <img class="brand-mark" src="/favicon.png" alt="" aria-hidden="true">
             <span>BLASTRR</span>
@@ -41,7 +49,7 @@
         </div>
     </header>
 
-    <main>
+    <main hidden>
         <!-- 1. TRADE TERMINAL VIEW (SPOT + PERPETUALS) -->
         <section id="tradeView" class="view-panel active">
             <div class="trade-grid">

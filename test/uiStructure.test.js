@@ -106,6 +106,17 @@ test('mobile navigation has readable, touch-sized links and accessible expanded 
   assert.match(appCss, /header #nav-menu \.nav-tab\.active,[\s\S]*?background: transparent;[\s\S]*?border-color: rgba\(168, 85, 247, 0\.85\);[\s\S]*?box-shadow: 0 0 12px rgba\(168, 85, 247, 0\.5\)/);
 });
 
+test('terminal stays black and locked until a signed wallet session is established', () => {
+  assert.match(appHtml, /<body class="auth-locked">[\s\S]*?<section id="wallet-login-gate"/);
+  assert.match(appHtml, /<header hidden>/);
+  assert.match(appHtml, /<main hidden>/);
+  assert.match(appHtml, /onclick="connectWallet\(\)">Connect wallet &amp; sign in/);
+  assert.match(appCss, /body\.auth-locked[^}]*background:\s*#000/);
+  assert.match(appJs, /if \(!dashboardAuthenticated \|\| !walletSessionToken \|\|[\s\S]*?lockDashboard\(\);[\s\S]*?return;/);
+  assert.match(appJs, /await ensureWalletSession\(\);[\s\S]*?unlockDashboard\(\);[\s\S]*?await initializeDashboard\(\);/);
+  assert.match(appJs, /if \(dashboardAuthenticated && \(!walletSessionToken \|\| walletSessionExpiresAt <= Date\.now\(\)\)\)/);
+});
+
 test('NullNet checkout uses the correct chain ID and matching wallet and verification RPC settings', () => {
   assert.match(appJs, /448000:\s*\{[\s\S]*?chainIdHex: "0x6d600"[\s\S]*?rpcUrl: "https:\/\/rpc\.lunul\.org"[\s\S]*?nativeCurrency: \{ name: "LUN", symbol: "LUN", decimals: 18 \}[\s\S]*?usdtAddress: "0x7ec3659A8225ED474D7c662126616aE08545C29b",[\s\S]*?decimals: 18/);
   assert.match(serverJs, /448000:\s*\{[\s\S]*?chainIdHex: "0x6d600"[\s\S]*?rpcUrl: "https:\/\/rpc\.lunul\.org"[\s\S]*?decimals: 18/);

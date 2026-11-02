@@ -33,6 +33,8 @@ let connectedWallet = null;
         let walletSessionExpiresAt = 0;
         let walletSessionPromise = null;
         let walletSessionGeneration = 0;
+        let dashboardInitialized = false;
+        let dashboardAuthenticated = false;
         let battlePassProfile = null;
         let battlePassTasks = [];
         let battlePassLevels = [];
@@ -132,39 +134,6 @@ let connectedWallet = null;
         }
 
         window.addEventListener('DOMContentLoaded', async () => {
-            try {
-                await loadMarketConfig();
-            } catch (error) {
-                console.error('Market configuration failed:', error);
-                const select = document.getElementById('order-symbol');
-                if (select) {
-                    select.replaceChildren(new Option('Market configuration unavailable', ''));
-                    select.disabled = true;
-                }
-            }
-            loadPlans();
-            loadLeaderboard(currentLeaderboardMode);
-
-            autoSyncInterval = setInterval(() => {
-                if (connectedWallet) silentSyncUserData(connectedWallet);
-            }, 5000);
-
-            const urlParams = new URLSearchParams(window.location.search);
-            const sharedProfile = urlParams.get('passprofile');
-            if (sharedProfile) {
-                document.getElementById('battlepass-user-content')?.setAttribute('hidden', '');
-                switchView('blastrrPassView');
-                loadPublicBattlePassProfile(sharedProfile);
-            }
-            const refCode = urlParams.get('ref');
-            if (refCode) {
-                const promoInput = document.getElementById('applied-promo');
-                if (promoInput) {
-                    promoInput.value = refCode;
-                    applyPromo();
-                }
-            }
-
             const provider = getProvider();
             if (provider?.on) {
                 provider.on('accountsChanged', (accounts) => {
@@ -498,6 +467,12 @@ let connectedWallet = null;
         }
 
         function switchView(viewId) {
+            if (!dashboardAuthenticated || !walletSessionToken ||
+                walletSessionOwner !== connectedWallet?.toLowerCase() ||
+                walletSessionExpiresAt <= Date.now()) {
+                lockDashboard();
+                return;
+            }
             document.querySelectorAll('.view-panel').forEach(panel => panel.classList.remove('active'));
             document.querySelectorAll('.nav-tab').forEach(tab => tab.classList.remove('active'));
             
@@ -1204,18 +1179,104 @@ let connectedWallet = null;
             return window.ethereum?.providers ? window.ethereum.providers.find(p => p.isMetaMask) || window.ethereum.providers[0] : window.ethereum;
         }
 
+        function setWalletLoginStatus(message, signing = false) {
+            const button = document.getElementById('wallet-login-button');
+            const status = document.getElementById('wallet-login-status');
+            if (button) {
+                button.disabled = signing;
+                button.textContent = signing ? 'Waiting for wallet signature...' : 'Connect wallet & sign in';
+            }
+            if (status) status.textContent = message || '';
+        }
+
+        function lockDashboard(message = 'Sign a message with your wallet to unlock your trading dashboard.') {
+            dashboardAuthenticated = false;
+            document.body.classList.add('auth-locked');
+            const header = document.querySelector('header');
+            const main = document.querySelector('main');
+            const gate = document.getElementById('wallet-login-gate');
+            if (header) header.hidden = true;
+            if (main) main.hidden = true;
+            if (gate) gate.hidden = false;
+            setWalletLoginStatus(message);
+        }
+
+        function unlockDashboard() {
+            dashboardAuthenticated = true;
+            document.body.classList.remove('auth-locked');
+            const header = document.querySelector('header');
+            const main = document.querySelector('main');
+            const gate = document.getElementById('wallet-login-gate');
+            if (header) header.hidden = false;
+            if (main) main.hidden = false;
+            if (gate) gate.hidden = true;
+        }
+
+        function resetDashboardToTradeView() {
+            document.querySelectorAll('.view-panel').forEach(panel => panel.classList.remove('active'));
+            document.getElementById('tradeView')?.classList.add('active');
+            document.querySelectorAll('#nav-menu .nav-tab').forEach(tab => {
+                tab.classList.toggle('active', tab.getAttribute('onclick')?.includes('tradeView'));
+            });
+        }
+
+        async function initializeDashboard() {
+            if (dashboardInitialized) return;
+            dashboardInitialized = true;
+            try {
+                await loadMarketConfig();
+            } catch (error) {
+                console.error('Market configuration failed:', error);
+                const select = document.getElementById('order-symbol');
+                if (select) {
+                    select.replaceChildren(new Option('Market configuration unavailable', ''));
+                    select.disabled = true;
+                }
+            }
+            loadPlans();
+            loadLeaderboard(currentLeaderboardMode);
+            if (!autoSyncInterval) {
+                autoSyncInterval = setInterval(() => {
+                    if (connectedWallet && dashboardAuthenticated) silentSyncUserData(connectedWallet);
+                }, 5000);
+            }
+
+            const urlParams = new URLSearchParams(window.location.search);
+            const sharedProfile = urlParams.get('passprofile');
+            if (sharedProfile) {
+                document.getElementById('battlepass-user-content')?.setAttribute('hidden', '');
+                switchView('blastrrPassView');
+                loadPublicBattlePassProfile(sharedProfile);
+            }
+            const refCode = urlParams.get('ref');
+            if (refCode) {
+                const promoInput = document.getElementById('applied-promo');
+                if (promoInput) {
+                    promoInput.value = refCode;
+                    applyPromo();
+                }
+            }
+        }
+
         async function connectWallet() {
             const provider = getProvider();
-            if (!provider) { alert("No Web3 wallet found!"); return; }
+            if (!provider) {
+                setWalletLoginStatus('No compatible Web3 wallet was found. Install or enable a wallet to continue.');
+                return;
+            }
+            setWalletLoginStatus('Approve the wallet connection, then sign the access message.', true);
             try {
                 const accounts = await provider.request({ method: 'eth_requestAccounts' });
-                if (!accounts || accounts.length === 0) return;
+                if (!accounts || accounts.length === 0) {
+                    setWalletLoginStatus('No wallet account was selected.');
+                    return;
+                }
                 availableWallets = accounts;
-                connectedWallet = accounts[0];
-                updateWalletUIState(true);
-                updateWalletDropdown();
-                onWalletSwitched(connectedWallet);
-            } catch (err) { console.error("Wallet Connection Error:", err); }
+                await onWalletSwitched(accounts[0]);
+            } catch (err) {
+                console.error("Wallet Connection Error:", err);
+                setWalletLoginStatus(err?.code === 4001 ? 'Wallet signature was rejected. Sign the message to unlock the dashboard.' : (err.message || 'Unable to sign in with this wallet.'));
+            }
         }
 
         async function connectNewWallet() {
@@ -1228,13 +1289,13 @@ let connectedWallet = null;
                     const accounts = await provider.request({ method: 'eth_accounts' });
                     if (accounts && accounts.length > 0) {
                         availableWallets = accounts;
-                        connectedWallet = accounts[0];
-                        updateWalletUIState(true);
-                        updateWalletDropdown();
-                        onWalletSwitched(connectedWallet);
+                        await onWalletSwitched(accounts[0]);
                     }
                 }
-            } catch (err) { console.error(err); }
+            } catch (err) {
+                console.error(err);
+                setWalletLoginStatus(err?.code === 4001 ? 'Wallet signature was rejected. Sign the message to unlock the dashboard.' : (err.message || 'Unable to sign in with this wallet.'));
+            }
         }
 
         function updateWalletDropdown() {
@@ -1265,16 +1326,36 @@ let connectedWallet = null;
             }
         }
 
-        function onWalletSwitched(walletAddress) {
+        async function onWalletSwitched(walletAddress) {
             if (!walletAddress) return;
-            if (connectedWallet?.toLowerCase() !== walletAddress.toLowerCase()) {
+            const owner = walletAddress.toLowerCase();
+            const changedWallet = connectedWallet?.toLowerCase() !== owner;
+            if (changedWallet) {
+                resetDashboardToTradeView();
                 walletSessionGeneration++;
                 walletSessionToken = null;
                 walletSessionOwner = null;
                 walletSessionExpiresAt = 0;
                 walletSessionPromise = null;
+                lockDashboard('Sign the access message with the selected wallet to continue.');
             }
             connectedWallet = walletAddress;
+            updateWalletUIState(true);
+            updateWalletDropdown();
+            setWalletLoginStatus('Sign the access message in your wallet.', true);
+            try {
+                await ensureWalletSession();
+            } catch (error) {
+                if (connectedWallet?.toLowerCase() === owner) {
+                    console.error('Wallet sign-in failed:', error);
+                    lockDashboard(error?.code === 4001 ? 'Wallet signature was rejected. Sign the message to unlock the dashboard.' : (error.message || 'Unable to sign in with this wallet.'));
+                }
+                return;
+            }
+            if (connectedWallet?.toLowerCase() !== owner) return;
+            unlockDashboard();
+            setWalletLoginStatus('');
+            await initializeDashboard();
             checkRole(connectedWallet);
             loadUserAccounts(connectedWallet);
             loadUserProfile(connectedWallet);
@@ -1355,12 +1436,14 @@ let connectedWallet = null;
         }
 
         function disconnectWallet() {
+            resetDashboardToTradeView();
             connectedWallet = null;
             walletSessionGeneration++;
             walletSessionToken = null;
             walletSessionOwner = null;
             walletSessionExpiresAt = 0;
             walletSessionPromise = null;
+            lockDashboard('Your wallet has been disconnected. Sign in again to access your dashboard.');
             availableWallets = [];
             userAccounts = [];
             selectedAccountId = null;
@@ -1410,7 +1493,6 @@ let connectedWallet = null;
             if (dispBox) dispBox.style.display = 'none';
             if (editBtn) editBtn.style.display = 'none';
 
-            loadLeaderboard(currentLeaderboardMode);
         }
 
         async function checkRole(wallet) {
@@ -2267,6 +2349,10 @@ let connectedWallet = null;
         }
 
         async function walletFetch(url, options = {}) {
+            if (dashboardAuthenticated && (!walletSessionToken || walletSessionExpiresAt <= Date.now())) {
+                lockDashboard('Your wallet session expired. Sign in again to continue.');
+                throw new Error('Wallet session expired. Sign in again to continue.');
+            }
             const token = await ensureWalletSession();
             return fetch(url, {
                 ...options,

@@ -11,6 +11,29 @@
         }
 
         * { box-sizing: border-box; }
+
+        body.auth-locked { min-height: 100vh; overflow: hidden; background: #000; }
+        .wallet-login-gate[hidden] { display: none; }
+        .wallet-login-gate {
+            position: fixed;
+            inset: 0;
+            z-index: 2000;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 28px;
+            background: #000;
+            text-align: center;
+        }
+        .wallet-login-logo { width: 76px; height: 76px; border-radius: 18px; object-fit: cover; box-shadow: 0 0 40px rgba(139, 43, 255, 0.3); }
+        .wallet-login-eyebrow { margin: 24px 0 0; color: #b985ff; font-size: 11px; font-weight: 800; letter-spacing: 0.2em; }
+        .wallet-login-gate h1 { margin: 10px 0; color: #f8fafc; font-family: "Orbitron", ui-sans-serif, sans-serif; font-size: clamp(24px, 5vw, 36px); font-style: italic; font-weight: 800; }
+        .wallet-login-copy { max-width: 380px; margin: 0; color: #a5b0c0; font-size: 14px; line-height: 1.6; }
+        .wallet-login-button { min-height: 48px; margin-top: 24px; padding: 0 22px; border: 1px solid rgba(168, 85, 247, 0.78); border-radius: 10px; background: transparent; color: #fff; cursor: pointer; font: inherit; font-size: 13px; font-weight: 700; box-shadow: 0 0 16px rgba(168, 85, 247, 0.28); }
+        .wallet-login-button:hover:not(:disabled), .wallet-login-button:focus-visible { background: transparent; box-shadow: 0 0 22px rgba(168, 85, 247, 0.55); outline: none; }
+        .wallet-login-button:disabled { cursor: wait; opacity: 0.7; }
+        .wallet-login-status { min-height: 20px; margin: 14px 0 0; color: #c4b5fd; font-size: 12px; }
         
         body { 
             font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; 

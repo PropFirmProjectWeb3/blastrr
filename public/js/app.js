@@ -36,6 +36,7 @@ let connectedWallet = null;
         let battlePassProfile = null;
         let battlePassTasks = [];
         let battlePassLevels = [];
+        let battlePassActiveTab = 'missions';
         let adminBattlePassTasks = [];
                 let marketsData = [];
                 const closingTradeIds = new Set();
@@ -606,20 +607,27 @@ let connectedWallet = null;
             document.getElementById('battlepass-rank').textContent = rank;
             document.getElementById('battlepass-xp').textContent = xp.toLocaleString();
             document.getElementById('battlepass-points').textContent = points.toLocaleString();
-            const progress = document.getElementById('battlepass-progress');
             const progressLabel = document.getElementById('battlepass-progress-label');
             const withinLevel = Math.min(10000, Math.max(0, xp - level * 10000));
-            if (progress) progress.style.width = `${level >= 12 ? 100 : (withinLevel / 10000) * 100}%`;
             if (progressLabel) {
                 progressLabel.textContent = level >= 12
-                    ? `${xp.toLocaleString()} XP · maximum level reached; keep earning XP`
-                    : `${withinLevel.toLocaleString()} / 10,000 XP to level ${level + 1}`;
+                    ? `${xp.toLocaleString()} XP · max level`
+                    : `${withinLevel.toLocaleString()} / 10,000 XP to Level ${level + 1}`;
+            }
+            const segments = document.getElementById('battlepass-level-segments');
+            if (segments) {
+                segments.innerHTML = Array.from({ length: 12 }, (_, index) => {
+                    const earnedFraction = index < level ? 1 : index === level && level < 12 ? withinLevel / 10000 : 0;
+                    return `<span class="battlepass-level-segment"><i style="width:${earnedFraction * 100}%"></i></span>`;
+                }).join('');
+                segments.setAttribute('aria-label', `${level} levels completed, ${withinLevel.toLocaleString()} of 10,000 XP toward the next level`);
             }
             const imageInput = document.getElementById('battlepass-profile-image');
             if (imageInput && document.activeElement !== imageInput) imageInput.value = battlePassProfile.profile_image_url || '';
             setBattlePassAvatar(document.getElementById('battlepass-avatar-wrap'), battlePassProfile.profile_image_url, username);
             renderBattlePassTasks();
             renderBattlePassLevels();
+            selectBattlePassTab(battlePassActiveTab);
         }
 
         function renderBattlePassTasks() {
@@ -632,6 +640,18 @@ let connectedWallet = null;
             for (const [cadence, container] of Object.entries(groups)) {
                 if (!container) continue;
                 const tasks = battlePassTasks.filter(task => task.cadence === cadence);
+                const count = document.getElementById(`battlepass-${cadence.toLowerCase()}-count`);
+                const steps = document.getElementById(`battlepass-${cadence.toLowerCase()}-progress`);
+                if (count) {
+                    const done = tasks.filter(task => task.claimed).length;
+                    count.textContent = `${done} of ${tasks.length} done`;
+                    if (steps) {
+                        const segmentCount = Math.max(5, Math.min(10, tasks.length));
+                        steps.innerHTML = Array.from({ length: segmentCount }, (_, index) =>
+                            `<span class="${index < done ? 'is-complete' : ''}"></span>`
+                        ).join('');
+                    }
+                }
                 if (!tasks.length) {
                     container.innerHTML = '<p class="account-chart-empty">No tasks in this period yet.</p>';
                     continue;
@@ -653,11 +673,12 @@ let connectedWallet = null;
                         ? `<button class="btn-wallet" type="button" data-task-claim="${Number(task.id)}" ${task.eligible ? '' : 'disabled'}>${task.eligible ? 'Claim reward' : 'Not ready'}</button>`
                         : '';
                     const embed = xPostUrl
-                        ? `<blockquote class="twitter-tweet"><a href="${xPostUrl}" target="_blank" rel="noopener noreferrer">View post on X</a></blockquote>`
+                        ? `<details class="battlepass-x-preview"><summary>Preview X post</summary><blockquote class="twitter-tweet"><a href="${xPostUrl}" target="_blank" rel="noopener noreferrer">View post on X</a></blockquote></details>`
                         : '';
                     return `<article class="battlepass-task" data-battlepass-task="${Number(task.id)}">
-                        <div class="battlepass-task-copy"><div class="battlepass-task-heading"><strong>${escapeHTML(task.title)}</strong><span class="battlepass-task-status ${task.claimed ? 'is-claimed' : task.eligible ? 'is-ready' : ''}">${state}</span></div>
-                        <p>${escapeHTML(task.description)}</p><small>+${Number(task.xp_reward)} XP · +${Number(task.points_reward)} points</small>${embed}${action}</div>${claimButton}</article>`;
+                        <div class="battlepass-task-copy"><div class="battlepass-task-heading"><strong>${escapeHTML(task.title)}</strong>
+                        <span class="battlepass-task-awards"><span><i class="battlepass-gem" aria-hidden="true">◆</i> +${Number(task.points_reward)}</span><span class="battlepass-award-divider"></span><span><i class="battlepass-xp-mark" aria-hidden="true">XP</i> +${Number(task.xp_reward).toLocaleString()}</span></span></div>
+                        <p>${escapeHTML(task.description)}</p><div class="battlepass-task-action-row"><span class="battlepass-task-status ${task.claimed ? 'is-claimed' : task.eligible ? 'is-ready' : ''}">${state}</span>${embed}${action}${claimButton}</div></div></article>`;
                 }).join('');
                 container.onclick = event => {
                     const button = event.target.closest('[data-task-claim]');
@@ -686,6 +707,25 @@ let connectedWallet = null;
         function renderBattlePassLevels() {
             const container = document.getElementById('battlepass-level-list');
             if (!container) return;
+            const xpTotal = document.getElementById('battlepass-xp');
+            if (xpTotal) xpTotal.textContent = Number(battlePassProfile?.xp || 0).toLocaleString();
+            const readyLevels = battlePassLevels.filter(level =>
+                level.unlocked && !level.reward_code && Number(battlePassProfile?.points || 0) >= Number(level.points_cost)
+            );
+            const readyTitle = document.getElementById('battlepass-ready-title');
+            const readySummary = document.getElementById('battlepass-ready-summary');
+            const claimAll = document.getElementById('battlepass-claim-all');
+            if (readyTitle) readyTitle.textContent = readyLevels.length
+                ? `${readyLevels.length} reward${readyLevels.length === 1 ? '' : 's'} ready to claim`
+                : 'No rewards ready to claim';
+            if (readySummary) readySummary.textContent = readyLevels.length
+                ? `${readyLevels.reduce((sum, level) => sum + Number(level.points_cost), 0).toLocaleString()} points will claim these level discounts.`
+                : 'Complete missions and purchases to earn XP and points.';
+            if (claimAll) {
+                claimAll.disabled = !readyLevels.length;
+                claimAll.textContent = readyLevels.length ? `Claim all (${readyLevels.length})` : 'Claim all';
+                claimAll.dataset.claimLevels = JSON.stringify(readyLevels.map(level => Number(level.level)));
+            }
             container.innerHTML = battlePassLevels.map(level => {
                 const unlocked = Boolean(level.unlocked);
                 const code = level.reward_code;
@@ -706,6 +746,50 @@ let connectedWallet = null;
                 if (claimButton && !claimButton.disabled) claimBattlePassLevel(claimButton.dataset.claimLevel);
                 if (useButton && !useButton.disabled) usePromoCode(useButton.dataset.useReward);
             };
+        }
+
+        function selectBattlePassTab(tabName) {
+            const validTabs = ['missions', 'rewards', 'leaderboard', 'profile'];
+            if (!validTabs.includes(tabName)) return;
+            battlePassActiveTab = tabName;
+            document.querySelectorAll('#battlepass-user-content [data-battlepass-tab]').forEach(button => {
+                const selected = button.dataset.battlepassTab === tabName;
+                button.classList.toggle('active', selected);
+                button.setAttribute('aria-selected', String(selected));
+            });
+            document.querySelectorAll('#battlepass-user-content [data-battlepass-panel]').forEach(panel => {
+                const selected = panel.dataset.battlepassPanel === tabName;
+                panel.hidden = !selected;
+                panel.classList.toggle('active', selected);
+            });
+        }
+
+        async function claimAllBattlePassRewards(button) {
+            const levels = JSON.parse(button?.dataset.claimLevels || '[]');
+            if (!levels.length) return;
+            button.disabled = true;
+            const feedback = document.getElementById('battlepass-reward-feedback');
+            if (feedback) feedback.textContent = '';
+            try {
+                for (const level of levels) {
+                    const response = await walletFetch('/api/battlepass/rewards/claim', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ level })
+                    });
+                    const data = await response.json();
+                    if (!response.ok) throw new Error(data.error || `Unable to claim level ${level}.`);
+                }
+                if (feedback) feedback.textContent = `${levels.length} level reward${levels.length === 1 ? '' : 's'} claimed. Use the codes below at checkout.`;
+                battlePassActiveTab = 'rewards';
+                await loadBattlePass();
+            } catch (error) {
+                console.error(error);
+                if (feedback) feedback.textContent = error.message;
+                await loadBattlePass();
+            } finally {
+                button.disabled = false;
+            }
         }
 
         async function claimBattlePassTask(taskId, button) {
@@ -2846,6 +2930,13 @@ let connectedWallet = null;
         });
         document.getElementById('battlepass-profile-form')?.addEventListener('submit', saveBattlePassProfileImage);
         document.getElementById('battlepass-share')?.addEventListener('click', shareBattlePassProfile);
+        document.getElementById('battlepass-claim-all')?.addEventListener('click', event => claimAllBattlePassRewards(event.currentTarget));
+        document.getElementById('battlepass-user-content')?.addEventListener('click', event => {
+            const tab = event.target.closest('[data-battlepass-tab]');
+            const tabLink = event.target.closest('[data-battlepass-tab-link]');
+            if (tab) selectBattlePassTab(tab.dataset.battlepassTab);
+            if (tabLink) selectBattlePassTab(tabLink.dataset.battlepassTabLink);
+        });
         document.getElementById('admin-battlepass-settings-form')?.addEventListener('submit', event => {
             event.preventDefault();
             saveAdminBattlePass('/api/admin/battlepass/settings', {

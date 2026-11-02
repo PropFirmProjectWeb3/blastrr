@@ -215,44 +215,91 @@
         <section id="blastrrPassView" class="view-panel">
             <div id="battlepass-shared-profile" class="card battlepass-shared-profile" hidden></div>
             <div id="battlepass-user-content">
-                <div class="card">
-                    <div class="card-title">BlastrrPass</div>
-                    <p id="battlepass-wallet-note" class="support-note">Connect your wallet to view your XP, points, tasks, and level rewards.</p>
-                    <div id="battlepass-profile-card" class="battlepass-profile-card" hidden>
-                        <div id="battlepass-avatar-wrap" class="battlepass-avatar-wrap"><span id="battlepass-avatar-fallback">B</span></div>
-                        <div class="battlepass-profile-details">
-                            <strong id="battlepass-username">Trader</strong>
-                            <span id="battlepass-rank">Unranked</span>
-                            <span><strong id="battlepass-xp">0</strong> XP · <strong id="battlepass-points">0</strong> points</span>
-                            <div class="battlepass-progress-track"><div id="battlepass-progress" class="battlepass-progress"></div></div>
-                            <small id="battlepass-progress-label">0 / 120,000 XP</small>
-                        </div>
-                        <button id="battlepass-share" class="btn-share-x" type="button">Share profile on X</button>
+                <div class="battlepass-page-heading">
+                    <div>
+                        <span class="battlepass-eyebrow">BLASTRR REWARDS</span>
+                        <h1>Rewards Center</h1>
                     </div>
-                    <form id="battlepass-profile-form" class="battlepass-image-form" hidden>
+                    <p id="battlepass-wallet-note" class="support-note">Connect your wallet to view your XP, points, tasks, and level rewards.</p>
+                </div>
+                <div id="battlepass-profile-card" class="battlepass-player-bar" hidden>
+                    <div id="battlepass-avatar-wrap" class="battlepass-avatar-wrap"><span id="battlepass-avatar-fallback">B</span></div>
+                    <div class="battlepass-player-name"><strong id="battlepass-username">Trader</strong><small>BlastrrPass member</small></div>
+                    <div class="battlepass-level-summary">
+                        <div class="battlepass-level-caption"><strong id="battlepass-rank">Unranked</strong><span id="battlepass-progress-label">0 / 10,000 XP</span></div>
+                        <div id="battlepass-level-segments" class="battlepass-level-segments" aria-label="Progress to next level"></div>
+                    </div>
+                    <div class="battlepass-points-summary"><span class="battlepass-gem" aria-hidden="true">◆</span><strong id="battlepass-points">0</strong><small>points</small></div>
+                    <button id="battlepass-share" class="battlepass-icon-button" type="button" aria-label="Share profile on X" title="Share profile on X">X</button>
+                </div>
+                <nav class="battlepass-tabs" aria-label="BlastrrPass sections">
+                    <button type="button" class="battlepass-tab active" data-battlepass-tab="missions" aria-selected="true">Missions</button>
+                    <button type="button" class="battlepass-tab" data-battlepass-tab="rewards" aria-selected="false">Rewards</button>
+                    <button type="button" class="battlepass-tab" data-battlepass-tab="leaderboard" aria-selected="false">Leaderboard</button>
+                    <button type="button" class="battlepass-tab" data-battlepass-tab="profile" aria-selected="false">Profile</button>
+                </nav>
+                <div id="battlepass-panel-missions" class="battlepass-panel active" data-battlepass-panel="missions">
+                    <div class="battlepass-mission-board">
+                        <div class="battlepass-ready-banner">
+                            <span class="battlepass-ready-icon" aria-hidden="true">✓</span>
+                            <div class="battlepass-ready-copy"><strong id="battlepass-ready-title">Connect wallet to see available rewards</strong><small id="battlepass-ready-summary">Earn XP and points by completing missions and buying plans.</small></div>
+                            <button id="battlepass-claim-all" class="battlepass-claim-all" type="button" disabled>Claim all</button>
+                            <button class="battlepass-text-link" type="button" data-battlepass-tab-link="rewards">See rewards <span aria-hidden="true">⌄</span></button>
+                        </div>
+                        <p id="battlepass-reward-feedback" class="support-feedback" role="status" aria-live="polite"></p>
+                        <div class="battlepass-mission-columns">
+                            <section class="battlepass-mission-group">
+                                <header class="battlepass-mission-group-header">
+                                    <div><h2>Daily missions</h2><span class="battlepass-period-tag">Resets daily · UTC</span></div>
+                                    <span id="battlepass-daily-count" class="battlepass-mission-count">0 of 0 done</span>
+                                </header>
+                                <div id="battlepass-daily-progress" class="battlepass-mission-steps" aria-hidden="true"></div>
+                                <div id="battlepass-daily-tasks" class="battlepass-task-list"></div>
+                            </section>
+                            <section class="battlepass-mission-group">
+                                <header class="battlepass-mission-group-header">
+                                    <div><h2>Weekly missions</h2><span class="battlepass-period-tag">Resets weekly · UTC</span></div>
+                                    <span id="battlepass-weekly-count" class="battlepass-mission-count">0 of 0 done</span>
+                                </header>
+                                <div id="battlepass-weekly-progress" class="battlepass-mission-steps" aria-hidden="true"></div>
+                                <div id="battlepass-weekly-tasks" class="battlepass-task-list"></div>
+                            </section>
+                            <section class="battlepass-mission-group battlepass-monthly-group">
+                                <header class="battlepass-mission-group-header">
+                                    <div><h2>Monthly missions</h2><span class="battlepass-period-tag">Resets monthly · UTC</span></div>
+                                    <span id="battlepass-monthly-count" class="battlepass-mission-count">0 of 0 done</span>
+                                </header>
+                                <div id="battlepass-monthly-progress" class="battlepass-mission-steps" aria-hidden="true"></div>
+                                <div id="battlepass-monthly-tasks" class="battlepass-task-list"></div>
+                            </section>
+                        </div>
+                    </div>
+                </div>
+                <div id="battlepass-panel-rewards" class="battlepass-panel" data-battlepass-panel="rewards" hidden>
+                    <div class="battlepass-section-heading">
+                        <div><h2>Level rewards</h2><p>Earn XP to unlock each tier, then spend points to claim your discount code.</p></div>
+                        <span class="battlepass-xp-total"><strong id="battlepass-xp">0</strong> XP earned</span>
+                    </div>
+                    <div id="battlepass-level-list" class="battlepass-level-grid"></div>
+                </div>
+                <div id="battlepass-panel-leaderboard" class="battlepass-panel" data-battlepass-panel="leaderboard" hidden>
+                    <div class="battlepass-section-heading">
+                        <div><h2>Leaderboard</h2><p>See how your trading performance and BlastrrPass XP compare.</p></div>
+                        <button class="battlepass-secondary-button" type="button" onclick="switchView('leaderboardView')">Open leaderboard</button>
+                    </div>
+                </div>
+                <div id="battlepass-panel-profile" class="battlepass-panel" data-battlepass-panel="profile" hidden>
+                    <div class="battlepass-section-heading">
+                        <div><h2>Your profile card</h2><p>Choose an image and share your BlastrrPass rank and XP on X.</p></div>
+                    </div>
+                    <form id="battlepass-profile-form" class="battlepass-image-form">
                         <div class="form-group">
                             <label for="battlepass-profile-image">Profile image URL</label>
                             <input id="battlepass-profile-image" type="url" maxlength="2048" placeholder="https://example.com/profile-image.jpg">
                         </div>
-                        <button class="btn-wallet" type="submit">Save image</button>
+                        <button class="battlepass-secondary-button" type="submit">Save image</button>
                         <p id="battlepass-profile-feedback" class="support-feedback" role="status" aria-live="polite"></p>
                     </form>
-                </div>
-                <div class="card battlepass-tasks-card">
-                    <div class="card-title">Earn XP &amp; points</div>
-                    <p class="support-note">Social tasks award XP and points when you open their action link. Trading rewards become claimable when verified activity is complete.</p>
-                    <h3 class="battlepass-group-title">Daily</h3>
-                    <div id="battlepass-daily-tasks" class="battlepass-task-list"></div>
-                    <h3 class="battlepass-group-title">Weekly</h3>
-                    <div id="battlepass-weekly-tasks" class="battlepass-task-list"></div>
-                    <h3 class="battlepass-group-title">Monthly</h3>
-                    <div id="battlepass-monthly-tasks" class="battlepass-task-list"></div>
-                </div>
-                <div class="card battlepass-levels-card">
-                    <div class="card-title">Level rewards</div>
-                    <p class="support-note">Earn 10,000 XP per level. Claim unlocked discounts with points; discount codes add to the standard purchase discount, up to 100% off.</p>
-                    <div id="battlepass-level-list" class="battlepass-level-grid"></div>
-                    <p id="battlepass-reward-feedback" class="support-feedback" role="status" aria-live="polite"></p>
                 </div>
             </div>
         </section>

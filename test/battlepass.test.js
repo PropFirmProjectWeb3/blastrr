@@ -14,7 +14,7 @@ test('BlastrrPass seeds twelve levels and keeps earning XP after level 12', () =
   assert.match(serverJs, /Math\.min\(12, Math\.floor\(Math\.max\(0, Number\(xp\) \|\| 0\) \/ 10000\)\)/);
   assert.match(serverJs, /xp = xp \+ \?/);
   assert.match(appHtml, /id="battlepass-level-list"/);
-  assert.match(appJs, /maximum level reached; keep earning XP/);
+  assert.match(appJs, /max level/);
 });
 
 test('battle pass task rewards are period-limited and built-in trading tasks are supported', () => {
@@ -58,4 +58,16 @@ test('leaderboards and public profile cards include BlastrrPass level and XP', (
   assert.match(appJs, /loadPublicBattlePassProfile/);
   assert.match(appJs, /platform\.twitter\.com\/widgets\.js/);
   assert.match(homeHtml, /standardDiscountPct=Number\(data\.standard_discount_pct\?\?90\)/);
+});
+
+test('BlastrrPass dashboard presents missions, rewards, leaderboard, and profile sections', () => {
+  assert.match(appHtml, /class="battlepass-mission-board"/);
+  assert.match(appHtml, /data-battlepass-tab="missions"/);
+  assert.match(appHtml, /data-battlepass-tab="rewards"/);
+  assert.match(appHtml, /data-battlepass-tab="leaderboard"/);
+  assert.match(appHtml, /data-battlepass-tab="profile"/);
+  assert.match(appHtml, /id="battlepass-claim-all"/);
+  assert.match(appHtml, /id="battlepass-level-segments"/);
+  assert.match(appJs, /function claimAllBattlePassRewards/);
+  assert.match(appJs, /function selectBattlePassTab/);
 });

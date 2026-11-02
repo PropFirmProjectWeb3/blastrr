@@ -1002,3 +1002,30 @@
             opacity: 0.5;
             cursor: not-allowed;
         }
+        #wallet-menu .wallet-select,
+        #wallet-menu .wallet-menu-account,
+        #wallet-menu .wallet-menu-action {
+            border: 1px solid transparent !important;
+            box-shadow: none !important;
+        }
+        #wallet-menu .wallet-menu-account,
+        #wallet-menu .wallet-menu-action {
+            background: transparent !important;
+        }
+        #wallet-menu .wallet-select:hover:not(:disabled),
+        #wallet-menu .wallet-select:focus-visible,
+        #wallet-menu .wallet-menu-account:hover:not(:disabled),
+        #wallet-menu .wallet-menu-account:focus-visible,
+        #wallet-menu .wallet-menu-account:active,
+        #wallet-menu .wallet-menu-action:hover:not(:disabled),
+        #wallet-menu .wallet-menu-action:focus-visible,
+        #wallet-menu .wallet-menu-action:active {
+            border-color: rgba(192, 132, 252, 0.85) !important;
+            box-shadow: 0 0 12px rgba(168, 85, 247, 0.38), inset 0 0 8px rgba(168, 85, 247, 0.06) !important;
+        }
+        #wallet-menu .wallet-menu-logout:hover:not(:disabled),
+        #wallet-menu .wallet-menu-logout:focus-visible,
+        #wallet-menu .wallet-menu-logout:active {
+            border-color: rgba(248, 113, 113, 0.45) !important;
+            box-shadow: 0 0 12px rgba(248, 113, 113, 0.2) !important;
+        }

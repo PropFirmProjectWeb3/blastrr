@@ -147,6 +147,9 @@ test('wallet switcher menu lists connected accounts before add and logout action
   assert.match(appHtml, /id="wallet-menu-accounts"[\s\S]*?id="connect-new-btn"[\s\S]*?id="disconnect-btn"/);
   assert.match(appCss, /\.wallet-menu-panel\s*\{[^}]*position: absolute/);
   assert.match(appCss, /@media \(max-width: 700px\)[\s\S]*?\.wallet-menu-panel \{ position: fixed/);
+  assert.match(appCss, /#wallet-menu \.wallet-menu-account,[\s\S]*?box-shadow: none !important/);
+  assert.match(appCss, /#wallet-menu \.wallet-menu-account:hover:not\(:disabled\),[\s\S]*?#wallet-menu \.wallet-menu-account:active[\s\S]*?box-shadow: 0 0 12px/);
+  assert.match(appCss, /#wallet-menu \.wallet-menu-logout:active[\s\S]*?box-shadow: 0 0 12px rgba\(248, 113, 113, 0\.2\)/);
 });
 
 test('BlastrrPass content and reward fields wrap without mobile overflow', () => {

@@ -19,10 +19,12 @@
             inset: 0;
             z-index: 2000;
             display: flex;
+            min-height: 100%;
             flex-direction: column;
             align-items: center;
             justify-content: center;
             padding: 28px;
+            overflow-y: auto;
             background: #000;
             text-align: center;
         }
@@ -754,11 +756,11 @@
             border-radius: 13px;
             background: rgba(7, 11, 16, 0.7);
         }
-        .battlepass-task-copy { display: grid; flex: 1; gap: 8px; min-width: 0; }
-        .battlepass-task-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
-        .battlepass-task-heading > strong { color: #f1f3f6; font-size: 13px; font-weight: 700; }
-        .battlepass-task-copy p { margin: 0; color: #a5aab3; font-size: 11px; line-height: 1.55; }
-        .battlepass-task-awards { display: inline-flex; align-items: center; gap: 8px; color: #f3f4f6; font-size: 12px; font-weight: 700; white-space: nowrap; }
+        .battlepass-task-copy { display: grid; flex: 1; gap: 8px; min-width: 0; max-width: 100%; }
+        .battlepass-task-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; min-width: 0; max-width: 100%; }
+        .battlepass-task-heading > strong { min-width: 0; max-width: 100%; color: #f1f3f6; font-size: 13px; font-weight: 700; overflow-wrap: anywhere; }
+        .battlepass-task-copy p { min-width: 0; max-width: 100%; margin: 0; color: #a5aab3; font-size: 11px; line-height: 1.55; overflow-wrap: anywhere; }
+        .battlepass-task-awards { display: inline-flex; align-items: center; gap: 8px; max-width: 100%; color: #f3f4f6; font-size: 12px; font-weight: 700; white-space: normal; }
         .battlepass-task-awards > span { display: inline-flex; align-items: center; gap: 5px; }
         .battlepass-award-divider { height: 15px; width: 1px; background: rgba(203, 213, 225, 0.2); }
         .battlepass-xp-mark { color: #fbbf24; font-size: 10px; font-style: italic; font-weight: 900; }
@@ -766,10 +768,12 @@
         .battlepass-task-status { margin-right: auto; color: #9ba6b5; font-size: 10px; }
         .battlepass-task-status.is-claimed { color: #7f8a98; }
         .battlepass-task-status.is-ready { color: #34d399; }
+        .battlepass-task-action-row { min-width: 0; max-width: 100%; }
         .battlepass-task-action, .battlepass-task-action-row > button {
             display: inline-flex;
             align-items: center;
             justify-content: center;
+            max-width: 100%;
             min-height: 34px;
             margin: 0;
             padding: 0 12px;
@@ -782,7 +786,8 @@
             font-size: 11px;
             font-weight: 650;
             text-decoration: none;
-            white-space: nowrap;
+            white-space: normal;
+            overflow-wrap: anywhere;
         }
         .battlepass-task-action:hover, .battlepass-task-action-row > button:hover:not(:disabled) { background: rgba(148, 163, 184, 0.2); color: #fff; }
         .battlepass-task-action-row > button:disabled { opacity: 0.55; cursor: not-allowed; }
@@ -800,16 +805,16 @@
             box-shadow: 0 0 12px rgba(168, 85, 247, 0.5), inset 0 0 8px rgba(168, 85, 247, 0.08);
             color: #fff;
         }
-        .battlepass-x-preview { flex-basis: 100%; order: 4; color: #b7c0cc; font-size: 10px; }
+        .battlepass-x-preview { flex-basis: 100%; order: 4; min-width: 0; max-width: 100%; color: #b7c0cc; font-size: 10px; }
         .battlepass-x-preview summary { width: fit-content; cursor: pointer; }
-        .battlepass-x-preview blockquote { max-width: 520px !important; margin: 10px 0 !important; }
+        .battlepass-x-preview blockquote, .battlepass-x-preview iframe { width: 100% !important; max-width: 100% !important; margin: 10px 0 !important; }
         .battlepass-section-heading { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin: 4px 0 18px; }
         .battlepass-section-heading p { margin: 6px 0 0; color: #9aa5b4; font-size: 12px; }
         .battlepass-xp-total { padding: 9px 12px; border: 1px solid rgba(203, 213, 225, 0.1); border-radius: 9px; color: #cbd5e1; font-size: 12px; white-space: nowrap; }
         .battlepass-xp-total strong { color: #fbbf24; }
         .battlepass-panel[data-battlepass-panel="rewards"] .battlepass-level-grid { grid-template-columns: 1fr; gap: 10px; }
         .battlepass-reward-item .battlepass-task-action-row { min-height: 34px; }
-        .battlepass-reward-code { flex-basis: 100%; overflow-wrap: anywhere; color: #34d399; font-size: 11px; }
+        .battlepass-reward-code { flex-basis: 100%; min-width: 0; max-width: 100%; overflow-wrap: anywhere; white-space: normal; color: #34d399; font-size: 11px; }
         .battlepass-panel[data-battlepass-panel="leaderboard"], .battlepass-panel[data-battlepass-panel="profile"] { min-height: 240px; padding: clamp(18px, 3vw, 32px); border: 1px solid rgba(203, 213, 225, 0.1); border-radius: 16px; background: rgba(17, 23, 30, 0.92); }
         .battlepass-secondary-button { min-height: 40px; padding: 0 15px; border: 1px solid rgba(203, 213, 225, 0.15); border-radius: 9px; background: rgba(148, 163, 184, 0.11); color: #f1f5f9; cursor: pointer; font: inherit; font-size: 12px; font-weight: 650; }
         .battlepass-image-form { max-width: 680px; }
@@ -836,4 +841,37 @@
             .battlepass-task-heading { flex-direction: column; }
             .battlepass-task-status { flex-basis: 100%; }
             .battlepass-section-heading { align-items: flex-start; flex-direction: column; }
+            .battlepass-level-caption { flex-wrap: wrap; }
+            .battlepass-task-action-row > button { width: 100%; }
+            .battlepass-image-form .form-group { flex-basis: 100%; min-width: 0; }
+            .battlepass-image-form > button { width: 100%; }
+            .admin-task-form .form-group { flex-basis: 100%; min-width: 0; }
+            .admin-task-form > button { width: 100%; }
+            .battlepass-admin-row { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+            .battlepass-admin-task-fields { grid-template-columns: minmax(0, 1fr); }
+        }
+
+        button, input[type="button"], input[type="submit"], input[type="reset"], .btn {
+            background: transparent !important;
+            background-image: none !important;
+            border: 1px solid rgba(168, 85, 247, 0.78) !important;
+            color: #f8fafc !important;
+            box-shadow: 0 0 12px rgba(168, 85, 247, 0.28), inset 0 0 8px rgba(168, 85, 247, 0.06) !important;
+            transform: none;
+        }
+        button:hover:not(:disabled), input[type="button"]:hover, input[type="submit"]:hover,
+        input[type="reset"]:hover, .btn:hover,
+        button:focus-visible, input[type="button"]:focus-visible, input[type="submit"]:focus-visible,
+        input[type="reset"]:focus-visible, .btn:focus-visible {
+            background: transparent !important;
+            border-color: rgba(192, 132, 252, 1) !important;
+            box-shadow: 0 0 20px rgba(168, 85, 247, 0.58), inset 0 0 10px rgba(168, 85, 247, 0.1) !important;
+            color: #fff !important;
+            outline: none;
+            transform: none;
+        }
+        button:disabled, input[type="button"]:disabled, input[type="submit"]:disabled,
+        input[type="reset"]:disabled, .btn[aria-disabled="true"] {
+            opacity: 0.5;
+            cursor: not-allowed;
         }

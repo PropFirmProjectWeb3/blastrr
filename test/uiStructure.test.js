@@ -117,6 +117,21 @@ test('terminal stays black and locked until a signed wallet session is establish
   assert.match(appJs, /if \(dashboardAuthenticated && \(!walletSessionToken \|\| walletSessionExpiresAt <= Date\.now\(\)\)\)/);
 });
 
+test('BlastrrPass content and reward fields wrap without mobile overflow', () => {
+  assert.match(appCss, /\.battlepass-task-heading > strong \{[^}]*overflow-wrap: anywhere/);
+  assert.match(appCss, /\.battlepass-task-copy p \{[^}]*overflow-wrap: anywhere/);
+  assert.match(appCss, /\.battlepass-reward-code \{[^}]*max-width: 100%; overflow-wrap: anywhere/);
+  assert.match(appCss, /\.battlepass-x-preview blockquote, \.battlepass-x-preview iframe \{[^}]*max-width: 100% !important/);
+  assert.match(appCss, /\.admin-task-form \.form-group \{ flex-basis: 100%; min-width: 0; \}/);
+  assert.match(appCss, /\.battlepass-admin-row \{ grid-template-columns: repeat\(2, minmax\(0, 1fr\)\); \}/);
+});
+
+test('homepage and terminal buttons use a transparent purple-glow treatment', () => {
+  const transparentButtonRule = /button, input\[type="button"\], input\[type="submit"\], input\[type="reset"\], \.btn\s*\{[\s\S]*?background: transparent !important;[\s\S]*?border: 1px solid rgba\(168, 85, 247, 0\.78\) !important;[\s\S]*?box-shadow: 0 0 12px rgba\(168, 85, 247, 0\.28\)/;
+  assert.match(appCss, transparentButtonRule);
+  assert.match(landingHtml, /button,input\[type="button"\],input\[type="submit"\],input\[type="reset"\],\.btn\{background:transparent!important;[\s\S]*?border:1px solid rgba\(168,85,247,\.78\)!important;[\s\S]*?box-shadow:0 0 12px rgba\(168,85,247,\.28\)/);
+});
+
 test('NullNet checkout uses the correct chain ID and matching wallet and verification RPC settings', () => {
   assert.match(appJs, /448000:\s*\{[\s\S]*?chainIdHex: "0x6d600"[\s\S]*?rpcUrl: "https:\/\/rpc\.lunul\.org"[\s\S]*?nativeCurrency: \{ name: "LUN", symbol: "LUN", decimals: 18 \}[\s\S]*?usdtAddress: "0x7ec3659A8225ED474D7c662126616aE08545C29b",[\s\S]*?decimals: 18/);
   assert.match(serverJs, /448000:\s*\{[\s\S]*?chainIdHex: "0x6d600"[\s\S]*?rpcUrl: "https:\/\/rpc\.lunul\.org"[\s\S]*?decimals: 18/);

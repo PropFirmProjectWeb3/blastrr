@@ -93,3 +93,14 @@ test('battle pass profile images are verified as loadable direct image URLs befo
   assert.match(appJs, /Open the image itself and copy its direct image address/);
   assert.doesNotMatch(appJs, /image\.referrerPolicy = 'no-referrer'/);
 });
+
+test('homepage plan cards use Battle Pass task and reward styling with all configured account rules', () => {
+  assert.match(homeHtml, /class="plan battlepass-plan-card/);
+  assert.match(homeHtml, /plan-purchase-reward-label/);
+  assert.match(homeHtml, /plan-task-list/);
+  assert.match(homeHtml, /STRAIGHT TO FUNDED/);
+  assert.match(homeHtml, /Profit consistency<\/span><strong>\$\{p\.max_single_day_profit_pct\}%/);
+  assert.match(homeHtml, /\["Profit consistency",p=>`\$\{p\.max_single_day_profit_pct\}% max single-day profit`\]/);
+  assert.match(homeHtml, /Trading availability<\/span><strong>24\/7\/365<\/strong>/);
+  assert.match(homeHtml, /\["Trading availability",\(\)=>"24\/7\/365"\]/);
+});

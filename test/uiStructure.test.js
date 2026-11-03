@@ -12,6 +12,9 @@ const faqHtml = fs.readFileSync('public/faq.html', 'utf8');
 const faqJs = fs.readFileSync('public/js/faq.js', 'utf8');
 const faqCss = fs.readFileSync('public/css/faq.css', 'utf8');
 const faqSections = JSON.parse(fs.readFileSync('public/faq-data.json', 'utf8'));
+const docsHtml = fs.readFileSync('public/docs.html', 'utf8');
+const docsJs = fs.readFileSync('public/js/docs.js', 'utf8');
+const docsSections = JSON.parse(fs.readFileSync('public/docs-data.json', 'utf8'));
 
 test('searchable public FAQ is linked from the homepage and terminal navigation', () => {
   assert.match(landingHtml, /<a href="faq\.html">FAQ<\/a>/);
@@ -31,6 +34,22 @@ test('searchable public FAQ is linked from the homepage and terminal navigation'
   assert.ok(faqQuestions.includes('My access fee payment shows as complete but I have not received my account. When will it be activated?'));
   assert.ok(faqQuestions.includes('My simulated balance has not updated. What troubleshooting steps should I take?'));
   assert.ok(faqQuestions.includes('My claim request shows as processing. How long does verification take?'));
+});
+
+test('documentation hub is searchable, structured, and linked from the main entry points', () => {
+  assert.match(landingHtml, /<a href="docs\.html">Docs<\/a>/);
+  assert.match(appHtml, /<a class="nav-tab" href="docs\.html">Docs<\/a>/);
+  assert.match(docsHtml, /<title>Documentation \| Blastrr<\/title>/);
+  assert.match(docsHtml, /id="docs-search" type="search"/);
+  assert.match(docsHtml, /id="docs-toc" class="docs-toc"/);
+  assert.match(docsJs, /normalize\(`\$\{section\.title\} \$\{section\.summary \|\| ''\} \$\{getGroupText\(group\)\}`\)/);
+  assert.match(docsJs, /terms\.every\(term => searchableText\.includes\(term\)\)/);
+  assert.match(docsJs, /textContent = value/);
+  assert.match(docsJs, /function renderTable\(table\)/);
+  assert.equal(docsSections.length, 4);
+  assert.equal(docsSections.reduce((count, section) => count + section.groups.length, 0), 18);
+  assert.ok(docsSections.some(section => section.title.includes('Trading Engine')));
+  assert.ok(docsSections.some(section => section.groups.some(group => group.title === 'Account Tiers' && group.table.rows.length === 5)));
 });
 
 test('trading terminal HTML loads its external stylesheet and application script', () => {

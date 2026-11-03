@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="Browse and search Blastrr platform documentation for markets, execution, account mechanics, and rewards.">
+    <title>Documentation | Blastrr</title>
+    <link rel="icon" href="/favicon.png">
+    <link rel="stylesheet" href="/css/faq.css">
+    <link rel="stylesheet" href="/css/docs.css">
+    <script src="/js/docs.js" defer></script>
+</head>
+<body>
+    <header class="faq-header">
+        <a class="faq-brand" href="/index.html" aria-label="Blastrr home">
+            <img src="/favicon.png" alt="">
+            <span>BLASTRR</span>
+        </a>
+        <nav aria-label="Main navigation">
+            <a href="/index.html">Home</a>
+            <a href="/faq.html">FAQ</a>
+            <a href="/app.html">Trade Terminal</a>
+        </nav>
+    </header>
+    <main class="faq-main docs-main">
+        <section class="faq-intro" aria-labelledby="docs-title">
+            <p class="faq-eyebrow">BLASTRR PLATFORM GUIDE</p>
+            <h1 id="docs-title">Documentation <span>hub</span></h1>
+            <p class="faq-description">Browse or search platform guides for getting started, markets, execution, account mechanics, and rewards.</p>
+        </section>
+        <section class="faq-search-panel" aria-label="Search platform documentation">
+            <label for="docs-search">Search all documentation</label>
+            <div class="faq-search-row">
+                <input id="docs-search" type="search" autocomplete="off" placeholder="Try “order types” or “claim eligibility”">
+                <button id="docs-clear" type="button" hidden>Clear</button>
+            </div>
+            <p id="docs-results" class="faq-results" role="status" aria-live="polite">Loading documentation…</p>
+        </section>
+        <nav id="docs-toc" class="docs-toc" aria-label="Documentation topics"></nav>
+        <div id="docs-content" class="faq-content docs-content" aria-live="polite"></div>
+    </main>
+    <footer class="faq-footer">
+        <a href="/faq.html">Browse FAQs</a>
+        <span>Platform features, limits, and eligibility are subject to current terms and may change.</span>
+    </footer>
+</body>
+</html>

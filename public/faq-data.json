@@ -4,307 +4,190 @@
     "items": [
       {
         "question": "What is Blastrr?",
-        "answer": "Blastrr is an advanced simulated trading and performance evaluation platform designed for traders to hone their market strategies in a zero-risk environment. Participants engage with real-time market data using virtual capital, allowing them to test strategies, demonstrate discipline, and earn performance-based simulated rewards without risking personal capital."
+        "answer": "Blastrr provides simulated crypto trading accounts. You select a plan, connect a supported Web3 wallet, and trade with simulated account balances using market prices from the pairs shown in the terminal. Simulated results do not represent real exchange trades or guarantee a reward or payment."
       },
       {
-        "question": "How do I log in to Blastrr?",
-        "answer": "You can log in by visiting the official Blastrr web portal and clicking Connect or Login. Blastrr supports standard email/password authentication as well as Web3 non-custodial wallet connections (such as Phantom or Solflare) depending on your account preferences."
+        "question": "How do I log in?",
+        "answer": "Open the Blastrr app and connect a compatible Web3 wallet. The app asks you to sign a message to verify wallet access. Email and password sign-in are not currently offered."
       },
       {
-        "question": "How long does it take to sign up?",
-        "answer": "Account creation is instantaneous. Once you register your email or connect a supported Web3 wallet, your account dashboard will immediately provide access to your trial or evaluation workspace."
+        "question": "Do I need a wallet to use the app?",
+        "answer": "Yes. Wallet connection and message signing are used to access your dashboard and account features. Keep your wallet secure and only approve actions you understand."
       },
       {
-        "question": "How do I contact support?",
-        "answer": "Our support team is available 24/7 via the live chat widget on the bottom right of the Blastrr platform, or by submitting a ticket directly through our Discord server and official support email at support@blastrr.com."
-      },
-      {
-        "question": "How does the Blastrr referral program work?",
-        "answer": "The Blastrr Referral Program allows users to share a unique referral link generated in their user dashboard. When new participants sign up and purchase evaluation account access using your link, you earn a percentage commission paid out in supported tokens or account discounts."
-      },
-      {
-        "question": "I am interested in a partnership or affiliate opportunity. Who should I contact?",
-        "answer": "For media, institutional partnerships, or high-volume affiliate inquiries, please reach out directly to our growth team at partnerships@blastrr.com or open a partnership ticket in our Discord community."
-      },
-      {
-        "question": "Is real money required to use Blastrr?",
-        "answer": "No. All trading operations, balances, positions, and performance metrics on Blastrr are conducted strictly using simulated, virtual funds. There is no real-money trading or real capital deposited onto the trading terminal."
+        "question": "Where can I get help?",
+        "answer": "Submit an account support ticket from Profile & Promos in the app. For purchase or account-access issues, include the wallet address and relevant transaction details. Do not share your seed phrase or private keys."
       }
     ]
   },
   {
-    "title": "Blastrr Accounts & Funding",
+    "title": "Plans & Payments",
     "items": [
       {
-        "question": "What is a Blastrr Simulated Account?",
-        "answer": "A Blastrr Simulated Account is a sandboxed trading profile provisioned with a designated balance of virtual capital (e.g., $10,000, $50,000, or $100,000 simulated USD). It allows traders to execute simulated orders under realistic market conditions, spreads, and fee models."
+        "question": "What account plans are available?",
+        "answer": "The app currently lists straight-to-funded simulated plans from $5,000 to $250,000 in simulated capital. Plan availability, purchase price, discount, target, and risk settings are shown on the Buy Plans page and may change."
       },
       {
-        "question": "Do I need to deposit my own real capital to trade?",
-        "answer": "No. Users never deposit trading capital onto Blastrr. The only fee required is an optional access fee to enter specific evaluation tiers or instant simulated accounts. Your trading balance consists entirely of virtual testnet tokens."
+        "question": "Is there an evaluation or challenge phase?",
+        "answer": "The current plans are straight-to-funded; they do not require completing a separate evaluation phase before account access. Plan rules and account activation still apply."
       },
       {
-        "question": "Can I purchase an evaluation account if I am logged in with a crypto wallet?",
-        "answer": "Yes. Blastrr supports native Web3 checkout. If you are connected via Phantom, Solflare, or Metamask, you can purchase account access directly using supported tokens (such as SOL, USDC, or $LUN) directly on-chain."
+        "question": "How do I pay for a plan?",
+        "answer": "Plan purchases use USDT through the supported network selected in the app. The homepage and checkout show the currently supported networks. Match the selected network and token in your wallet before confirming; sending on a different network can result in loss of funds."
       },
       {
-        "question": "What payment methods are supported for platform access fees?",
-        "answer": "We accept major credit/debit cards, crypto assets via Web3 wallet payments (USDC, SOL, ETH), and platform reward vouchers."
+        "question": "Are plan balances real money?",
+        "answer": "No. Plan capital and trading balances are simulated. A plan purchase is a real payment for platform access, but it does not deposit real trading capital or create a live brokerage account."
       },
       {
-        "question": "My access fee payment shows as complete but I have not received my account. When will it be activated?",
-        "answer": "Account credentials and terminal setup are usually generated within 60 seconds of transaction confirmation. If your account does not appear in your dashboard after 5 minutes, please refresh your session or contact support with your transaction hash/receipt."
+        "question": "What should I do if payment is confirmed but my account is missing?",
+        "answer": "Refresh the app and check My Accounts. If the account is still missing, submit a support ticket with the purchase network and transaction hash. Never send another payment just because provisioning is delayed."
       },
       {
-        "question": "How many simulated accounts can I hold concurrently?",
-        "answer": "Participants may manage up to 5 active evaluation accounts or up to $300,000 in aggregate initial simulated balance at any given time."
-      },
-      {
-        "question": "Can I get a refund on account access or evaluation fees?",
-        "answer": "Because platform provisioning and data feeds are initialized immediately upon purchase, access fees are non-refundable once simulated trades have been executed on the account. Refunds are only issued if requested prior to placing any trades within 14 days of purchase."
-      },
-      {
-        "question": "What evaluation tiers are available on Blastrr?",
-        "answer": "Blastrr offers single-phase and two-phase evaluation tiers ranging from $10,000 to $100,000 in virtual capital. Each tier has defined virtual profit targets (e.g., 8% or 10%) and strict loss parameters."
-      },
-      {
-        "question": "Is there a minimum number of required trading days during evaluation?",
-        "answer": "No. Blastrr has no minimum trading day requirement. If you hit your virtual profit target cleanly in a single day while adhering to all risk rules, you qualify to advance immediately."
-      },
-      {
-        "question": "Are recurring fees charged during the Evaluation Phase?",
-        "answer": "No. All Blastrr evaluation tiers require only a one-time setup fee. There are no monthly subscriptions, hidden maintenance fees, or recurring charges."
-      },
-      {
-        "question": "What changes when my account advances from Evaluation to Funded status?",
-        "answer": "Once an evaluation is passed, your account transitions to a Simulated Funded Account. In this stage, you no longer have a virtual profit target, but you become eligible to submit reward claims based on your virtual trading performance split."
+        "question": "How are prices and discounts determined?",
+        "answer": "Current plan prices and the standard discount are displayed on the homepage and in Buy Plans. Eligible promo codes may apply additional offers as described at checkout. The final amount shown before payment is the amount to verify in your wallet."
       }
     ]
   },
   {
-    "title": "Instant Accounts",
+    "title": "Markets & Trading",
     "items": [
       {
-        "question": "What is a Blastrr Instant Account?",
-        "answer": "An Instant Account bypasses the evaluation phase entirely, allowing experienced traders to start operating a simulated funded profile immediately upon setup without hitting a prior profit target."
+        "question": "Which markets can I trade?",
+        "answer": "The terminal currently lists 20 Binance Spot crypto pairs quoted in USDT. The market selector and scrolling price ticker show the configured pairs; availability can change."
       },
       {
-        "question": "What is the Maximum Drawdown limit on each Instant Account size?",
-        "answer": "Instant Accounts carry a static Maximum Drawdown limit ranging from 5% to 6% depending on the account size selected during checkout."
+        "question": "Are prices live?",
+        "answer": "The terminal displays market data for the selected pair, and the bottom ticker receives streaming Binance Spot ticker updates for configured pairs. Market data is a reference for simulated trading; it is not an exchange execution or a promise of an identical fill."
       },
       {
-        "question": "How quickly can I begin trading after selecting an Instant Account?",
-        "answer": "Instantly. Credentials and platform connection links are rendered in your dashboard within seconds of checkout approval."
+        "question": "When can I trade?",
+        "answer": "Crypto markets are generally available 24/7, subject to Binance market availability, Blastrr maintenance, and service interruptions."
       },
       {
-        "question": "What are the key rules governing an Instant Account?",
-        "answer": "Instant Accounts require strict adherence to the Daily Loss Limit, Max Drawdown, position sizing caps, and prohibited strategy rules (such as latency arbitrage or tick exploitation)."
+        "question": "How do I place a trade?",
+        "answer": "In the terminal, select an account and market, choose an execution multiplier from the available options, enter margin and any Stop Loss or Take Profit values, review the displayed estimates, then choose Buy / Long or Sell / Short. Orders and balances are simulated."
       },
       {
-        "question": "What is the structural difference between Instant and Evaluation accounts?",
-        "answer": "Evaluation accounts require passing a profit objective first but offer higher virtual leverage and lower setup fees. Instant accounts eliminate the evaluation step but feature tighter static drawdown rules."
+        "question": "Does the app support limit, stop-limit, or pending entry orders?",
+        "answer": "The current order ticket submits Buy / Long or Sell / Short trades using the displayed live reference price. It does not expose separate limit or stop-limit entry-order controls."
+      },
+      {
+        "question": "Can I set a Stop Loss or Take Profit?",
+        "answer": "The order ticket provides optional Stop Loss and Take Profit price fields when opening a simulated position. Use the controls shown in the app; do not assume chart-drag editing or other controls that are not displayed."
+      },
+      {
+        "question": "What do the market information fields show?",
+        "answer": "For the selected Spot pair, the chart toolbar shows mid price, bid/ask, 24-hour change, high, low, and quote volume in USDT. Futures-only statistics such as funding rate and open interest are not used for these Spot markets."
       }
     ]
   },
   {
-    "title": "Risk & Trading Rules",
+    "title": "Account Rules & Risk",
     "items": [
       {
-        "question": "Are there restrictions on trading during high-impact news events?",
-        "answer": "On standard evaluation accounts, news trading is fully permitted. However, on certain specialized Instant Accounts, opening new orders 2 minutes before and 2 minutes after high-impact economic announcements (e.g., CPI, NFP) is prohibited to prevent slippage exploitation."
+        "question": "What risk limits apply to plans?",
+        "answer": "Current plan settings are shown on the plan card. The configured plans use a 5% daily loss limit, 10% maximum loss parameter, a profit target equal to 20% of simulated starting capital, and a 40% maximum single-day share of profit for reward eligibility. Check the current plan and terms before trading."
       },
       {
-        "question": "Is there a performance or sizing consistency rule applied to trading volume?",
-        "answer": "Yes. To ensure realistic risk management, no single simulated trade can account for more than 50% of your total generated virtual profit at the time of a reward claim submission."
+        "question": "How does the daily loss limit work?",
+        "answer": "The daily loss limit is calculated from the account's daily starting balance and resets using the platform's UTC day boundary. A daily-limit breach locks the account until the earlier of the 24-hour lock expiry or the next UTC midnight."
       },
       {
-        "question": "Are any specific algorithmic or manual trading strategies prohibited?",
-        "answer": "Prohibited practices include:Latency arbitrage or high-frequency tick manipulation.Exploiting platform/feed latency or delayed fills.Account sharing or copying trades across unrelated user accounts.Reverse arbitrage or hedging between two opposing Blastrr accounts."
+        "question": "Is maximum drawdown static or trailing?",
+        "answer": "The current risk implementation uses the plan's maximum-loss percentage against a high-water mark, capped at 110% of initial balance. The loss floor can therefore rise as the high-water mark increases, until it reaches the initial balance; it does not rise above the initial balance."
       },
       {
-        "question": "Is there a maximum leverage cap or position size threshold?",
-        "answer": "Yes. Leverage limits depend on the asset class:Crypto Pairs: Up to 1:20 leverage.Forex Majors: Up to 1:100 leverage.Indices & Commodities: Up to 1:50 leverage."
+        "question": "What happens if I breach a risk limit?",
+        "answer": "A daily loss breach can temporarily lock the account. A maximum-loss breach can permanently lock it. The app may reject new trades while an account is locked; see the account status and current platform rules for the specific outcome."
       },
       {
-        "question": "Can I hold positions overnight or across weekend market closures?",
-        "answer": "Yes. Holding positions overnight and over weekends is allowed on all Blastrr accounts, provided your account margin requirements are maintained."
+        "question": "What does leverage mean in the order ticket?",
+        "answer": "The order ticket offers 1x, 2x, 5x, 10x, 20x, and 50x execution multipliers. A higher multiplier increases simulated position notional for the entered margin and increases exposure to price movements. Available controls and account rules in the app take precedence."
       },
       {
-        "question": "Are certain assets or pairs restricted on Blastrr accounts?",
-        "answer": "No. You may trade any asset active on the Blastrr terminal, including crypto perpetuals, forex pairs, and major market indices."
-      },
-      {
-        "question": "Is automated API trading or EA execution supported?",
-        "answer": "Yes. Algorithmic execution, custom Expert Advisors (EAs), and Web3 API webhooks are supported as long as they comply with our general strategy and risk policies."
-      },
-      {
-        "question": "Can I manually top up or deposit extra funds into an active account?",
-        "answer": "No. You cannot add external funds to an active simulated account balance. If an account is breached, you may choose to reset the account for a discounted fee."
+        "question": "Are trades real exchange orders?",
+        "answer": "No. Trades, positions, balances, and PnL in Blastrr are simulated. Binance Spot prices are used as market data, but Blastrr does not submit these simulated orders to Binance's exchange order book."
       }
     ]
   },
   {
-    "title": "Loss Limits & Risk Parameters",
+    "title": "Accounts & Promotions",
     "items": [
       {
-        "question": "What specific risk limits apply to a Blastrr account?",
-        "answer": "Every account is monitored by automated risk engine parameters:Daily Loss Limit: Typically set to 4% or 5% of the starting day's equity.Maximum Drawdown: Set to 8% or 10% relative to initial virtual capital."
+        "question": "Where do I see my accounts?",
+        "answer": "Connect your wallet and open My Accounts to review the accounts linked to it. Select an active account from the order-entry area before placing a trade."
       },
       {
-        "question": "Is the Maximum Drawdown trailing, end-of-day, or static?",
-        "answer": "Evaluation Accounts: Feature a Trailing Drawdown that trails high-water equity until reaching the initial starting balance, where it locks as a static floor.Instant Accounts: Feature a fixed Static Drawdown calculated directly from starting account capital."
+        "question": "Can I claim a free account with a code?",
+        "answer": "If you have a one-time promotional account code, enter it in the Claim a free account section under Profile & Promos. Each code can be used once, and the account plan is determined by the code."
       },
       {
-        "question": "How is the Daily Loss Limit calculated and enforced?",
-        "answer": "The Daily Loss Limit resets at 00:00 UTC each day. It is calculated as:\n$$\\text{Max Daily Equity Floor} = \\text{Starting Equity at 00:00 UTC} \\times (1 - \\text{Daily Loss \\%})$$\nIf your open floating equity or closed balance touches this threshold, the account is automatically closed for the remainder of the trading day or invalidated."
+        "question": "Can I apply to become a creator?",
+        "answer": "Yes. Open Profile & Promos and submit the creator application with your social profile links and community details. You can edit and resubmit it. The Blastrr team reviews applications; approval and any custom referral commission are not automatic."
       },
       {
-        "question": "What happens immediately if an account breaches a risk parameter?",
-        "answer": "If a risk threshold is touched, the risk management system automatically closes all open positions, cancels pending orders, and transitions the account status to Breached."
-      },
-      {
-        "question": "Can a breached account be reset or restored?",
-        "answer": "A breached account cannot be un-breached. However, users can purchase an Account Reset at a discounted rate to receive a new account instance with fresh virtual capital."
+        "question": "How do referral codes work?",
+        "answer": "Your profile displays your referral code and shareable link. Referral tracking and any applicable commission are governed by the current program settings shown in your profile and platform terms."
       }
     ]
   },
   {
-    "title": "Trading Engine & Execution",
+    "title": "BlastrrPass",
     "items": [
       {
-        "question": "What financial markets and assets can I trade on Blastrr?",
-        "answer": "Blastrr provides access to simulated markets across top Digital Assets (BTC, ETH, SOL, LUN), Major/Minor Forex pairs, Gold, Oil, and Global Stock Indices."
+        "question": "What is BlastrrPass?",
+        "answer": "BlastrrPass is the app's XP, points, and rank program. Its profile and mission views show your current progress and available rewards."
       },
       {
-        "question": "When are markets open and accessible?",
-        "answer": "Crypto markets are available 24/7/365. Forex, Commodities, and Indices follow standard global financial market session hours (Sunday 17:00 EST to Friday 17:00 EST)."
+        "question": "How do I earn XP and points?",
+        "answer": "Eligible account purchases and missions shown in BlastrrPass can award XP and points. Mission requirements, awards, and availability are managed by the platform and displayed in the app."
       },
       {
-        "question": "What order types (Limit, Market, Stop) are supported?",
-        "answer": "The terminal supports standard Market execution, Limit entry orders, Stop-Limit orders, and inline Stop Loss / Take Profit parameters."
+        "question": "What do ranks and points unlock?",
+        "answer": "BlastrrPass progress determines your displayed rank. Rewards and redemption requirements are shown in the app; availability and terms may change."
       },
       {
-        "question": "How do I set or adjust Stop Loss (SL) and Take Profit (TP) targets?",
-        "answer": "You can set SL and TP values directly in the order entry panel when opening a position, or drag-and-drop the price lines on the visual trading chart to adjust them in real-time."
-      },
-      {
-        "question": "How does simulated cross-margin work on Blastrr?",
-        "answer": "Cross-margin aggregates your total open simulated equity across active positions to back open trades, giving you flexibility while requiring active management to prevent margin call liquidations."
-      },
-      {
-        "question": "How do perpetual contracts work, and do they expire?",
-        "answer": "Perpetual crypto contracts on Blastrr do not expire. Positions can be held indefinitely as long as your account maintains sufficient virtual margin and avoids liquidation."
-      },
-      {
-        "question": "How is the funding rate calculated and applied on open positions?",
-        "answer": "Funding rates update every 8 hours on perpetual positions to align simulated prices with spot indexes. Depending on market tilt (long vs. short), funding payments are automatically credited or debited from your open position equity."
-      },
-      {
-        "question": "What simulated trading fees or spreads apply on Blastrr?",
-        "answer": "Blastrr uses raw institutional spreads with a flat simulated commission structure (e.g., $3.50 per lot traded on Forex, 0.04% taker fee on Crypto perpetuals)."
-      },
-      {
-        "question": "What is the difference between Mark Price and Mid Price execution?",
-        "answer": "Mid Price: The average price between the current highest bid and lowest ask.Mark Price: A smoothed index price used to calculate unrealized PnL and trigger risk closures, protecting traders from sudden orderbook spikes or artificial slippage."
-      },
-      {
-        "question": "How do automated simulated liquidations function?",
-        "answer": "If your usable virtual margin reaches 0%, the trading engine triggers a forced liquidation, systematically closing your largest open positions to protect the account from negative equity."
-      },
-      {
-        "question": "Why might my realized PnL differ slightly from my unrealized profit shown before I closed?",
-        "answer": "Differences are typically caused by dynamic spread expansion, small execution slippage during rapid price movements, or accrued funding rate adjustments applied at the exact moment of closing."
-      },
-      {
-        "question": "How do I modify or cancel pending open orders?",
-        "answer": "Navigate to the Open Orders tab at the bottom of your trading interface and click the Cancel (X) button or edit the entry price directly on your chart."
+        "question": "Can I share my BlastrrPass profile?",
+        "answer": "Set up your profile username in the app, then use its share control to open a prefilled post on X. Profile-image and sharing options are subject to the controls shown in BlastrrPass."
       }
     ]
   },
   {
-    "title": "Simulated Deposits & Test Tokens",
+    "title": "Rewards & Withdrawals",
     "items": [
       {
-        "question": "How do I add simulated test tokens to a demo balance?",
-        "answer": "If you are operating on a trial workspace or testnet environment, you can request extra test assets by clicking Faucet or Reset Balance in your dashboard header."
+        "question": "Does reaching the profit target guarantee a payout?",
+        "answer": "No. A simulated profit target is an account metric, not a promise of payment or financial return. Any reward or withdrawal request is subject to account rules, eligibility, review, and current platform terms."
       },
       {
-        "question": "What is the minimum simulated deposit requirement?",
-        "answer": "There is no real minimum deposit since all capital is virtual. Starter testnet balances typically default to $1,000 or $10,000 in simulated test tokens."
+        "question": "How do I request a withdrawal or reward?",
+        "answer": "Use the relevant request control in your account or profile. Available request types, balances, protected amounts, and status are shown by the app. A request may be reviewed by an administrator before it is processed."
       },
       {
-        "question": "Which networks or testnets are supported for token connections?",
-        "answer": "Blastrr supports Solana Devnet/Mainnet wallet verification as well as EVM-compatible networks (Ethereum, Arbitrum, Base) for viewing and claiming tokens."
+        "question": "Where can I check a request's status?",
+        "answer": "Review the account or profile history and any status displayed in the app. If you need help, submit a support ticket with the request details."
       },
       {
-        "question": "How long do simulated balance updates take to reflect in the terminal?",
-        "answer": "Simulated balance updates and faucet distributions reflect instantly on the trading terminal canvas upon blockchain block confirmation."
-      },
-      {
-        "question": "My simulated balance has not updated. What troubleshooting steps should I take?",
-        "answer": "Ensure your Web3 wallet is connected to the correct network.Hard refresh your browser page (Ctrl + F5 or Cmd + Shift + R).Clear your browser cache or disconnect and reconnect your wallet."
+        "question": "Are rewards or withdrawals guaranteed?",
+        "answer": "No. Simulated performance does not guarantee a reward, payout, or financial return. Requests are subject to current eligibility, platform rules, review, and applicable terms."
       }
     ]
   },
   {
-    "title": "Rewards, Claims & Payouts",
+    "title": "Safety & Troubleshooting",
     "items": [
       {
-        "question": "What is the difference between a Reward Claim and a Standard Token Transfer?",
-        "answer": "A Reward Claim is a performance reward requested through Blastrr's automated portal after achieving virtual profits on a Funded Account. A standard token transfer is simply moving existing tokens between wallets."
+        "question": "What should I do if the market ticker or prices stop updating?",
+        "answer": "Check your internet connection and refresh the app. Binance or Blastrr may be temporarily unavailable. Do not rely on a stale quote; wait for live data to resume before submitting a simulated trade."
       },
       {
-        "question": "How does profit sharing and reward eligibility work on a Funded Account?",
-        "answer": "When you generate simulated net profits on a Blastrr Funded Account while adhering to all risk rules, you become eligible to request a reward payout based on your agreed profit split."
+        "question": "What if I cannot connect my wallet?",
+        "answer": "Confirm that your wallet extension or app is available, unlock it, and reload Blastrr. Use the wallet connection controls provided by the app. Never share your recovery phrase or private keys with support."
       },
       {
-        "question": "What is the percentage profit split for eligible participants?",
-        "answer": "Standard Blastrr Funded Accounts come with an 80/20 profit split (80% to the user, 20% to the platform). Traders can upgrade to a 90/10 profit split via add-on features."
-      },
-      {
-        "question": "How frequently can I submit a claim for simulated performance rewards?",
-        "answer": "First claims can be submitted 14 days after placing your first trade on a Funded Account. Subsequent claims can be requested bi-weekly or monthly based on your account level."
-      },
-      {
-        "question": "Is there a minimum profit threshold required before filing a claim?",
-        "answer": "Yes. The minimum claim threshold is $100 in eligible simulated profit."
-      },
-      {
-        "question": "Which Web3 wallets and blockchain networks are supported for submitting claims?",
-        "answer": "Claims can be processed via Solana (Phantom, Solflare) or EVM networks (Metamask, Coinbase Wallet) in major stablecoins (USDC/USDT) or native project tokens ($LUN)."
-      },
-      {
-        "question": "How do I specify the wallet address where my claimed reward should be sent?",
-        "answer": "When filling out the Claim Reward form on your dashboard, enter your public wallet address or select your connected Web3 identity."
-      },
-      {
-        "question": "Where can I inspect my historical claim submissions and account payouts?",
-        "answer": "All past claims, verification timestamps, transaction hashes, and reward statuses are permanently recorded under the Payout History tab of your user dashboard."
-      },
-      {
-        "question": "My claim request shows as processing. How long does verification take?",
-        "answer": "Claim verifications are typically audited and processed within 24 to 48 hours of submission."
-      },
-      {
-        "question": "Is identity verification or additional documentation required prior to a first reward payout?",
-        "answer": "Yes. To ensure compliance and prevent multi-account fraud, users must complete a quick 2-minute KYC/AML identity verification check (ID scan + selfie) prior to receiving their first payout."
-      }
-    ]
-  },
-  {
-    "title": "Compliance & Simulated Environment Disclaimers",
-    "items": [
-      {
-        "question": "Are Blastrr accounts backed by real financial market trades?",
-        "answer": "No. Blastrr operates strictly as a simulated performance platform. All order execution occurs within a simulated environment using synthetic orderbooks and virtual capital. No real trades are routed to live exchange books."
-      },
-      {
-        "question": "Is there any guarantee or promise of payment when participating in evaluations?",
-        "answer": "No. Blastrr does not guarantee, promise, or warrant any financial compensation, fixed return, or payment. All payouts represent performance-based reward allocations subject to explicit adherence to platform terms and verification approval."
-      },
-      {
-        "question": "Why does Blastrr operate exclusively using simulated capital?",
-        "answer": "Operating with simulated capital provides a safe, controlled ecosystem for traders to demonstrate skill without incurring personal financial risk, while enabling Blastrr to identify top-tier trading talent based on objective performance metrics."
+        "question": "Can I send tokens to my simulated trading account?",
+        "answer": "No. Simulated trading balances are not wallet deposit addresses. Only send USDT for a plan purchase when the app explicitly provides a supported payment flow, and verify the network and transaction details first."
       }
     ]
   }

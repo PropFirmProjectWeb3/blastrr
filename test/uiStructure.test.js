@@ -31,12 +31,15 @@ test('searchable public FAQ is linked from the homepage and terminal navigation'
   assert.match(faqJs, /function formatAnswer\(value\)/);
   assert.match(faqJs, /content\.replaceChildren\(\)/);
   assert.match(faqCss, /\.faq-search-row input:focus/);
-  assert.equal(faqSections.length, 9);
-  assert.equal(faqSections.reduce((count, section) => count + section.items.length, 0), 66);
+  assert.equal(faqSections.length, 8);
+  assert.equal(faqSections.reduce((count, section) => count + section.items.length, 0), 38);
   const faqQuestions = faqSections.flatMap(section => section.items.map(item => item.question));
-  assert.ok(faqQuestions.includes('My access fee payment shows as complete but I have not received my account. When will it be activated?'));
-  assert.ok(faqQuestions.includes('My simulated balance has not updated. What troubleshooting steps should I take?'));
-  assert.ok(faqQuestions.includes('My claim request shows as processing. How long does verification take?'));
+  assert.ok(faqQuestions.includes('What account plans are available?'));
+  assert.ok(faqQuestions.includes('Does the app support limit, stop-limit, or pending entry orders?'));
+  assert.ok(faqQuestions.includes('Can I claim a free account with a code?'));
+  assert.ok(faqQuestions.includes('What should I do if the market ticker or prices stop updating?'));
+  const faqCopy = JSON.stringify(faqSections);
+  assert.doesNotMatch(faqCopy, /email\/password authentication as well as|Forex Majors|testnet environment|funding rates update every 8 hours|80\/20 profit split|2-minute KYC\/AML|24\/7 via the live chat widget/i);
 });
 
 test('documentation hub is searchable, structured, and linked from the main entry points', () => {
@@ -51,28 +54,22 @@ test('documentation hub is searchable, structured, and linked from the main entr
   assert.match(docsJs, /function renderTable\(table\)/);
   assert.match(docsJs, /window\.addEventListener\('hashchange'/);
   assert.match(docsCss, /\.docs-layout \{ display: grid; grid-template-columns:/);
-  assert.equal(docsSections.length, 13);
-  assert.equal(docsSections.reduce((count, page) => count + page.groups.length, 0), 65);
+  assert.equal(docsSections.length, 8);
+  assert.equal(docsSections.reduce((count, page) => count + page.groups.length, 0), 27);
   assert.ok(docsSections.some(page => page.title === 'Trading Markets'));
-  assert.ok(docsSections.some(page => page.title === 'Funding Rates'));
-  assert.ok(docsSections.some(page => page.title === 'Temporary Leverage Limits'));
-  const accountTiers = docsSections.find(page => page.id === 'account-tiers').groups.find(group => group.title === 'Straight-to-Funded Plans');
-  assert.ok(accountTiers);
-  assert.deepEqual(accountTiers.table.headers, [
-    'Tier', 'Simulated Capital', 'Account Type', 'Profit Target',
-    'Daily Loss Limit (5%)', 'Max Drawdown (10%)', 'Consistency Rule', 'Execution Schedule'
-  ]);
-  assert.deepEqual(accountTiers.table.rows.map(row => row[0]), [
-    'Micro $5k', 'Starter $10k', 'Trader $20k', 'Pro $50k (Popular)', 'Elite $100k', 'Whale $250k'
-  ]);
-  assert.deepEqual(accountTiers.table.rows.map(row => row[1]), [
-    '$5,000', '$10,000', '$20,000', '$50,000', '$100,000', '$250,000'
-  ]);
-  assert.ok(accountTiers.table.rows.every(row => row[2] === 'Straight to Funded' && row[7] === '24/7/365'));
-  assert.deepEqual(accountTiers.table.rows.map(row => row[3]), ['$1,000', '$2,000', '$4,000', '$10,000', '$20,000', '$50,000']);
-  assert.doesNotMatch(JSON.stringify(accountTiers.table), /USDT|off|Purchase Price|Fee|Price/i);
-  const riskTable = docsSections.find(page => page.id === 'loss-limits').groups.find(group => group.title === 'Standard Risk Parameters').table;
-  assert.equal(riskTable.rows.length, 6);
+  assert.ok(docsSections.some(page => page.title === 'Trade Entry & Controls'));
+  assert.ok(docsSections.some(page => page.title === 'Account Plans & Risk Rules'));
+  const docsCopy = JSON.stringify(docsSections);
+  assert.doesNotMatch(docsCopy, /forex|commodities|cross.margin|funding rate|open interest|faucet|testnet|time in force|reduce.only|perpetual|futures|trailing drawdown|temporary leverage limits/i);
+  const marketTable = docsSections.find(page => page.id === 'trading-markets').groups.find(group => group.title === 'Configured Binance Spot Pairs').table;
+  const marketPairs = JSON.parse(fs.readFileSync('public/config/markets.json', 'utf8'))
+    .filter(market => market.enabled !== false && market.source === 'BINANCE_SPOT')
+    .map(market => market.pair.replace(/USDT$/, '/USDT'));
+  assert.deepEqual(marketTable.rows.map(row => row[1]), marketPairs);
+  const planTable = docsSections.find(page => page.id === 'account-plans').groups.find(group => group.title === 'Current Plan Parameters').table;
+  const plans = JSON.parse(fs.readFileSync('config/plans.json', 'utf8'));
+  assert.deepEqual(planTable.rows.map(row => row[1]), plans.map(plan => `$${Number(plan.simulated_capital).toLocaleString('en-US')}`));
+  assert.ok(planTable.rows.every(row => row[3].startsWith('5%') && row[4].startsWith('10%') && row[5] === '40%'));
 });
 
 test('trading terminal displays spot stats and puts account selection first in trade inputs', () => {

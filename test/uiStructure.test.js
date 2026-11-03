@@ -89,6 +89,9 @@ test('trading terminal displays market stats and keeps account selection in its 
   assert.match(appJs, /ticker\.highPrice/);
   assert.match(appJs, /ticker\.lowPrice/);
   assert.match(appJs, /ticker\.quoteVolume/);
+  assert.match(appJs, /function updateMarketTabTitle\(price, pair\)/);
+  assert.match(appJs, /updateMarketTabTitle\(price, pair\)/);
+  assert.match(appJs, /document\.title = `\$\$\{price\.toLocaleString/);
   assert.doesNotMatch(appJs, /chart-index-price|chart-funding-rate|chart-open-interest/);
   assert.match(appCss, /\.chart-market-bar/);
 });

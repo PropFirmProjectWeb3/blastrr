@@ -1,3 +1,4 @@
+const defaultPageTitle = document.title;
 let connectedWallet = null;
         let availableWallets = [];
         let userAccounts = [];
@@ -426,6 +427,7 @@ let connectedWallet = null;
 
         function onSymbolChanged(tvSymbol) {
             userHasEditedPrice = false;
+            document.title = defaultPageTitle;
             const select = document.getElementById('order-symbol');
             if (!select) return;
             const opt = select.querySelector(`option[value="${tvSymbol}"]`);
@@ -469,6 +471,18 @@ let connectedWallet = null;
                 return `${number >= 0 ? '+' : ''}${number.toFixed(2)}%`;
             }
             return number.toLocaleString(undefined, { maximumFractionDigits: 2 });
+        }
+
+        function updateMarketTabTitle(price, pair) {
+            const baseAsset = String(pair || '').replace(/USDT$/, '');
+            if (!Number.isFinite(price) || price <= 0 || !baseAsset) {
+                document.title = defaultPageTitle;
+                return;
+            }
+            document.title = `$${price.toLocaleString(undefined, {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2
+            })} | ${baseAsset}`;
         }
 
         function renderChartMarketStats(ticker) {
@@ -543,6 +557,7 @@ let connectedWallet = null;
                 if (generation !== livePriceRequestGeneration) return;
                 if (source === 'BINANCE_SPOT') renderChartMarketStats(data);
                 currentLivePrice = price;
+                updateMarketTabTitle(price, pair);
 
                 const priceInput = document.getElementById('order-price');
                 if (priceInput && currentLivePrice > 0 && !userHasEditedPrice) {

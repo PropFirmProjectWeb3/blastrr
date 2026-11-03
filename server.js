@@ -21,7 +21,7 @@ const { getProtectedPayoutBalance, getAvailableGrossWithdrawal, splitWithdrawal 
 const app = express();
 const PORT = process.env.PORT || 4480;
 
-const TREASURY_WALLET = '0x8632fa855d5dc6b59a3cf892d72cf4a94f182aae';
+const TREASURY_WALLET = '0xFBD3B9bA404f590b9A7b35B72104bEff9DEa5503';
 const DISCLAIMER_VERSION = '2026-11-02-v1';
 const MAINTENANCE_PAGE_IDS = ['home', 'trade', 'accounts', 'leaderboard', 'blastrrpass', 'profile', 'plans', 'faq', 'docs'];
 

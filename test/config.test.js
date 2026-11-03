@@ -1,7 +1,18 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
+const fs = require('node:fs');
 const plans = require('../config/plans.json');
 const markets = require('../public/config/markets.json');
+const serverJs = fs.readFileSync('server.js', 'utf8');
+const appJs = fs.readFileSync('public/js/app.js', 'utf8');
+
+test('all supported-chain purchases use the same treasury recipient in the client and verifier', () => {
+  const treasury = '0xFBD3B9bA404f590b9A7b35B72104bEff9DEa5503';
+  assert.match(serverJs, new RegExp(`const TREASURY_WALLET = '${treasury}'`));
+  assert.match(appJs, new RegExp(`const TREASURY_WALLET = "${treasury}"`));
+  assert.match(serverJs, /verifyMultiChainPurchase\(tx_hash, Number\(chain_id\), wallet_address, finalPrice, TREASURY_WALLET\)/);
+  assert.match(appJs, /const paddedRecipient = TREASURY_WALLET\.toLowerCase\(\)/);
+});
 
 test('plan configuration preserves existing seed limits and valid values', () => {
   assert.equal(plans.length, 6);

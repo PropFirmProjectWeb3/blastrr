@@ -72,7 +72,7 @@ let connectedWallet = null;
             docs: 'Docs'
         };
         
-        const TREASURY_WALLET = "0x8632fa855d5dc6b59a3cf892d72cf4a94f182aae";
+        const TREASURY_WALLET = "0xFBD3B9bA404f590b9A7b35B72104bEff9DEa5503";
         const DISCLAIMER_VERSION = '2026-11-02-v1';
 
         function escapeHTML(value) {

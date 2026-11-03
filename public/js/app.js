@@ -1385,10 +1385,11 @@ let connectedWallet = null;
             setWalletLoginStatus('');
             await initializeDashboard();
             checkRole(connectedWallet);
-            loadUserAccounts(connectedWallet);
+            const accountsLoaded = await loadUserAccounts(connectedWallet);
             loadUserProfile(connectedWallet);
             loadUserTickets(connectedWallet);
             loadBattlePass();
+            if (accountsLoaded && userAccounts.length === 0) switchView('buyView');
         }
 
         function unlockDashboard() {
@@ -1580,6 +1581,7 @@ let connectedWallet = null;
             const changedWallet = connectedWallet?.toLowerCase() !== owner;
             if (changedWallet) {
                 resetDashboardToTradeView();
+                userAccounts = [];
                 walletSessionGeneration++;
                 walletSessionToken = null;
                 walletSessionOwner = null;
@@ -1645,12 +1647,14 @@ let connectedWallet = null;
         async function silentSyncUserData(wallet) {
             try {
                 const res = await walletFetch(`/api/accounts?wallet=${encodeURIComponent(wallet)}`);
+                if (!res.ok) throw new Error('Unable to load wallet accounts.');
                 const data = await res.json();
-                userAccounts = data.accounts || [];
+                if (!Array.isArray(data.accounts)) throw new Error('The wallet account list is unavailable.');
+                userAccounts = data.accounts;
                 populateTicketAccountOptions();
 
                 const selectElem = document.getElementById('active-account-select');
-                if (!selectElem) return;
+                if (!selectElem) return true;
                 const currentSelected = selectElem.value;
                 const selectableAccounts = userAccounts.filter(isSelectableTradingAccount);
                 const nextSelected = selectableAccounts.find(account => account.id === currentSelected)?.id ||
@@ -1681,7 +1685,11 @@ let connectedWallet = null;
                 }
 
                 if (document.getElementById('accountsView')?.classList.contains('active')) renderAccountsPortfolioFlickerFree();
-            } catch (err) { console.error("Auto-sync error:", err); }
+                return true;
+            } catch (err) {
+                console.error("Auto-sync error:", err);
+                return false;
+            }
         }
 
         function manualRefreshData() {
@@ -1761,8 +1769,9 @@ let connectedWallet = null;
         }
 
         async function loadUserAccounts(wallet) {
-            await silentSyncUserData(wallet);
+            const synced = await silentSyncUserData(wallet);
             renderAccountsPortfolioFlickerFree();
+            return synced;
         }
 
         function togglePermanentlyLockedAccounts(checked) {

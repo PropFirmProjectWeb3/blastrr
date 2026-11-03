@@ -62,10 +62,12 @@ test('homepage focuses on crypto markets without promoting derivatives products'
   assert.match(landingHtml, /without the scheduled daily sessions and weekly closes typical of many FX and futures markets/);
 });
 
-test('terminal surfaces use the purple glass theme', () => {
-  assert.match(appCss, /--surface-glass: rgba\(12, 8, 18, 0\.86\)/);
+test('terminal surfaces use a black glass theme with restrained neutral borders', () => {
+  assert.match(appCss, /--surface-glass: rgba\(10, 11, 12, 0\.94\)/);
   assert.match(appCss, /backdrop-filter: blur\(20px\) saturate\(130%\)/);
-  assert.match(appCss, /background: rgba\(15, 9, 23, 0\.78\)/);
+  assert.match(appCss, /body:not\(\.auth-locked\) \{ background: #050607; \}/);
+  assert.match(appCss, /border: 1px solid rgba\(180, 190, 200, 0\.2\) !important/);
+  assert.match(appCss, /box-shadow: 0 0 8px rgba\(180, 190, 200, 0\.14\) !important/);
   assert.match(appCss, /header #nav-menu \{[\s\S]*?backdrop-filter: blur\(24px\) saturate\(145%\)/);
   assert.match(appCss, /\.hamburger-btn\.menu-open \.hamburger-glyph::before \{ transform: rotate\(45deg\); \}/);
   assert.match(appCss, /\.hamburger-btn\.menu-open \.hamburger-glyph::after \{ transform: rotate\(-45deg\); \}/);
@@ -129,6 +131,8 @@ test('terminal stays black and locked until a signed wallet session is establish
   assert.match(appCss, /body\.auth-locked[^}]*background:\s*#000/);
   assert.match(appJs, /if \(!dashboardAuthenticated \|\| !walletSessionToken \|\|[\s\S]*?lockDashboard\(\);[\s\S]*?return;/);
   assert.match(appJs, /await ensureWalletSession\(\);[\s\S]*?walletFetch\('\/api\/user\/disclaimer-consent'\)[\s\S]*?if \(consent\.accepted && consent\.version === DISCLAIMER_VERSION\)[\s\S]*?continueAfterDisclaimer\(\)/);
+  assert.match(appJs, /const accountsLoaded = await loadUserAccounts\(connectedWallet\)[\s\S]*?if \(accountsLoaded && userAccounts\.length === 0\) switchView\('buyView'\)/);
+  assert.match(appJs, /if \(!res\.ok\) throw new Error\('Unable to load wallet accounts\.'\)[\s\S]*?if \(!Array\.isArray\(data\.accounts\)\) throw new Error\('The wallet account list is unavailable\.'\)[\s\S]*?return true;[\s\S]*?return false;/);
   assert.match(appJs, /scrollArea\.scrollTop \+ scrollArea\.clientHeight >= scrollArea\.scrollHeight - 4/);
   assert.match(appJs, /accepted_terms: true,[\s\S]*?simulated_funds: true/);
   assert.match(appJs, /async function buyPlan\(planId, priceUsdt\)[\s\S]*?requestPurchaseDisclaimer\(\)[\s\S]*?completePlanPurchase\(planId, amount\)/);
@@ -179,9 +183,10 @@ test('accounts, leaderboard, and profile use responsive Battle Pass-style cards'
   assert.match(appCss, /@media \(max-width: 700px\)[\s\S]*?\.leaderboard-card-stats \{ grid-template-columns: repeat\(2, minmax\(0, 1fr\)\)/);
 });
 
-test('homepage and terminal buttons use a transparent purple-glow treatment', () => {
-  const transparentButtonRule = /button:not\(\.nav-tab\):not\(\.admin-section-tab\), input\[type="button"\], input\[type="submit"\], input\[type="reset"\], \.btn\s*\{[\s\S]*?background: transparent !important;[\s\S]*?border: 1px solid rgba\(168, 85, 247, 0\.78\) !important;[\s\S]*?box-shadow: 0 0 12px rgba\(168, 85, 247, 0\.28\)/;
-  assert.match(appCss, transparentButtonRule);
+test('homepage buttons keep purple styling while terminal buttons use restrained neutral borders', () => {
+  const terminalButtonRule = /button:not\(\.nav-tab\):not\(\.admin-section-tab\), input\[type="button"\], input\[type="submit"\], input\[type="reset"\], \.btn\s*\{[\s\S]*?background: transparent !important;[\s\S]*?border: 1px solid rgba\(180, 190, 200, 0\.2\) !important;[\s\S]*?box-shadow: 0 0 4px rgba\(180, 190, 200, 0\.06\) !important/;
+  assert.match(appCss, terminalButtonRule);
+  assert.match(appCss, /border-color: rgba\(200, 210, 220, 0\.48\) !important;[\s\S]*?box-shadow: 0 0 8px rgba\(180, 190, 200, 0\.14\) !important/);
   assert.match(appCss, /\.nav-tab \{[\s\S]*?background: transparent;[\s\S]*?border-color: transparent;/);
   assert.match(landingHtml, /button,input\[type="button"\],input\[type="submit"\],input\[type="reset"\],\.btn\{background:transparent!important;[\s\S]*?border:1px solid rgba\(168,85,247,\.78\)!important;[\s\S]*?box-shadow:0 0 12px rgba\(168,85,247,\.28\)/);
 });

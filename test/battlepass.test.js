@@ -115,9 +115,10 @@ test('terminal buy-plan cards show funded status, purchase reward styling, and a
   assert.match(appJs, /Trading availability<\/span><strong>24\/7\/365/);
 });
 
-test('dashboard and admin use purple glass surfaces with nav glow limited to active, hover, and focus states', () => {
-  assert.match(appCss, /--surface-glass:\s*rgba\(12,\s*8,\s*18,\s*0\.86\)/);
-  assert.match(appCss, /radial-gradient\(ellipse at 14% -10%, rgba\(116, 55, 223, 0\.12/);
+test('dashboard and admin use black surfaces with subdued neutral nav borders', () => {
+  assert.match(appCss, /--surface-glass:\s*rgba\(10,\s*11,\s*12,\s*0\.94\)/);
+  assert.match(appCss, /body:not\(\.auth-locked\) \{ background: #050607; \}/);
+  assert.match(appCss, /border-color: rgba\(180, 190, 200, 0\.26\);[\s\S]*?box-shadow: 0 0 6px rgba\(180, 190, 200, 0\.09\)/);
   assert.match(appCss, /\.nav-tab:hover, \.nav-tab:focus-visible/);
   assert.match(appCss, /\.nav-tab\.active/);
   assert.match(appCss, /button:not\(\.nav-tab\):not\(\.admin-section-tab\)/);

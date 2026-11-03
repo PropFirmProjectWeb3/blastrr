@@ -2,11 +2,11 @@
 
         :root {
             color-scheme: dark;
-            --surface-glass: rgba(12, 8, 18, 0.86);
-            --surface-raised: rgba(19, 12, 28, 0.72);
-            --surface-border: rgba(190, 153, 255, 0.15);
+            --surface-glass: rgba(10, 11, 12, 0.94);
+            --surface-raised: rgba(16, 17, 18, 0.9);
+            --surface-border: rgba(180, 190, 200, 0.12);
             --text-primary: #f6f3ff;
-            --text-muted: #aaa5c3;
+            --text-muted: #a5aab3;
             --accent: #a855f7;
         }
 
@@ -108,10 +108,7 @@
         
         body { 
             font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; 
-            background:
-                radial-gradient(ellipse at 14% -10%, rgba(116, 55, 223, 0.12), transparent 42%),
-                radial-gradient(ellipse at 92% 16%, rgba(91, 48, 150, 0.08), transparent 38%),
-                #050409;
+            background: #050607;
             color: var(--text-primary);
             margin: 0; 
             padding: 0; 
@@ -1050,9 +1047,9 @@
         button:not(.nav-tab):not(.admin-section-tab), input[type="button"], input[type="submit"], input[type="reset"], .btn {
             background: transparent !important;
             background-image: none !important;
-            border: 1px solid rgba(168, 85, 247, 0.78) !important;
+            border: 1px solid rgba(180, 190, 200, 0.2) !important;
             color: #f8fafc !important;
-            box-shadow: 0 0 12px rgba(168, 85, 247, 0.28), inset 0 0 8px rgba(168, 85, 247, 0.06) !important;
+            box-shadow: 0 0 4px rgba(180, 190, 200, 0.06) !important;
             transform: none;
         }
         button:not(.nav-tab):not(.admin-section-tab):hover:not(:disabled), input[type="button"]:hover, input[type="submit"]:hover,
@@ -1060,8 +1057,8 @@
         button:not(.nav-tab):not(.admin-section-tab):focus-visible, input[type="button"]:focus-visible, input[type="submit"]:focus-visible,
         input[type="reset"]:focus-visible, .btn:focus-visible {
             background: transparent !important;
-            border-color: rgba(192, 132, 252, 1) !important;
-            box-shadow: 0 0 20px rgba(168, 85, 247, 0.58), inset 0 0 10px rgba(168, 85, 247, 0.1) !important;
+            border-color: rgba(200, 210, 220, 0.48) !important;
+            box-shadow: 0 0 8px rgba(180, 190, 200, 0.14) !important;
             color: #fff !important;
             outline: none;
             transform: none;
@@ -1122,3 +1119,42 @@
             border-color: rgba(255, 99, 142, 0.72) !important;
             box-shadow: 0 0 14px rgba(255, 99, 142, 0.2), inset 0 0 14px rgba(255, 99, 142, 0.1) !important;
         }
+
+        body:not(.auth-locked) { background: #050607; }
+        header { background: rgba(7, 8, 9, 0.98); border-bottom-color: rgba(180, 190, 200, 0.1); box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3); }
+        .card { border-color: rgba(180, 190, 200, 0.11); }
+        .nav-tab:hover, .nav-tab:focus-visible,
+        .nav-tab.active, .nav-tab.admin-tab.active {
+            border-color: rgba(180, 190, 200, 0.26);
+            box-shadow: 0 0 6px rgba(180, 190, 200, 0.09), inset 0 0 5px rgba(180, 190, 200, 0.025);
+        }
+        .admin-section-tab:hover, .admin-section-tab:focus-visible, .admin-section-tab.active {
+            border-color: rgba(180, 190, 200, 0.28);
+            box-shadow: 0 0 6px rgba(180, 190, 200, 0.09), inset 0 0 5px rgba(180, 190, 200, 0.025);
+        }
+        .battlepass-mission-board, .purchase-plan-card, .profile-primary-card,
+        #profileView > .card:not(.profile-primary-card) {
+            background: linear-gradient(145deg, rgba(13, 14, 15, 0.99), rgba(6, 7, 8, 0.99));
+            border-color: rgba(180, 190, 200, 0.12);
+        }
+        .battlepass-task, .battlepass-level, .battlepass-admin-row,
+        .account-card, .profile-setup-card, .profile-display-card,
+        .profile-stat-card, .admin-account-card, .admin-creator-card,
+        .promo-code-card, .support-ticket-card, .support-review-card,
+        .workspace-toolbar, .workspace-empty-state, .account-preview-stat {
+            background: rgba(10, 11, 12, 0.88);
+            border-color: rgba(180, 190, 200, 0.1);
+        }
+        .battlepass-panel[data-battlepass-panel="leaderboard"],
+        .battlepass-panel[data-battlepass-panel="profile"] {
+            background: rgba(9, 10, 11, 0.98);
+            border-color: rgba(180, 190, 200, 0.11);
+        }
+        .purchase-plan-reward, .purchase-plan-rule, .leaderboard-card-stats > div,
+        .support-message, .order-metric {
+            background-color: rgba(5, 6, 7, 0.82);
+            border-color: rgba(180, 190, 200, 0.09);
+        }
+        .leaderboard-my-rank, .leaderboard-position.is-top-three { background: rgba(255, 255, 255, 0.035); }
+        .battlepass-tab.active { background: rgba(255, 255, 255, 0.08); border-color: rgba(255, 255, 255, 0.08); }
+        .battlepass-tab:hover { background: rgba(255, 255, 255, 0.045); }

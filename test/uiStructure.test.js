@@ -81,11 +81,15 @@ test('trading terminal displays market stats and keeps account selection in its 
   const chartFrame = appHtml.indexOf('id="tradingview-widget-container"');
   assert.ok(marketBarStart >= 0 && marketBarStart < accountSelect && accountSelect < chartFrame);
   for (const id of [
-    'chart-mid-price', 'chart-index-price', 'chart-change-24h',
-    'chart-funding-rate', 'chart-open-interest', 'chart-volume-24h'
+    'chart-mid-price', 'chart-bid-ask', 'chart-change-24h',
+    'chart-high-24h', 'chart-low-24h', 'chart-volume-24h'
   ]) assert.match(appHtml, new RegExp(`id="${id}"`));
   assert.match(appJs, /function renderChartMarketStats\(ticker\)/);
   assert.match(appJs, /api\.binance\.com\/api\/v3\/ticker\/24hr/);
+  assert.match(appJs, /ticker\.highPrice/);
+  assert.match(appJs, /ticker\.lowPrice/);
+  assert.match(appJs, /ticker\.quoteVolume/);
+  assert.doesNotMatch(appJs, /chart-index-price|chart-funding-rate|chart-open-interest/);
   assert.match(appCss, /\.chart-market-bar/);
 });
 

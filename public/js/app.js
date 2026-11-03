@@ -442,7 +442,7 @@ let connectedWallet = null;
         function resetChartMarketStats(marketLabel) {
             const marketName = document.getElementById('chart-market-name');
             if (marketName) marketName.textContent = marketLabel || 'Selected market';
-            for (const id of ['chart-mid-price', 'chart-index-price', 'chart-change-24h', 'chart-funding-rate', 'chart-open-interest', 'chart-volume-24h']) {
+            for (const id of ['chart-mid-price', 'chart-bid-ask', 'chart-change-24h', 'chart-high-24h', 'chart-low-24h', 'chart-volume-24h']) {
                 const element = document.getElementById(id);
                 if (element) {
                     element.textContent = '—';
@@ -475,24 +475,23 @@ let connectedWallet = null;
             if (!ticker) return;
             const bidPrice = Number(ticker.bidPr ?? ticker.bidPrice);
             const askPrice = Number(ticker.askPr ?? ticker.askPrice);
-            const markPrice = Number(ticker.markPrice ?? ticker.lastPr ?? ticker.lastPrice ?? ticker.price);
+            const lastPrice = Number(ticker.lastPr ?? ticker.lastPrice ?? ticker.price);
             const midPrice = Number.isFinite(bidPrice) && bidPrice > 0 && Number.isFinite(askPrice) && askPrice > 0
                 ? (bidPrice + askPrice) / 2
-                : markPrice;
-            const indexPrice = Number(ticker.indexPrice);
+                : lastPrice;
+            const bidAsk = Number.isFinite(bidPrice) && bidPrice > 0 && Number.isFinite(askPrice) && askPrice > 0
+                ? `${formatMarketStat(bidPrice, 'currency')} / ${formatMarketStat(askPrice, 'currency')}`
+                : '—';
             const changePct = Number(ticker.priceChangePercent ?? (Number(ticker.change24h) * 100));
-            const fundingRate = Number(ticker.fundingRate) * 100;
-            const openInterestBase = Number(ticker.holdingAmount ?? ticker.openInterest);
-            const openInterestUsd = Number.isFinite(openInterestBase) && Number.isFinite(markPrice)
-                ? openInterestBase * markPrice
-                : NaN;
             const volumeUsd = Number(ticker.usdtVolume ?? ticker.quoteVolume);
+            const highPrice = Number(ticker.highPrice ?? ticker.high24h);
+            const lowPrice = Number(ticker.lowPrice ?? ticker.low24h);
             const stats = [
                 ['chart-mid-price', formatMarketStat(midPrice, 'currency')],
-                ['chart-index-price', formatMarketStat(indexPrice, 'currency')],
+                ['chart-bid-ask', bidAsk],
                 ['chart-change-24h', formatMarketStat(changePct, 'percent')],
-                ['chart-funding-rate', formatMarketStat(fundingRate, 'percent')],
-                ['chart-open-interest', formatMarketStat(openInterestUsd, 'compactCurrency')],
+                ['chart-high-24h', formatMarketStat(highPrice, 'currency')],
+                ['chart-low-24h', formatMarketStat(lowPrice, 'currency')],
                 ['chart-volume-24h', formatMarketStat(volumeUsd, 'compactCurrency')]
             ];
             stats.forEach(([id, value]) => {

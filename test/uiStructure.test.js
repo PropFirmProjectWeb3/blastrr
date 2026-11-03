@@ -59,6 +59,21 @@ test('profile tools are organized into accessible section tabs', () => {
   assert.match(appCss, /\.profile-section-panel\[hidden\] \{ display: none !important; \}/);
 });
 
+test('trade entry shows the selected account balance and balance percentage shortcuts', () => {
+  const accountSelect = appHtml.indexOf('id="active-account-select"');
+  const balanceField = appHtml.indexOf('id="selected-account-balance-value"');
+  const entryAmount = appHtml.indexOf('id="order-size-usd"');
+  assert.ok(accountSelect >= 0 && balanceField > accountSelect && entryAmount > balanceField);
+  assert.match(appHtml, /id="available-bal-label"/);
+  for (const percentage of [25, 50, 100]) {
+    assert.match(appHtml, new RegExp(`setOrderSizeFromBalance\\(${percentage}\\)`));
+  }
+  assert.match(appJs, /function setOrderSizeFromBalance\(percentage\)/);
+  assert.match(appJs, /Math\.floor\(balance \* percentage\) \/ 100/);
+  assert.match(appCss, /\.selected-account-balance \{ display: flex/);
+  assert.match(appCss, /\.balance-shortcut:disabled/);
+});
+
 test('documentation hub is searchable, structured, and linked from the main entry points', () => {
   assert.match(landingHtml, /<a href="docs\.html">Docs<\/a>/);
   assert.match(appHtml, /<a class="nav-tab"[^>]*href="docs\.html">Docs<\/a>/);

@@ -555,7 +555,13 @@
         .order-metric-risk { border-color: rgba(248, 113, 113, 0.16); background: rgba(127, 29, 29, 0.16); }
         .order-metric-risk > span { color: #fca5a5; }
         .order-metric-risk > strong { color: #fee2e2; }
-        .available-balance { margin: 12px 0 0; color: #9ca3af; font-size: 12px; font-weight: 600; }
+        .selected-account-balance { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 2px 0 16px; padding: 13px 14px; border: 1px solid rgba(52, 211, 153, 0.2); border-radius: 10px; background: linear-gradient(110deg, rgba(6, 78, 59, 0.2), rgba(15, 9, 23, 0.76)); }
+        .selected-account-balance > span { min-width: 0; overflow-wrap: anywhere; color: #a7b2c0; font-size: 11px; font-weight: 650; }
+        .selected-account-balance > strong { flex: 0 0 auto; color: #72f0c3; font-size: 18px; font-variant-numeric: tabular-nums; }
+        .balance-shortcuts { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin-top: 8px; }
+        .balance-shortcut { min-height: 34px; padding: 6px 10px; border: 1px solid rgba(180, 190, 200, 0.2); border-radius: 7px; background: rgba(9, 11, 14, 0.82); color: #d7dce4; font: inherit; font-size: 12px; font-weight: 700; cursor: pointer; transition: border-color 0.15s ease, color 0.15s ease, background 0.15s ease; }
+        .balance-shortcut:hover:not(:disabled), .balance-shortcut:focus-visible { border-color: rgba(52, 211, 153, 0.55); background: rgba(6, 78, 59, 0.28); color: #a7f3d0; outline: none; }
+        .balance-shortcut:disabled { opacity: 0.45; cursor: not-allowed; }
         .order-actions { display: grid; gap: 10px; }
         .order-actions .btn-buy, .order-actions .btn-sell { margin: 0; min-height: 46px; }
         .trade-feedback { min-height: 18px; margin: 10px 0 0; color: #f87171; font-size: 12px; }

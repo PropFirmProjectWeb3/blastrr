@@ -2988,10 +2988,22 @@ let connectedWallet = null;
         }
 
         function updateAvailableBalanceLabel() {
-            const balLabel = document.getElementById('available-bal-label');
-            if (balLabel) {
-                balLabel.innerText = activeAccount ? `Available Balance: $${activeAccount.current_balance.toLocaleString()}` : `Available Balance: $0.00`;
-            }
+            const balanceLabel = document.getElementById('available-bal-label');
+            const balanceValue = document.getElementById('selected-account-balance-value');
+            const balance = activeAccount ? Math.max(0, Number(activeAccount.current_balance) || 0) : 0;
+            if (balanceLabel) balanceLabel.textContent = activeAccount ? `Selected account balance · ${activeAccount.plan_name || 'Trading account'}` : 'Selected account balance';
+            if (balanceValue) balanceValue.textContent = `$${balance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+            document.querySelectorAll('.balance-shortcut').forEach(button => { button.disabled = !activeAccount || balance <= 0; });
+        }
+
+        function setOrderSizeFromBalance(percentage) {
+            if (!activeAccount || ![25, 50, 100].includes(percentage)) return;
+            const balance = Math.max(0, Number(activeAccount.current_balance) || 0);
+            const amount = Math.floor(balance * percentage) / 100;
+            const input = document.getElementById('order-size-usd');
+            if (!input || amount <= 0) return;
+            input.value = amount.toFixed(2);
+            calculateMetrics();
         }
 
         async function monitorClientStops() {

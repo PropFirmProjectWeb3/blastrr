@@ -195,9 +195,19 @@
                             <input type="number" id="order-price" oninput="onPriceInputChanged()" style="background: rgba(5, 7, 11, 0.95); color: #34d399; font-weight: bold; border-color: rgba(52, 211, 153, 0.2);">
                         </div>
 
+                        <div class="selected-account-balance" aria-live="polite">
+                            <span id="available-bal-label">Selected account balance</span>
+                            <strong id="selected-account-balance-value">$0.00</strong>
+                        </div>
+
                         <div class="form-group">
                             <label>Collateral Margin ($ USD)</label>
                             <input type="number" id="order-size-usd" placeholder="500" min="10" oninput="calculateMetrics()">
+                            <div class="balance-shortcuts" role="group" aria-label="Set collateral margin as a percentage of selected account balance">
+                                <button type="button" class="balance-shortcut" onclick="setOrderSizeFromBalance(25)" disabled>25%</button>
+                                <button type="button" class="balance-shortcut" onclick="setOrderSizeFromBalance(50)" disabled>50%</button>
+                                <button type="button" class="balance-shortcut" onclick="setOrderSizeFromBalance(100)" disabled>100%</button>
+                            </div>
                             <div class="order-metrics" aria-live="polite">
                                 <section class="order-metric">
                                     <span>Total Position Notional</span>
@@ -210,7 +220,6 @@
                                     <small>Estimate only; actual liquidation may vary.</small>
                                 </section>
                             </div>
-                            <p id="available-bal-label" class="available-balance">Available Balance: $0.00</p>
                         </div>
 
                         <div class="form-group">

@@ -21,6 +21,7 @@ test('searchable public FAQ is linked from the homepage and terminal navigation'
   assert.match(landingHtml, /<a href="faq\.html">FAQ<\/a>/);
   assert.match(appHtml, /<a class="nav-tab" href="faq\.html">FAQ<\/a>/);
   assert.match(faqHtml, /<title>FAQ &amp; Knowledge Base \| Blastrr<\/title>/);
+  assert.match(faqHtml, /<a href="\/docs\.html">Docs<\/a>/);
   assert.match(faqHtml, /<input id="faq-search" type="search"/);
   assert.match(faqHtml, /id="faq-results" class="faq-results" role="status"/);
   assert.match(faqHtml, /id="faq-content" class="faq-content"/);

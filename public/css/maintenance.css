@@ -1,0 +1,33 @@
+.site-maintenance-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 9999;
+    display: grid;
+    place-items: center;
+    padding: 24px;
+    background: rgba(5, 6, 8, 0.97);
+}
+
+.site-maintenance-content {
+    width: min(100%, 560px);
+    padding: 30px;
+    border: 1px solid rgba(180, 190, 200, 0.16);
+    border-radius: 16px;
+    background: #0c0e10;
+    color: #e5e7eb;
+    font: 15px/1.65 Inter, ui-sans-serif, system-ui, sans-serif;
+}
+
+.site-maintenance-content h1 {
+    margin: 0 0 12px;
+    color: #f3f4f6;
+    font-size: clamp(23px, 5vw, 32px);
+    font-weight: 600;
+    letter-spacing: -0.035em;
+}
+
+.site-maintenance-content p {
+    margin: 0;
+    color: #aeb4bc;
+    white-space: pre-wrap;
+}

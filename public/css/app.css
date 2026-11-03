@@ -500,6 +500,25 @@
         .chart-heading-group { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
         .market-hours-status { display: inline-flex; align-items: center; gap: 7px; padding: 6px 9px; border: 1px solid rgba(104, 240, 192, 0.2); border-radius: 999px; background: rgba(16, 90, 72, 0.2); color: #6ee7b7; font-size: 10px; font-weight: 800; letter-spacing: 0.045em; white-space: nowrap; }
         .market-hours-status-dot { width: 7px; height: 7px; border-radius: 50%; background: #68f0c0; box-shadow: 0 0 10px rgba(104, 240, 192, 0.75); }
+        .chart-market-bar { display: flex; align-items: stretch; gap: 22px; margin: 0 0 10px; padding: 12px 14px; overflow-x: auto; border: 1px solid rgba(180, 190, 200, 0.11); border-radius: 10px; background: rgba(7, 9, 10, 0.94); scrollbar-width: thin; }
+        .chart-market-account { display: grid; flex: 0 0 190px; align-content: center; gap: 5px; padding-right: 18px; border-right: 1px solid rgba(180, 190, 200, 0.12); }
+        .chart-market-account label, .chart-market-stat > span { color: #9298a1; font-size: 11px; font-weight: 500; white-space: nowrap; }
+        .chart-market-account select { width: 100%; min-width: 0; padding: 5px 8px; border: 1px solid rgba(180, 190, 200, 0.16); border-radius: 7px; background: #101213; color: #e5e7eb; font: inherit; font-size: 12px; }
+        .chart-market-stat { display: grid; flex: 0 0 auto; align-content: center; gap: 4px; min-width: 102px; }
+        .chart-market-stat > strong { color: #e1e4e8; font-size: 15px; font-weight: 500; white-space: nowrap; font-variant-numeric: tabular-nums; }
+        .chart-market-stat > strong.is-positive { color: #6ee7b7; }
+        .chart-market-stat > strong.is-negative { color: #f87171; }
+        .maintenance-notice-card { width: min(100%, 720px); margin: clamp(24px, 8vh, 80px) auto; padding: clamp(24px, 5vw, 44px); border-color: rgba(180, 190, 200, 0.14); background: rgba(10, 12, 14, 0.96); }
+        .maintenance-eyebrow { color: #9298a1; font-size: 10px; font-weight: 600; letter-spacing: 0.14em; }
+        .maintenance-notice-card h1 { margin: 10px 0; color: #e5e7eb; font-size: clamp(24px, 4vw, 34px); font-weight: 600; letter-spacing: -0.035em; }
+        .maintenance-notice-card p { margin: 0; color: #aeb4bc; line-height: 1.65; white-space: pre-wrap; }
+        .maintenance-page-options { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin: 18px 0 22px; }
+        .maintenance-page-options label { display: flex; align-items: center; gap: 9px; min-height: 42px; padding: 9px 11px; border: 1px solid rgba(180, 190, 200, 0.12); border-radius: 8px; background: rgba(7, 9, 10, 0.72); color: #c4c9d0; font-size: 12px; cursor: pointer; }
+        .maintenance-page-options input { width: 15px; height: 15px; margin: 0; accent-color: #9ca3af; }
+        .maintenance-message-field { max-width: 760px; margin-bottom: 14px; }
+        .maintenance-message-field label { display: block; margin-bottom: 7px; color: #c4c9d0; font-size: 12px; }
+        .maintenance-message-field textarea { width: 100%; min-height: 104px; padding: 11px 12px; border: 1px solid rgba(180, 190, 200, 0.14); border-radius: 8px; background: #080a0b; color: #e5e7eb; font: inherit; font-size: 13px; resize: vertical; }
+        .maintenance-message-field textarea::placeholder { color: #737b85; }
         #tradingview-widget-container { position: relative; width: 100%; height: clamp(500px, 65vh, 960px); border-radius: 8px; overflow: hidden; }
         .live-market-chart-host { width: 100%; height: 100%; }
         .live-market-chart-status { position: absolute; top: 12px; left: 12px; z-index: 1; color: #9ca3af; font-size: 12px; pointer-events: none; }
@@ -603,6 +622,11 @@
             main { padding: 16px 12px; }
             .chart-heading-group { gap: 8px; }
             .market-hours-status { font-size: 9px; }
+            .chart-market-bar { gap: 16px; margin-bottom: 8px; padding: 10px 11px; }
+            .chart-market-account { flex-basis: 160px; padding-right: 13px; }
+            .chart-market-stat { min-width: 92px; }
+            .chart-market-stat > strong { font-size: 13px; }
+            .maintenance-page-options { grid-template-columns: repeat(2, minmax(0, 1fr)); }
             header { flex-wrap: wrap; row-gap: 10px; gap: 10px; padding: 12px; }
             .logo { font-size: 17px; gap: 10px; }
             .logo .brand-mark { flex-basis: 30px; width: 30px; height: 30px; }

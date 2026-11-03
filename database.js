@@ -168,6 +168,17 @@ function initTables() {
       standard_discount_pct REAL NOT NULL DEFAULT 90
     )`);
 
+    db.run(`CREATE TABLE IF NOT EXISTS site_maintenance (
+      page_id TEXT PRIMARY KEY,
+      is_offline INTEGER NOT NULL DEFAULT 0,
+      outage_message TEXT NOT NULL DEFAULT '',
+      updated_by TEXT,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    )`);
+    for (const pageId of ['home', 'trade', 'accounts', 'leaderboard', 'blastrrpass', 'profile', 'plans', 'faq', 'docs']) {
+      db.run('INSERT OR IGNORE INTO site_maintenance (page_id) VALUES (?)', [pageId]);
+    }
+
     db.run(`CREATE TABLE IF NOT EXISTS battlepass_plan_rewards (
       plan_id INTEGER PRIMARY KEY,
       xp_reward INTEGER NOT NULL DEFAULT 1000,

@@ -23,6 +23,7 @@ const PORT = process.env.PORT || 4480;
 
 const TREASURY_WALLET = '0x8632fa855d5dc6b59a3cf892d72cf4a94f182aae';
 const DISCLAIMER_VERSION = '2026-11-02-v1';
+const MAINTENANCE_PAGE_IDS = ['home', 'trade', 'accounts', 'leaderboard', 'blastrrpass', 'profile', 'plans', 'faq', 'docs'];
 
 // --- SUPPORTED EVM CHAINS CONFIGURATION ---
 const SUPPORTED_EVM_CHAINS = {
@@ -1251,6 +1252,80 @@ app.get('/api/leaderboard', (req, res) => {
   db.all(query, [], (err, rows) => {
     if (err) return res.status(500).json({ error: err.message });
     res.json({ leaderboard: rows || [], mode });
+  });
+});
+
+app.get('/api/maintenance/status', (req, res) => {
+  db.all(
+    'SELECT page_id, is_offline, outage_message FROM site_maintenance ORDER BY page_id',
+    [],
+    (err, pages) => {
+      if (err) return res.status(500).json({ error: 'Unable to load site maintenance status.' });
+      res.json({
+        pages: pages || [],
+        outage_message: pages?.find(page => page.outage_message)?.outage_message || ''
+      });
+    }
+  );
+});
+
+app.post('/api/admin/maintenance/load', sensitiveLimiter, requireTradeSignature, requireAdminWallet, (req, res) => {
+  db.all(
+    'SELECT page_id, is_offline, outage_message, updated_at FROM site_maintenance ORDER BY page_id',
+    [],
+    (err, pages) => {
+      if (err) return res.status(500).json({ error: 'Unable to load maintenance settings.' });
+      res.json({
+        pages: pages || [],
+        outage_message: pages?.find(page => page.outage_message)?.outage_message || ''
+      });
+    }
+  );
+});
+
+app.post('/api/admin/maintenance/save', sensitiveLimiter, requireTradeSignature, requireAdminWallet, (req, res) => {
+  const offlinePages = req.body?.offline_pages;
+  const outageMessage = typeof req.body?.outage_message === 'string' ? req.body.outage_message.trim() : '';
+  if (!Array.isArray(offlinePages) ||
+      offlinePages.some(pageId => typeof pageId !== 'string' || !MAINTENANCE_PAGE_IDS.includes(pageId)) ||
+      new Set(offlinePages).size !== offlinePages.length) {
+    return res.status(400).json({ error: 'Choose valid pages to place under maintenance.' });
+  }
+  if (outageMessage.length > 1000 || (offlinePages.length > 0 && !outageMessage)) {
+    return res.status(400).json({ error: 'Enter an outage message of up to 1,000 characters for selected pages.' });
+  }
+
+  const offlineSet = new Set(offlinePages);
+  const wallet = req.body.wallet_address.toLowerCase();
+  const rollback = error => db.run('ROLLBACK', () => res.status(500).json({ error }));
+  db.serialize(() => {
+    db.run('BEGIN IMMEDIATE', beginErr => {
+      if (beginErr) return res.status(500).json({ error: 'Unable to start maintenance settings update.' });
+      let index = 0;
+      const saveNextPage = () => {
+        if (index >= MAINTENANCE_PAGE_IDS.length) {
+          return db.run('COMMIT', commitErr => {
+            if (commitErr) return rollback('Unable to save maintenance settings.');
+            res.json({ success: true });
+          });
+        }
+        const pageId = MAINTENANCE_PAGE_IDS[index++];
+        db.run(
+          `INSERT INTO site_maintenance (page_id, is_offline, outage_message, updated_by, updated_at)
+           VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)
+           ON CONFLICT(page_id) DO UPDATE SET
+             is_offline = excluded.is_offline,
+             outage_message = excluded.outage_message,
+             updated_by = excluded.updated_by,
+             updated_at = CURRENT_TIMESTAMP`,
+          [pageId, offlineSet.has(pageId) ? 1 : 0, outageMessage, wallet],
+          saveErr => saveErr
+            ? rollback('Unable to save maintenance settings.')
+            : saveNextPage()
+        );
+      };
+      saveNextPage();
+    });
   });
 });
 

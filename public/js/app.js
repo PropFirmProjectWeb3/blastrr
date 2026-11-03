@@ -44,6 +44,28 @@ let connectedWallet = null;
         let adminBattlePassTasks = [];
                 let marketsData = [];
                 const closingTradeIds = new Set();
+        let maintenanceStatuses = {};
+        let maintenanceMessage = '';
+        let currentWalletIsAdmin = false;
+        const maintenanceViewPages = {
+            tradeView: 'trade',
+            accountsView: 'accounts',
+            leaderboardView: 'leaderboard',
+            blastrrPassView: 'blastrrpass',
+            profileView: 'profile',
+            buyView: 'plans'
+        };
+        const maintenancePageLabels = {
+            home: 'Homepage',
+            trade: 'Trading Terminal',
+            accounts: 'My Accounts',
+            leaderboard: 'Leaderboard',
+            blastrrpass: 'BlastrrPass',
+            profile: 'Profile & Promos',
+            plans: 'Buy Plans',
+            faq: 'FAQ',
+            docs: 'Docs'
+        };
         
         const TREASURY_WALLET = "0x8632fa855d5dc6b59a3cf892d72cf4a94f182aae";
         const DISCLAIMER_VERSION = '2026-11-02-v1';
@@ -145,6 +167,8 @@ let connectedWallet = null;
         }
 
         window.addEventListener('DOMContentLoaded', async () => {
+            await loadMaintenanceStatus();
+            setInterval(loadMaintenanceStatus, 30000);
             const disclaimerScrollArea = document.getElementById('disclaimer-scroll-area');
             disclaimerScrollArea?.addEventListener('scroll', updateDisclaimerScrollState);
             document.getElementById('disclaimer-accept-terms')?.addEventListener('change', updateDisclaimerContinueState);
@@ -406,12 +430,80 @@ let connectedWallet = null;
             if (!select) return;
             const opt = select.querySelector(`option[value="${tvSymbol}"]`);
             if (!opt) return;
+            resetChartMarketStats(opt.textContent);
             if (opt.dataset.source === 'BITGET_PERP') {
                 initLiveMarketChart(opt.dataset.pair);
             } else {
                 updateTradingViewSymbol(tvSymbol);
             }
             startPricePolling(opt.dataset.pair, opt.dataset.type, opt.dataset.source);
+        }
+
+        function resetChartMarketStats(marketLabel) {
+            const marketName = document.getElementById('chart-market-name');
+            if (marketName) marketName.textContent = marketLabel || 'Selected market';
+            for (const id of ['chart-mid-price', 'chart-index-price', 'chart-change-24h', 'chart-funding-rate', 'chart-open-interest', 'chart-volume-24h']) {
+                const element = document.getElementById(id);
+                if (element) {
+                    element.textContent = '—';
+                    element.classList.remove('is-positive', 'is-negative');
+                }
+            }
+        }
+
+        function formatMarketStat(value, style = 'number') {
+            const number = Number(value);
+            if (!Number.isFinite(number)) return '—';
+            if (style === 'currency') {
+                return `$${number.toLocaleString(undefined, { maximumFractionDigits: 2 })}`;
+            }
+            if (style === 'compactCurrency') {
+                return new Intl.NumberFormat('en-US', {
+                    style: 'currency',
+                    currency: 'USD',
+                    notation: 'compact',
+                    maximumFractionDigits: 2
+                }).format(number);
+            }
+            if (style === 'percent') {
+                return `${number >= 0 ? '+' : ''}${number.toFixed(2)}%`;
+            }
+            return number.toLocaleString(undefined, { maximumFractionDigits: 2 });
+        }
+
+        function renderChartMarketStats(ticker) {
+            if (!ticker) return;
+            const bidPrice = Number(ticker.bidPr ?? ticker.bidPrice);
+            const askPrice = Number(ticker.askPr ?? ticker.askPrice);
+            const markPrice = Number(ticker.markPrice ?? ticker.lastPr ?? ticker.lastPrice ?? ticker.price);
+            const midPrice = Number.isFinite(bidPrice) && bidPrice > 0 && Number.isFinite(askPrice) && askPrice > 0
+                ? (bidPrice + askPrice) / 2
+                : markPrice;
+            const indexPrice = Number(ticker.indexPrice);
+            const changePct = Number(ticker.priceChangePercent ?? (Number(ticker.change24h) * 100));
+            const fundingRate = Number(ticker.fundingRate) * 100;
+            const openInterestBase = Number(ticker.holdingAmount ?? ticker.openInterest);
+            const openInterestUsd = Number.isFinite(openInterestBase) && Number.isFinite(markPrice)
+                ? openInterestBase * markPrice
+                : NaN;
+            const volumeUsd = Number(ticker.usdtVolume ?? ticker.quoteVolume);
+            const stats = [
+                ['chart-mid-price', formatMarketStat(midPrice, 'currency')],
+                ['chart-index-price', formatMarketStat(indexPrice, 'currency')],
+                ['chart-change-24h', formatMarketStat(changePct, 'percent')],
+                ['chart-funding-rate', formatMarketStat(fundingRate, 'percent')],
+                ['chart-open-interest', formatMarketStat(openInterestUsd, 'compactCurrency')],
+                ['chart-volume-24h', formatMarketStat(volumeUsd, 'compactCurrency')]
+            ];
+            stats.forEach(([id, value]) => {
+                const element = document.getElementById(id);
+                if (element) element.textContent = value;
+            });
+            const change = document.getElementById('chart-change-24h');
+            if (change && Number.isFinite(changePct)) {
+                change.classList.toggle('is-positive', changePct > 0);
+                change.classList.toggle('is-negative', changePct < 0);
+            }
         }
 
         function startPricePolling(pair, type, source) {
@@ -424,7 +516,7 @@ let connectedWallet = null;
         async function fetchPrice(pair, type, source, generation) {
             try {
                 const endpoint = source === 'BINANCE_SPOT'
-                    ? `https://api.binance.com/api/v3/ticker/price?symbol=${encodeURIComponent(pair)}`
+                    ? `https://api.binance.com/api/v3/ticker/24hr?symbol=${encodeURIComponent(pair)}`
                     : source === 'BITGET_PERP'
                         ? `https://api.bitget.com/api/v2/mix/market/ticker?productType=USDT-FUTURES&symbol=${encodeURIComponent(pair)}`
                         : null;
@@ -434,16 +526,23 @@ let connectedWallet = null;
                 const data = await res.json();
                 let price;
                 if (source === 'BINANCE_SPOT') {
-                    price = Number(data?.price);
+                    price = Number(data?.lastPrice);
                 } else {
-                    if (data?.code !== '00000') throw new Error(`Bitget price request failed (${data?.msg || data?.code}).`);
-                    const ticker = data.data?.[0];
-                    if (ticker?.symbol !== pair) throw new Error('Bitget returned an unexpected market symbol.');
-                    price = Number(ticker.markPrice);
-                    if (generation === livePriceRequestGeneration) updateLiveMarketChart(ticker);
+                    if (source === 'BITGET_PERP') {
+                        if (data?.code !== '00000') throw new Error(`Bitget price request failed (${data?.msg || data?.code}).`);
+                        const ticker = data.data?.[0];
+                        if (ticker?.symbol !== pair) throw new Error('Bitget returned an unexpected market symbol.');
+                        price = Number(ticker.markPrice);
+                        if (generation === livePriceRequestGeneration) updateLiveMarketChart(ticker);
+                        if (generation === livePriceRequestGeneration) renderChartMarketStats(ticker);
+                    } else {
+                        price = Number(data?.lastPrice);
+                        if (generation === livePriceRequestGeneration) renderChartMarketStats(data);
+                    }
                 }
                 if (!Number.isFinite(price) || price <= 0) throw new Error('Market provider returned an invalid price.');
                 if (generation !== livePriceRequestGeneration) return;
+                if (source === 'BINANCE_SPOT') renderChartMarketStats(data);
                 currentLivePrice = price;
 
                 const priceInput = document.getElementById('order-price');
@@ -498,6 +597,11 @@ let connectedWallet = null;
                 lockDashboard();
                 return;
             }
+            const pageId = maintenanceViewPages[viewId];
+            if (pageId && maintenanceStatuses[pageId] && !currentWalletIsAdmin) {
+                renderMaintenanceView(pageId);
+                viewId = 'maintenanceView';
+            }
             document.querySelectorAll('.view-panel').forEach(panel => panel.classList.remove('active'));
             document.querySelectorAll('.nav-tab').forEach(tab => tab.classList.remove('active'));
             
@@ -519,17 +623,54 @@ let connectedWallet = null;
                     loadAdminPromoManagement();
                 }
                 if (document.getElementById('admin-battlepass-panel')?.hidden === false) loadAdminBattlePass();
+                if (document.getElementById('admin-maintenance-panel')?.hidden === false) loadAdminMaintenanceSettings();
             }
             else if (viewId === 'leaderboardView') loadLeaderboard(currentLeaderboardMode);
             else if (viewId === 'accountsView' && connectedWallet) loadUserAccounts(connectedWallet);
             else if (viewId === 'blastrrPassView' && connectedWallet) loadBattlePass();
         }
 
+        async function loadMaintenanceStatus() {
+            try {
+                const response = await fetch('/api/maintenance/status');
+                const data = await response.json();
+                if (!response.ok) throw new Error(data.error || 'Unable to load maintenance status.');
+                maintenanceStatuses = Object.fromEntries(
+                    (data.pages || []).map(page => [page.page_id, Number(page.is_offline) === 1])
+                );
+                maintenanceMessage = data.outage_message || '';
+                updateMaintenanceNavigation();
+                const activeView = document.querySelector('.view-panel.active')?.id;
+                const activePageId = maintenanceViewPages[activeView];
+                if (activePageId && maintenanceStatuses[activePageId] && !currentWalletIsAdmin &&
+                    dashboardAuthenticated && activeView !== 'maintenanceView') {
+                    switchView(activeView);
+                }
+            } catch (error) {
+                console.error('Unable to load maintenance status:', error);
+            }
+        }
+
+        function updateMaintenanceNavigation() {
+            document.querySelectorAll('[data-maintenance-page]').forEach(link => {
+                const offline = maintenanceStatuses[link.dataset.maintenancePage];
+                link.hidden = Boolean(offline && !currentWalletIsAdmin);
+            });
+        }
+
+        function renderMaintenanceView(pageId) {
+            const title = document.getElementById('maintenance-view-title');
+            const message = document.getElementById('maintenance-view-message');
+            if (title) title.textContent = `${maintenancePageLabels[pageId] || 'This service'} is temporarily unavailable`;
+            if (message) message.textContent = maintenanceMessage || 'This service is temporarily unavailable while we make updates.';
+        }
+
         function switchAdminSection(panelId) {
             const sections = [
                 ['admin-operations-panel', 'admin-operations-tab'],
                 ['admin-creators-panel', 'admin-creators-tab'],
-                ['admin-battlepass-panel', 'admin-battlepass-tab']
+                ['admin-battlepass-panel', 'admin-battlepass-tab'],
+                ['admin-maintenance-panel', 'admin-maintenance-tab']
             ];
             if (!sections.some(([id]) => id === panelId)) return;
             sections.forEach(([id, tabId]) => {
@@ -545,6 +686,7 @@ let connectedWallet = null;
                 loadAdminPromoManagement();
             }
             if (panelId === 'admin-battlepass-panel') loadAdminBattlePass();
+            if (panelId === 'admin-maintenance-panel') loadAdminMaintenanceSettings();
         }
 
         function battlePassLevelForXp(xp) {
@@ -1769,8 +1911,13 @@ let connectedWallet = null;
             try {
                 const res = await fetch(`/api/auth/role?wallet=${wallet}`);
                 const data = await res.json();
+                currentWalletIsAdmin = Boolean(data.isAdmin);
                 const adminNav = document.getElementById('admin-nav-item');
                 if (adminNav) adminNav.style.display = data.isAdmin ? 'inline-block' : 'none';
+                updateMaintenanceNavigation();
+                const activeView = document.querySelector('.view-panel.active')?.id;
+                const pageId = maintenanceViewPages[activeView];
+                if (!currentWalletIsAdmin && pageId && maintenanceStatuses[pageId]) switchView(activeView);
             } catch (err) { console.error(err); }
         }
 
@@ -2411,6 +2558,66 @@ let connectedWallet = null;
             } catch (err) {
                 console.error(err);
                 container.innerHTML = `<p class="support-feedback">${escapeHTML(err.message)}</p>`;
+            }
+        }
+
+        async function loadAdminMaintenanceSettings() {
+            const container = document.getElementById('admin-maintenance-pages');
+            const message = document.getElementById('admin-maintenance-message');
+            const feedback = document.getElementById('admin-maintenance-feedback');
+            if (!container) return;
+            if (feedback) feedback.textContent = 'Loading maintenance settings...';
+            try {
+                const authorization = await signedTradeAuthorization();
+                const response = await fetch('/api/admin/maintenance/load', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(authorization)
+                });
+                const data = await readAdminApiResponse(response, '/api/admin/maintenance/load');
+                if (!response.ok) throw new Error(data.error || 'Unable to load maintenance settings.');
+                const settings = new Map((data.pages || []).map(page => [page.page_id, Number(page.is_offline) === 1]));
+                container.querySelectorAll('input[type="checkbox"]').forEach(input => {
+                    input.checked = Boolean(settings.get(input.value));
+                });
+                if (message) message.value = data.outage_message || '';
+                if (feedback) feedback.textContent = '';
+            } catch (error) {
+                console.error(error);
+                if (feedback) feedback.textContent = error.message;
+            }
+        }
+
+        async function saveAdminMaintenanceSettings(button) {
+            const container = document.getElementById('admin-maintenance-pages');
+            const message = document.getElementById('admin-maintenance-message')?.value.trim() || '';
+            const feedback = document.getElementById('admin-maintenance-feedback');
+            const offlinePages = Array.from(container?.querySelectorAll('input[type="checkbox"]:checked') || [])
+                .map(input => input.value);
+            if (offlinePages.length && !message) {
+                if (feedback) feedback.textContent = 'Add an outage message before taking pages offline.';
+                return;
+            }
+            if (button) button.disabled = true;
+            if (feedback) feedback.textContent = 'Saving maintenance settings...';
+            try {
+                const authorization = await signedTradeAuthorization();
+                const response = await fetch('/api/admin/maintenance/save', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ ...authorization, offline_pages: offlinePages, outage_message: message })
+                });
+                const data = await readAdminApiResponse(response, '/api/admin/maintenance/save');
+                if (!response.ok) throw new Error(data.error || 'Unable to save maintenance settings.');
+                await loadMaintenanceStatus();
+                if (feedback) feedback.textContent = offlinePages.length
+                    ? `Maintenance enabled for ${offlinePages.length} ${offlinePages.length === 1 ? 'page' : 'pages'}.`
+                    : 'All selected services are online.';
+            } catch (error) {
+                console.error(error);
+                if (feedback) feedback.textContent = error.message;
+            } finally {
+                if (button) button.disabled = false;
             }
         }
 
@@ -3528,6 +3735,9 @@ let connectedWallet = null;
         document.getElementById('admin-creator-search-form')?.addEventListener('submit', event => {
             event.preventDefault();
             loadAdminCreatorSearch(document.getElementById('admin-creator-search')?.value.trim() || '');
+        });
+        document.getElementById('admin-maintenance-save')?.addEventListener('click', event => {
+            saveAdminMaintenanceSettings(event.currentTarget);
         });
         document.getElementById('admin-promo-code-form')?.addEventListener('submit', async event => {
             event.preventDefault();

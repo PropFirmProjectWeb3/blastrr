@@ -7,6 +7,7 @@ const appHtml = fs.readFileSync('public/app.html', 'utf8');
 const appJs = fs.readFileSync('public/js/app.js', 'utf8');
 const appCss = fs.readFileSync('public/css/app.css', 'utf8');
 const landingHtml = fs.readFileSync('public/index.html', 'utf8');
+const databaseJs = fs.readFileSync('database.js', 'utf8');
 const serverJs = fs.readFileSync('server.js', 'utf8');
 const faqHtml = fs.readFileSync('public/faq.html', 'utf8');
 const faqJs = fs.readFileSync('public/js/faq.js', 'utf8');
@@ -19,7 +20,7 @@ const docsSections = JSON.parse(fs.readFileSync('public/docs-data.json', 'utf8')
 
 test('searchable public FAQ is linked from the homepage and terminal navigation', () => {
   assert.match(landingHtml, /<a href="faq\.html">FAQ<\/a>/);
-  assert.match(appHtml, /<a class="nav-tab" href="faq\.html">FAQ<\/a>/);
+  assert.match(appHtml, /<a class="nav-tab"[^>]*href="faq\.html">FAQ<\/a>/);
   assert.match(faqHtml, /<title>FAQ &amp; Knowledge Base \| Blastrr<\/title>/);
   assert.match(faqHtml, /<a href="\/docs\.html">Docs<\/a>/);
   assert.match(faqHtml, /<input id="faq-search" type="search"/);
@@ -40,7 +41,7 @@ test('searchable public FAQ is linked from the homepage and terminal navigation'
 
 test('documentation hub is searchable, structured, and linked from the main entry points', () => {
   assert.match(landingHtml, /<a href="docs\.html">Docs<\/a>/);
-  assert.match(appHtml, /<a class="nav-tab" href="docs\.html">Docs<\/a>/);
+  assert.match(appHtml, /<a class="nav-tab"[^>]*href="docs\.html">Docs<\/a>/);
   assert.match(docsHtml, /<title>Documentation \| Blastrr<\/title>/);
   assert.match(docsHtml, /id="docs-search" type="search"/);
   assert.match(docsHtml, /id="docs-nav" class="docs-nav"/);
@@ -72,6 +73,39 @@ test('documentation hub is searchable, structured, and linked from the main entr
   assert.doesNotMatch(JSON.stringify(accountTiers.table), /USDT|off|Purchase Price|Fee|Price/i);
   const riskTable = docsSections.find(page => page.id === 'loss-limits').groups.find(group => group.title === 'Standard Risk Parameters').table;
   assert.equal(riskTable.rows.length, 6);
+});
+
+test('trading terminal displays market stats and keeps account selection in its chart toolbar', () => {
+  const marketBarStart = appHtml.indexOf('<div class="chart-market-bar"');
+  const accountSelect = appHtml.indexOf('id="active-account-select"');
+  const chartFrame = appHtml.indexOf('id="tradingview-widget-container"');
+  assert.ok(marketBarStart >= 0 && marketBarStart < accountSelect && accountSelect < chartFrame);
+  for (const id of [
+    'chart-mid-price', 'chart-index-price', 'chart-change-24h',
+    'chart-funding-rate', 'chart-open-interest', 'chart-volume-24h'
+  ]) assert.match(appHtml, new RegExp(`id="${id}"`));
+  assert.match(appJs, /function renderChartMarketStats\(ticker\)/);
+  assert.match(appJs, /api\.binance\.com\/api\/v3\/ticker\/24hr/);
+  assert.match(appCss, /\.chart-market-bar/);
+});
+
+test('admin can toggle maintenance for each public page and set an outage message', () => {
+  assert.match(databaseJs, /CREATE TABLE IF NOT EXISTS site_maintenance/);
+  assert.match(databaseJs, /'home', 'trade', 'accounts', 'leaderboard', 'blastrrpass', 'profile', 'plans', 'faq', 'docs'/);
+  assert.match(serverJs, /app\.get\('\/api\/maintenance\/status'/);
+  assert.match(serverJs, /app\.post\('\/api\/admin\/maintenance\/load', sensitiveLimiter, requireTradeSignature, requireAdminWallet/);
+  assert.match(serverJs, /app\.post\('\/api\/admin\/maintenance\/save', sensitiveLimiter, requireTradeSignature, requireAdminWallet/);
+  assert.match(appHtml, /id="admin-maintenance-pages"/);
+  assert.match(appHtml, /id="admin-maintenance-message"/);
+  assert.match(appHtml, /id="maintenanceView"/);
+  assert.match(appJs, /function loadAdminMaintenanceSettings\(\)/);
+  assert.match(appJs, /function saveAdminMaintenanceSettings\(button\)/);
+  assert.match(appJs, /function renderMaintenanceView\(pageId\)/);
+  assert.match(appJs, /admin-maintenance-panel/);
+  assert.match(fs.readFileSync('public/js/maintenance-page.js', 'utf8'), /message\.textContent = data\.outage_message/);
+  assert.match(fs.readFileSync('public/faq.html', 'utf8'), /data-maintenance-page="faq"/);
+  assert.match(fs.readFileSync('public/docs.html', 'utf8'), /data-maintenance-page="docs"/);
+  assert.match(fs.readFileSync('public/index.html', 'utf8'), /data-maintenance-page="home"/);
 });
 
 test('trading terminal HTML loads its external stylesheet and application script', () => {
@@ -319,7 +353,7 @@ test('chart account selector excludes risk-locked accounts and clears when none 
 
 test('Binance spot and Bitget perp markets use direct browser prices and trusted server pricing', () => {
   assert.match(appJs, /setInterval\(\(\) => fetchPrice\(pair, type, source, generation\), 1000\)/);
-  assert.match(appJs, /https:\/\/api\.binance\.com\/api\/v3\/ticker\/price\?symbol=/);
+  assert.match(appJs, /https:\/\/api\.binance\.com\/api\/v3\/ticker\/24hr\?symbol=/);
   assert.match(appJs, /https:\/\/api\.bitget\.com\/api\/v2\/mix\/market\/ticker\?productType=USDT-FUTURES&symbol=/);
   assert.match(appJs, /https:\/\/api\.bitget\.com\/api\/v2\/mix\/market\/candles\?productType=USDT-FUTURES/);
   assert.match(appJs, /data\?\.code !== '00000'/);

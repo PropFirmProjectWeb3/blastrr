@@ -73,14 +73,14 @@
 
         <!-- UNIFIED IN-PAGE NAVIGATION -->
         <nav id="nav-menu">
-            <button class="nav-tab active" onclick="switchView('tradeView')">Trade Terminal</button>
-            <button class="nav-tab" onclick="switchView('accountsView')">My Accounts</button>
-            <button class="nav-tab" onclick="switchView('leaderboardView')">Leaderboard</button>
-            <button class="nav-tab" onclick="switchView('blastrrPassView')">BlastrrPass</button>
-            <button class="nav-tab" onclick="switchView('profileView')">Profile &amp; Promos</button>
-            <button class="nav-tab" onclick="switchView('buyView')">Buy Plans</button>
-            <a class="nav-tab" href="faq.html">FAQ</a>
-            <a class="nav-tab" href="docs.html">Docs</a>
+            <button class="nav-tab active" data-maintenance-page="trade" onclick="switchView('tradeView')">Trade Terminal</button>
+            <button class="nav-tab" data-maintenance-page="accounts" onclick="switchView('accountsView')">My Accounts</button>
+            <button class="nav-tab" data-maintenance-page="leaderboard" onclick="switchView('leaderboardView')">Leaderboard</button>
+            <button class="nav-tab" data-maintenance-page="blastrrpass" onclick="switchView('blastrrPassView')">BlastrrPass</button>
+            <button class="nav-tab" data-maintenance-page="profile" onclick="switchView('profileView')">Profile &amp; Promos</button>
+            <button class="nav-tab" data-maintenance-page="plans" onclick="switchView('buyView')">Buy Plans</button>
+            <a class="nav-tab" data-maintenance-page="faq" href="faq.html">FAQ</a>
+            <a class="nav-tab" data-maintenance-page="docs" href="docs.html">Docs</a>
             <button id="admin-nav-item" class="nav-tab admin-tab" onclick="switchView('adminView')">Admin Control</button>
         </nav>
 
@@ -122,11 +122,21 @@
                             </div>
                             <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
                                 <button class="btn-wallet" style="padding: 5px 10px; font-size: 11px;" onclick="manualRefreshData()">Refresh</button>
-                                <label style="font-size: 11px; color: #9ca3af; text-transform: uppercase; font-weight: 700;">Active Account:</label>
-                                <select id="active-account-select" onchange="switchActiveAccount(this.value)" style="background: #05070b; border: 1px solid rgba(255, 255, 255, 0.1); color: white; padding: 6px 10px; border-radius: 6px; font-size: 13px;">
+                            </div>
+                        </div>
+                        <div class="chart-market-bar" aria-label="Selected market information">
+                            <div class="chart-market-account">
+                                <label for="active-account-select">Active account</label>
+                                <select id="active-account-select" onchange="switchActiveAccount(this.value)">
                                     <option value="">No Accounts Found</option>
                                 </select>
                             </div>
+                            <div class="chart-market-stat"><span>Mid Price</span><strong id="chart-mid-price">—</strong></div>
+                            <div class="chart-market-stat"><span>Index Price</span><strong id="chart-index-price">—</strong></div>
+                            <div class="chart-market-stat"><span>24h Change</span><strong id="chart-change-24h">—</strong></div>
+                            <div class="chart-market-stat" title="Current funding rate; settlement interval can vary by market."><span>Funding Rate</span><strong id="chart-funding-rate">—</strong></div>
+                            <div class="chart-market-stat"><span>Open Interest</span><strong id="chart-open-interest">—</strong></div>
+                            <div class="chart-market-stat"><span>24h Volume</span><strong id="chart-volume-24h">—</strong></div>
                         </div>
                         <div id="tradingview-widget-container"></div>
                     </div>
@@ -568,12 +578,21 @@
             </div>
         </section>
 
+        <section id="maintenanceView" class="view-panel">
+            <div class="card maintenance-notice-card">
+                <span class="maintenance-eyebrow">SERVICE UPDATE</span>
+                <h1 id="maintenance-view-title">Temporarily unavailable</h1>
+                <p id="maintenance-view-message">This service is temporarily unavailable while we make updates.</p>
+            </div>
+        </section>
+
         <!-- 6. ADMIN CONTROL VIEW -->
         <section id="adminView" class="view-panel">
             <div class="admin-section-tabs" role="tablist" aria-label="Admin sections">
                 <button id="admin-operations-tab" class="admin-section-tab active" role="tab" aria-selected="true" onclick="switchAdminSection('admin-operations-panel')">Operations</button>
                 <button id="admin-creators-tab" class="admin-section-tab" role="tab" aria-selected="false" onclick="switchAdminSection('admin-creators-panel')">Creators &amp; Promos</button>
                 <button id="admin-battlepass-tab" class="admin-section-tab" role="tab" aria-selected="false" onclick="switchAdminSection('admin-battlepass-panel')">BlastrrPass</button>
+                <button id="admin-maintenance-tab" class="admin-section-tab" role="tab" aria-selected="false" onclick="switchAdminSection('admin-maintenance-panel')">Maintenance</button>
             </div>
             <div id="admin-operations-panel" class="admin-section-panel">
             <div class="card" style="border-color: rgba(220, 38, 38, 0.3);">
@@ -728,6 +747,29 @@
                     </form>
                     <p id="admin-battlepass-task-feedback" class="support-feedback" role="status" aria-live="polite"></p>
                     <div id="admin-battlepass-custom-tasks" class="battlepass-admin-list"></div>
+                </div>
+            </div>
+            <div id="admin-maintenance-panel" class="admin-section-panel" role="tabpanel" hidden>
+                <div class="card">
+                    <div class="card-title">Service maintenance</div>
+                    <p class="support-note">Select the pages to take offline. Visitors will see your outage message instead. Admin Control remains available so you can restore services after updates.</p>
+                    <div id="admin-maintenance-pages" class="maintenance-page-options">
+                        <label><input type="checkbox" value="home"> Homepage</label>
+                        <label><input type="checkbox" value="trade"> Trading Terminal</label>
+                        <label><input type="checkbox" value="accounts"> My Accounts</label>
+                        <label><input type="checkbox" value="leaderboard"> Leaderboard</label>
+                        <label><input type="checkbox" value="blastrrpass"> BlastrrPass</label>
+                        <label><input type="checkbox" value="profile"> Profile &amp; Promos</label>
+                        <label><input type="checkbox" value="plans"> Buy Plans</label>
+                        <label><input type="checkbox" value="faq"> FAQ</label>
+                        <label><input type="checkbox" value="docs"> Docs</label>
+                    </div>
+                    <div class="form-group maintenance-message-field">
+                        <label for="admin-maintenance-message">Outage message</label>
+                        <textarea id="admin-maintenance-message" rows="4" maxlength="1000" placeholder="Describe the maintenance or outage and when users can expect service to return."></textarea>
+                    </div>
+                    <button id="admin-maintenance-save" class="btn-wallet" type="button">Save maintenance settings</button>
+                    <p id="admin-maintenance-feedback" class="support-feedback" role="status" aria-live="polite"></p>
                 </div>
             </div>
         </section>

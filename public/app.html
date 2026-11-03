@@ -336,6 +336,14 @@
                                 <div id="battlepass-monthly-progress" class="battlepass-mission-steps" aria-hidden="true"></div>
                                 <div id="battlepass-monthly-tasks" class="battlepass-task-list"></div>
                             </section>
+                            <section class="battlepass-mission-group battlepass-monthly-group">
+                                <header class="battlepass-mission-group-header">
+                                    <div><h2>One-time missions</h2><span class="battlepass-period-tag">Earn once</span></div>
+                                    <span id="battlepass-once-count" class="battlepass-mission-count">0 of 0 done</span>
+                                </header>
+                                <div id="battlepass-once-progress" class="battlepass-mission-steps" aria-hidden="true"></div>
+                                <div id="battlepass-once-tasks" class="battlepass-task-list"></div>
+                            </section>
                         </div>
                     </div>
                 </div>
@@ -373,8 +381,16 @@
         <section id="profileView" class="view-panel workspace-view">
             <div class="battlepass-page-heading">
                 <div><span class="battlepass-eyebrow">YOUR BLASTRR PROFILE</span><h1>Profile &amp; promos</h1></div>
-                <p class="support-note">Manage your creator profile, referrals, promo codes, and account support.</p>
+                <p class="support-note">Choose a tool to manage referrals, claim an account, apply as a creator, or get support.</p>
             </div>
+            <div class="admin-section-tabs profile-section-tabs" role="tablist" aria-label="Profile tools">
+                <button id="profile-referrals-tab" class="admin-section-tab active" role="tab" aria-selected="true" aria-controls="profile-referrals-panel" onclick="switchProfileSection('profile-referrals-panel')">Referrals</button>
+                <button id="profile-promo-tab" class="admin-section-tab" role="tab" aria-selected="false" aria-controls="profile-promo-panel" onclick="switchProfileSection('profile-promo-panel')">Claim free account</button>
+                <button id="profile-creator-tab" class="admin-section-tab" role="tab" aria-selected="false" aria-controls="profile-creator-panel" onclick="switchProfileSection('profile-creator-panel')">Creator application</button>
+                <button id="profile-support-tab" class="admin-section-tab" role="tab" aria-selected="false" aria-controls="profile-support-panel" onclick="switchProfileSection('profile-support-panel')">Support tickets</button>
+                <button id="profile-reviews-tab" class="admin-section-tab" role="tab" aria-selected="false" aria-controls="profile-reviews-panel" onclick="switchProfileSection('profile-reviews-panel')">Share a review</button>
+            </div>
+            <section id="profile-referrals-panel" class="profile-section-panel" role="tabpanel" aria-labelledby="profile-referrals-tab">
             <div class="card profile-primary-card">
                 <div class="card-title">
                     <span>Creator &amp; affiliate profile</span>
@@ -429,6 +445,8 @@
                     </div>
                 </div>
             </div>
+            </section>
+            <section id="profile-promo-panel" class="profile-section-panel" role="tabpanel" aria-labelledby="profile-promo-tab" hidden>
             <div class="card promo-claim-card">
                 <div class="card-title">Claim a free account</div>
                 <p class="support-note">Enter a one-time promotional code from the Blastrr team to add its account plan to your wallet.</p>
@@ -438,6 +456,8 @@
                 </div>
                 <p id="free-account-feedback" class="support-feedback" role="status" aria-live="polite"></p>
             </div>
+            </section>
+            <section id="profile-creator-panel" class="profile-section-panel" role="tabpanel" aria-labelledby="profile-creator-tab" hidden>
             <section class="card creator-application-card" aria-labelledby="creator-application-title">
                 <div class="creator-application-heading">
                     <div>
@@ -488,6 +508,8 @@
                     <p id="creator-application-feedback" class="support-feedback" role="status" aria-live="polite"></p>
                 </form>
             </section>
+            </section>
+            <section id="profile-support-panel" class="profile-section-panel" role="tabpanel" aria-labelledby="profile-support-tab" hidden>
             <div class="card support-card">
                 <div class="card-title">Account support tickets</div>
                 <p class="support-note">Describe the issue in text and attach it to the account where possible. Do not include passwords, seed phrases, or private keys. File uploads are not supported.</p>
@@ -514,6 +536,8 @@
                     <p class="account-chart-empty">Connect your wallet to view tickets.</p>
                 </div>
             </div>
+            </section>
+            <section id="profile-reviews-panel" class="profile-section-panel" role="tabpanel" aria-labelledby="profile-reviews-tab" hidden>
             <div class="card review-card">
                 <div class="card-title">Share a review</div>
                 <p class="support-note">Only wallets with a purchased account can review. Submit one review per account; edits return the review to the admin team for approval.</p>
@@ -546,6 +570,7 @@
                     <p id="review-form-feedback" class="support-feedback" role="status" aria-live="polite"></p>
                 </form>
             </div>
+            </section>
         </section>
 
         <!-- 5. BUY PLANS VIEW -->

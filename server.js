@@ -699,6 +699,7 @@ function getBattlePassLevel(xp) {
 }
 
 function getBattlePassPeriodKey(cadence, date = new Date()) {
+  if (cadence === 'ONCE') return 'ONCE';
   const year = date.getUTCFullYear();
   const month = String(date.getUTCMonth() + 1).padStart(2, '0');
   const day = String(date.getUTCDate()).padStart(2, '0');
@@ -966,16 +967,22 @@ app.get('/api/battlepass', requireWalletSession, (req, res) => {
                         (SELECT c.period_key FROM battlepass_task_claims c
                          WHERE c.task_id = t.id AND LOWER(c.wallet_address) = LOWER(?)
                            AND c.cadence = t.cadence
-                         ORDER BY c.created_at DESC LIMIT 1) AS last_period_key
+                         ORDER BY c.created_at DESC LIMIT 1) AS last_period_key,
+                        EXISTS (SELECT 1 FROM battlepass_events e
+                                WHERE e.event_type = 'PLATFORM_REVIEW'
+                                  AND LOWER(e.wallet_address) = LOWER(?)) AS review_completed
                  FROM battlepass_tasks t WHERE t.active = 1
-                 ORDER BY CASE t.cadence WHEN 'DAILY' THEN 1 WHEN 'WEEKLY' THEN 2 ELSE 3 END, t.id`,
-                [req.walletAddress],
+                 ORDER BY CASE t.cadence WHEN 'DAILY' THEN 1 WHEN 'WEEKLY' THEN 2 WHEN 'MONTHLY' THEN 3 ELSE 4 END, t.id`,
+                [req.walletAddress, req.walletAddress],
                 (tasksErr, tasks) => {
                   if (tasksErr) return res.status(500).json({ error: 'Unable to load battle pass tasks.' });
                   for (const task of tasks || []) {
                     const taskPeriod = getBattlePassTaskPeriod(task);
-                    task.claimed = task.last_period_key === taskPeriod.claimPeriodKey;
+                    task.claimed = task.task_type === 'PLATFORM_REVIEW'
+                      ? Number(task.review_completed) === 1
+                      : task.last_period_key === taskPeriod.claimPeriodKey;
                     delete task.last_period_key;
+                    delete task.review_completed;
                   }
                   const eligibleTasks = tasks || [];
                   let taskIndex = 0;
@@ -1000,6 +1007,10 @@ app.get('/api/battlepass', requireWalletSession, (req, res) => {
                     const task = eligibleTasks[taskIndex++];
                     const period = getBattlePassTaskPeriod(task);
                     if (task.claimed) {
+                      task.eligible = false;
+                      return checkTaskEligibility();
+                    }
+                    if (task.task_type === 'PLATFORM_REVIEW') {
                       task.eligible = false;
                       return checkTaskEligibility();
                     }
@@ -1825,18 +1836,77 @@ app.post('/api/user/reviews', sensitiveLimiter, requireWalletSession, (req, res)
       (accountErr, account) => {
         if (accountErr) return res.status(500).json({ error: 'Unable to verify purchased account eligibility.' });
         if (!account) return res.status(403).json({ error: 'Reviews are available only for accounts purchased by this wallet.' });
-        db.run(
-          `INSERT INTO user_reviews (account_id, wallet_address, username, rating, comment, published)
-           VALUES (?, ?, ?, ?, ?, 0)
-           ON CONFLICT(account_id) DO UPDATE SET username = excluded.username,
-             rating = excluded.rating, comment = excluded.comment, published = 0,
-             updated_at = CURRENT_TIMESTAMP
-           WHERE LOWER(user_reviews.wallet_address) = LOWER(excluded.wallet_address)`,
-          [accountId, req.walletAddress, user.username, rating, comment],
-          function(saveErr) {
-            if (saveErr) return res.status(500).json({ error: 'Unable to save your review.' });
-            if (this.changes !== 1) return res.status(403).json({ error: 'This account review belongs to another wallet.' });
-            res.json({ success: true, message: 'Review saved and sent to the admin team for review.' });
+        db.get(
+          `SELECT xp_reward, points_reward FROM battlepass_tasks
+           WHERE task_type = 'PLATFORM_REVIEW' AND is_builtin = 1 AND active = 1`,
+          [],
+          (taskErr, task) => {
+            if (taskErr) return res.status(500).json({ error: 'Unable to load the BlastrrPass review reward.' });
+            if (!task) return res.status(503).json({ error: 'The BlastrrPass review reward is temporarily unavailable.' });
+            db.serialize(() => {
+              db.run('BEGIN IMMEDIATE', beginErr => {
+                if (beginErr) return res.status(500).json({ error: 'Unable to start review submission.' });
+                const rollback = (status, error) => db.run('ROLLBACK', () => res.status(status).json({ error }));
+                db.run(
+                  `INSERT INTO user_reviews (account_id, wallet_address, username, rating, comment, published)
+                   VALUES (?, ?, ?, ?, ?, 0)
+                   ON CONFLICT(account_id) DO UPDATE SET username = excluded.username,
+                     rating = excluded.rating, comment = excluded.comment, published = 0,
+                     updated_at = CURRENT_TIMESTAMP
+                   WHERE LOWER(user_reviews.wallet_address) = LOWER(excluded.wallet_address)`,
+                  [accountId, req.walletAddress, user.username, rating, comment],
+                  function(saveErr) {
+                    if (saveErr) return rollback(500, 'Unable to save your review.');
+                    if (this.changes !== 1) return rollback(403, 'This account review belongs to another wallet.');
+                    db.run(
+                      `INSERT OR IGNORE INTO battlepass_events
+                       (id, wallet_address, event_type, reference_id, xp, points)
+                       VALUES (?, ?, 'PLATFORM_REVIEW', ?, ?, ?)`,
+                      [
+                        `bpe_${crypto.randomBytes(10).toString('hex')}`,
+                        req.walletAddress,
+                        req.walletAddress.toLowerCase(),
+                        task.xp_reward,
+                        task.points_reward
+                      ],
+                      function(eventErr) {
+                        if (eventErr) return rollback(500, 'Unable to record the BlastrrPass review reward.');
+                        const rewardApplied = this.changes === 1;
+                        const finish = () => db.run('COMMIT', commitErr => {
+                          if (commitErr) return rollback(500, 'Unable to complete review submission.');
+                          res.json({
+                            success: true,
+                            message: rewardApplied
+                              ? `Review saved for admin review. Your one-time BlastrrPass reward of ${task.xp_reward} XP and ${task.points_reward} points was applied.`
+                              : 'Review saved and sent to the admin team for review. Your one-time BlastrrPass reward was already earned.',
+                            xp_awarded: rewardApplied ? Number(task.xp_reward) : 0,
+                            points_awarded: rewardApplied ? Number(task.points_reward) : 0
+                          });
+                        });
+                        if (!rewardApplied) return finish();
+                        db.run(
+                          `INSERT OR IGNORE INTO battlepass_users (wallet_address) VALUES (?)`,
+                          [req.walletAddress],
+                          insertErr => {
+                            if (insertErr) return rollback(500, 'Unable to prepare your BlastrrPass balance.');
+                            db.run(
+                              `UPDATE battlepass_users
+                               SET xp = xp + ?, points = points + ?, updated_at = CURRENT_TIMESTAMP
+                               WHERE LOWER(wallet_address) = LOWER(?)`,
+                              [task.xp_reward, task.points_reward, req.walletAddress],
+                              balanceErr => {
+                                if (balanceErr) return rollback(500, 'Unable to apply your BlastrrPass reward.');
+                                finish();
+                              }
+                            );
+                          }
+                        );
+                      }
+                    );
+                  }
+                );
+              });
+            });
           }
         );
       }

@@ -206,8 +206,8 @@ function initTables() {
       title TEXT NOT NULL,
       description TEXT NOT NULL,
       action_url TEXT NOT NULL DEFAULT 'https://x.com/',
-      task_type TEXT NOT NULL DEFAULT 'SOCIAL_CLICK' CHECK(task_type IN ('SOCIAL_CLICK', 'GREEN_DAY', 'GREEN_WEEK', 'TRADE_DAY', 'WITHDRAWAL')),
-      cadence TEXT NOT NULL DEFAULT 'DAILY' CHECK(cadence IN ('DAILY', 'WEEKLY', 'MONTHLY')),
+      task_type TEXT NOT NULL DEFAULT 'SOCIAL_CLICK' CHECK(task_type IN ('SOCIAL_CLICK', 'GREEN_DAY', 'GREEN_WEEK', 'TRADE_DAY', 'WITHDRAWAL', 'PLATFORM_REVIEW')),
+      cadence TEXT NOT NULL DEFAULT 'DAILY' CHECK(cadence IN ('DAILY', 'WEEKLY', 'MONTHLY', 'ONCE')),
       xp_reward INTEGER NOT NULL,
       points_reward INTEGER NOT NULL,
       active INTEGER NOT NULL DEFAULT 1,
@@ -342,7 +342,8 @@ function initTables() {
             ['Green day', 'Finish the previous UTC day with positive realized trading profit. Claim after the day closes.', 'GREEN_DAY', 'DAILY', 500, 50],
             ['Green week', 'Finish the previous UTC week with positive realized trading profit. Claim after the week closes.', 'GREEN_WEEK', 'WEEKLY', 2500, 250],
             ['Trade each day', 'Close at least one trade during the current UTC day.', 'TRADE_DAY', 'DAILY', 100, 10],
-            ['Paid withdrawal', 'Claim after a withdrawal is marked paid during this UTC day.', 'WITHDRAWAL', 'DAILY', 500, 50]
+            ['Paid withdrawal', 'Claim after a withdrawal is marked paid during this UTC day.', 'WITHDRAWAL', 'DAILY', 500, 50],
+            ['Review the platform', 'Submit a review through the internal review form to earn this one-time reward automatically.', 'PLATFORM_REVIEW', 'ONCE', 200, 200]
           ];
           const seedNext = index => {
             if (index >= defaults.length) return;
@@ -375,7 +376,8 @@ function initTables() {
             console.error('Unable to inspect battlepass_tasks constraints', schemaErr?.message || 'Table definition not found.');
             return;
           }
-          if (schema.sql.includes("'TRADE_DAY'")) return seedTasks();
+          if (schema.sql.includes("'TRADE_DAY'") && schema.sql.includes("'PLATFORM_REVIEW'") &&
+              schema.sql.includes("'ONCE'")) return seedTasks();
           db.run('PRAGMA foreign_keys = OFF', pragmaErr => {
             if (pragmaErr) {
               console.error('Unable to prepare battlepass task migration', pragmaErr.message);
@@ -393,8 +395,8 @@ function initTables() {
                   title TEXT NOT NULL,
                   description TEXT NOT NULL,
                   action_url TEXT NOT NULL DEFAULT 'https://x.com/',
-                  task_type TEXT NOT NULL DEFAULT 'SOCIAL_CLICK' CHECK(task_type IN ('SOCIAL_CLICK', 'GREEN_DAY', 'GREEN_WEEK', 'TRADE_DAY', 'WITHDRAWAL')),
-                  cadence TEXT NOT NULL DEFAULT 'DAILY' CHECK(cadence IN ('DAILY', 'WEEKLY', 'MONTHLY')),
+                  task_type TEXT NOT NULL DEFAULT 'SOCIAL_CLICK' CHECK(task_type IN ('SOCIAL_CLICK', 'GREEN_DAY', 'GREEN_WEEK', 'TRADE_DAY', 'WITHDRAWAL', 'PLATFORM_REVIEW')),
+                  cadence TEXT NOT NULL DEFAULT 'DAILY' CHECK(cadence IN ('DAILY', 'WEEKLY', 'MONTHLY', 'ONCE')),
                   xp_reward INTEGER NOT NULL,
                   points_reward INTEGER NOT NULL,
                   active INTEGER NOT NULL DEFAULT 1,

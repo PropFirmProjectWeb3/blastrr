@@ -30,6 +30,23 @@ test('battle pass task rewards are period-limited and built-in trading tasks are
   assert.match(serverJs, /app\.post\('\/api\/battlepass\/tasks\/claim', sensitiveLimiter, requireWalletSession/);
 });
 
+test('platform reviews award a one-time automatic BlastrrPass reward', () => {
+  assert.match(databaseJs, /'PLATFORM_REVIEW'/);
+  assert.match(databaseJs, /'ONCE'/);
+  assert.match(databaseJs, /'Review the platform'.*'PLATFORM_REVIEW', 'ONCE', 200, 200/);
+  assert.match(serverJs, /e\.event_type = 'PLATFORM_REVIEW'[\s\S]*?LOWER\(e\.wallet_address\) = LOWER\(\?\)/);
+  assert.match(serverJs, /INSERT OR IGNORE INTO battlepass_events[\s\S]*?'PLATFORM_REVIEW'/);
+  assert.match(serverJs, /UPDATE battlepass_users[\s\S]*?xp = xp \+ \?, points = points \+ \?/);
+  assert.match(serverJs, /task_type = 'PLATFORM_REVIEW' AND is_builtin = 1 AND active = 1/);
+  assert.match(serverJs, /task\.task_type === 'PLATFORM_REVIEW'[\s\S]*?task\.eligible = false/);
+  assert.match(appJs, /Automatically applied when you submit a review/);
+  assert.match(appJs, /task\.task_type === 'PLATFORM_REVIEW'[\s\S]*?'Earned once'/);
+  assert.match(appJs, /data-review-task/);
+  assert.match(appJs, /switchProfileSection\('profile-reviews-panel'\)/);
+  assert.match(appHtml, /id="battlepass-once-tasks"/);
+  assert.match(appHtml, /One-time missions/);
+});
+
 test('admin can configure standard discounts, level costs, plan awards, and custom tasks', () => {
   assert.match(appHtml, /id="admin-battlepass-settings-form"/);
   assert.match(appHtml, /id="admin-battlepass-level-rewards"/);

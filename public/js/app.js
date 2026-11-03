@@ -818,6 +818,25 @@ let connectedWallet = null;
             if (panelId === 'admin-maintenance-panel') loadAdminMaintenanceSettings();
         }
 
+        function switchProfileSection(panelId) {
+            const sections = [
+                ['profile-referrals-panel', 'profile-referrals-tab'],
+                ['profile-promo-panel', 'profile-promo-tab'],
+                ['profile-creator-panel', 'profile-creator-tab'],
+                ['profile-support-panel', 'profile-support-tab'],
+                ['profile-reviews-panel', 'profile-reviews-tab']
+            ];
+            if (!sections.some(([id]) => id === panelId)) return;
+            sections.forEach(([id, tabId]) => {
+                const selected = id === panelId;
+                const panel = document.getElementById(id);
+                const tab = document.getElementById(tabId);
+                if (panel) panel.hidden = !selected;
+                tab?.classList.toggle('active', selected);
+                tab?.setAttribute('aria-selected', String(selected));
+            });
+        }
+
         function battlePassLevelForXp(xp) {
             return Math.min(12, Math.floor(Math.max(0, Number(xp) || 0) / 10000));
         }
@@ -942,7 +961,8 @@ let connectedWallet = null;
             const groups = {
                 DAILY: document.getElementById('battlepass-daily-tasks'),
                 WEEKLY: document.getElementById('battlepass-weekly-tasks'),
-                MONTHLY: document.getElementById('battlepass-monthly-tasks')
+                MONTHLY: document.getElementById('battlepass-monthly-tasks'),
+                ONCE: document.getElementById('battlepass-once-tasks')
             };
             Object.values(groups).forEach(container => { if (container) container.replaceChildren(); });
             for (const [cadence, container] of Object.entries(groups)) {
@@ -976,9 +996,14 @@ let connectedWallet = null;
                     const action = task.task_type === 'SOCIAL_CLICK' && url
                         ? `<a class="battlepass-task-action" href="${safeUrl}" target="_blank" rel="noopener noreferrer" data-task-link="${Number(task.id)}">${task.claimed ? 'Open task again' : 'Open task &amp; earn reward'}</a>`
                         : '';
-                    const state = task.claimed ? 'Earned this period' : task.eligible ? 'Reward ready to claim' : 'Complete the activity to unlock';
-                    const claimButton = task.task_type !== 'SOCIAL_CLICK' && !task.claimed
+                    const state = task.task_type === 'PLATFORM_REVIEW'
+                        ? task.claimed ? 'Earned once' : 'Automatically applied when you submit a review'
+                        : task.claimed ? 'Earned this period' : task.eligible ? 'Reward ready to claim' : 'Complete the activity to unlock';
+                    const claimButton = !['SOCIAL_CLICK', 'PLATFORM_REVIEW'].includes(task.task_type) && !task.claimed
                         ? `<button class="btn-wallet" type="button" data-task-claim="${Number(task.id)}" ${task.eligible ? '' : 'disabled'}>${task.eligible ? 'Claim reward' : 'Not ready'}</button>`
+                        : '';
+                    const reviewButton = task.task_type === 'PLATFORM_REVIEW' && !task.claimed
+                        ? '<button class="battlepass-task-action" type="button" data-review-task>Write a review</button>'
                         : '';
                     const embed = xPostUrl
                         ? `<details class="battlepass-x-preview"><summary>Preview X post</summary><blockquote class="twitter-tweet"><a href="${xPostUrl}" target="_blank" rel="noopener noreferrer">View post on X</a></blockquote></details>`
@@ -986,12 +1011,17 @@ let connectedWallet = null;
                     return `<article class="battlepass-task" data-battlepass-task="${Number(task.id)}">
                         <div class="battlepass-task-copy"><div class="battlepass-task-heading"><strong>${escapeHTML(task.title)}</strong>
                         <span class="battlepass-task-awards"><span><i class="battlepass-gem" aria-hidden="true">◆</i> +${Number(task.points_reward)}</span><span class="battlepass-award-divider"></span><span><i class="battlepass-xp-mark" aria-hidden="true">XP</i> +${Number(task.xp_reward).toLocaleString()}</span></span></div>
-                        <p>${escapeHTML(task.description)}</p><div class="battlepass-task-action-row"><span class="battlepass-task-status ${task.claimed ? 'is-claimed' : task.eligible ? 'is-ready' : ''}">${state}</span>${embed}${action}${claimButton}</div></div></article>`;
+                        <p>${escapeHTML(task.description)}</p><div class="battlepass-task-action-row"><span class="battlepass-task-status ${task.claimed ? 'is-claimed' : task.eligible ? 'is-ready' : ''}">${state}</span>${embed}${action}${reviewButton}${claimButton}</div></div></article>`;
                 }).join('');
                 container.onclick = event => {
                     const button = event.target.closest('[data-task-claim]');
                     const link = event.target.closest('[data-task-link]');
+                    const reviewLink = event.target.closest('[data-review-task]');
                     if (button && !button.disabled) claimBattlePassTask(button.dataset.taskClaim, button);
+                    if (reviewLink) {
+                        switchView('profileView');
+                        switchProfileSection('profile-reviews-panel');
+                    }
                     if (link && !link.closest('[data-battlepass-task]')?.querySelector('.battlepass-task-status.is-claimed')) {
                         claimBattlePassTask(link.dataset.taskLink);
                     }
@@ -3626,8 +3656,8 @@ let connectedWallet = null;
                 });
                 const data = await response.json();
                 if (!response.ok) throw new Error(data.error || 'Unable to submit review.');
+                await Promise.all([loadUserReview(connectedWallet), loadBattlePass()]);
                 if (feedback) feedback.textContent = data.message;
-                await loadUserReview(connectedWallet);
             } catch (err) {
                 console.error(err);
                 if (feedback) feedback.textContent = err.message;

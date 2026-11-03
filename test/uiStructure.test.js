@@ -42,6 +42,23 @@ test('searchable public FAQ is linked from the homepage and terminal navigation'
   assert.doesNotMatch(faqCopy, /email\/password authentication as well as|Forex Majors|testnet environment|funding rates update every 8 hours|80\/20 profit split|2-minute KYC\/AML|24\/7 via the live chat widget/i);
 });
 
+test('profile tools are organized into accessible section tabs', () => {
+  const profileViewStart = appHtml.indexOf('<section id="profileView"');
+  const profileViewEnd = appHtml.indexOf('<!-- 5. BUY PLANS VIEW -->', profileViewStart);
+  const profileHtml = appHtml.slice(profileViewStart, profileViewEnd);
+  const toolIds = ['referrals', 'promo', 'creator', 'support', 'reviews'];
+  assert.match(profileHtml, /class="admin-section-tabs profile-section-tabs" role="tablist" aria-label="Profile tools"/);
+  for (const id of toolIds) {
+    assert.match(profileHtml, new RegExp(`id="profile-${id}-tab"[^>]*role="tab"`));
+    assert.match(profileHtml, new RegExp(`id="profile-${id}-panel"[^>]*role="tabpanel"`));
+    assert.match(profileHtml, new RegExp(`aria-controls="profile-${id}-panel"`));
+    assert.match(profileHtml, new RegExp(`aria-labelledby="profile-${id}-tab"`));
+  }
+  assert.match(appJs, /function switchProfileSection\(panelId\)/);
+  assert.match(profileHtml, /switchProfileSection\('profile-support-panel'\)/);
+  assert.match(appCss, /\.profile-section-panel\[hidden\] \{ display: none !important; \}/);
+});
+
 test('documentation hub is searchable, structured, and linked from the main entry points', () => {
   assert.match(landingHtml, /<a href="docs\.html">Docs<\/a>/);
   assert.match(appHtml, /<a class="nav-tab"[^>]*href="docs\.html">Docs<\/a>/);

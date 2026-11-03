@@ -454,6 +454,10 @@
         .admin-section-tab { border: 1px solid transparent; border-radius: 8px; padding: 9px 14px; background: transparent; color: #cbd5e1; cursor: pointer; font: inherit; font-weight: 700; }
         .admin-section-tab:hover, .admin-section-tab:focus-visible, .admin-section-tab.active { border-color: rgba(168, 85, 247, 0.78); background: transparent; color: #fff; box-shadow: 0 0 12px rgba(168, 85, 247, 0.38), inset 0 0 8px rgba(168, 85, 247, 0.06); outline: none; }
         .admin-section-panel[hidden] { display: none !important; }
+        .profile-section-tabs { margin: 0 0 16px; padding: 8px; border: 1px solid rgba(180, 190, 200, 0.1); border-radius: 12px; background: rgba(8, 9, 10, 0.72); }
+        .profile-section-tabs .admin-section-tab { min-height: 42px; }
+        .profile-section-panel[hidden] { display: none !important; }
+        .profile-section-panel > .card { margin-bottom: 0; }
         .admin-search-form, .promo-claim-controls { display: flex; flex-wrap: wrap; align-items: end; gap: 12px; }
         .admin-search-form .form-group { flex: 1 1 240px; margin-bottom: 12px; }
         .admin-search-form > button { min-height: 42px; margin-bottom: 12px; }
@@ -643,6 +647,8 @@
             .chart-market-bar { gap: 16px; margin-bottom: 8px; padding: 10px 11px; }
             .chart-market-stat { min-width: 92px; }
             .chart-market-stat > strong { font-size: 13px; }
+            .profile-section-tabs { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; padding: 6px; }
+            .profile-section-tabs .admin-section-tab { min-width: 0; padding: 9px 7px; font-size: 12px; }
             .maintenance-page-options { grid-template-columns: repeat(2, minmax(0, 1fr)); }
             header { flex-wrap: wrap; row-gap: 10px; gap: 10px; padding: 12px; }
             .logo { font-size: 17px; gap: 10px; }

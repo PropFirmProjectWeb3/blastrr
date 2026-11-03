@@ -250,7 +250,7 @@ let connectedWallet = null;
                 "toolbar_bg": "#090d13",
                 "studies": ["MAExp@tv-basicstudies"],
                 "studies_overrides": {
-                    "moving average exponential.plot.color": "#b68aff",
+                    "moving average exponential.plot.color": "#b7bdc5",
                     "moving average exponential.plot.linewidth": 2
                 },
                 "overrides": {

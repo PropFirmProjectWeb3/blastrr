@@ -1158,3 +1158,147 @@
         .leaderboard-my-rank, .leaderboard-position.is-top-three { background: rgba(255, 255, 255, 0.035); }
         .battlepass-tab.active { background: rgba(255, 255, 255, 0.08); border-color: rgba(255, 255, 255, 0.08); }
         .battlepass-tab:hover { background: rgba(255, 255, 255, 0.045); }
+
+        /* Neutral documentation-inspired theme shared by every terminal and admin view. */
+        :root {
+            --text-primary: #f3f4f6;
+            --text-muted: #aeb4bc;
+            --accent: #cbd0d6;
+        }
+        body, button, input, select, textarea {
+            font-family: Inter, -apple-system, BlinkMacSystemFont, sans-serif;
+        }
+        h1, h2, h3, h4, h5, h6, .logo > span, .battlepass-page-heading h1 {
+            font-family: Inter, -apple-system, BlinkMacSystemFont, sans-serif !important;
+            font-style: normal !important;
+            letter-spacing: -0.035em;
+        }
+        header { background: rgba(5, 6, 7, 0.96); }
+        .logo > span { font-weight: 850; letter-spacing: 0.035em; }
+        .nav-tab.admin-tab { color: #b7bdc5; }
+        .hamburger-btn { background: rgba(15, 17, 19, 0.92); }
+        .wallet-login-gate, .disclaimer-gate { background: #050607; }
+        .wallet-login-logo { box-shadow: 0 0 28px rgba(180, 190, 200, 0.1); }
+        .wallet-login-eyebrow, .wallet-login-status, .disclaimer-end-marker { color: #aeb4bc; }
+        .wallet-login-button, .wallet-login-button:hover:not(:disabled), .wallet-login-button:focus-visible {
+            border-color: rgba(180, 190, 200, 0.28);
+            box-shadow: 0 0 8px rgba(180, 190, 200, 0.08);
+        }
+        .disclaimer-dialog {
+            border-color: rgba(180, 190, 200, 0.18);
+            background: rgba(8, 9, 10, 0.99);
+            box-shadow: 0 18px 56px rgba(0, 0, 0, 0.5);
+        }
+        .disclaimer-scroll-area { border-color: rgba(180, 190, 200, 0.12); color: #c4c9cf; }
+        .disclaimer-scroll-area h2 { color: #e5e7eb; }
+        .disclaimer-checkbox { color: #d1d5db; }
+        .disclaimer-checkbox input { accent-color: #b7bdc5; }
+        .disclaimer-remember, .disclaimer-cancel-button { color: #aeb4bc; }
+
+        .wallet-select {
+            border-color: rgba(180, 190, 200, 0.18);
+            background: rgba(13, 14, 15, 0.92);
+            color: #e5e7eb;
+        }
+        .wallet-select:hover, .wallet-select:focus-visible, .wallet-select[aria-expanded="true"] {
+            border-color: rgba(200, 210, 220, 0.42);
+            box-shadow: 0 0 8px rgba(180, 190, 200, 0.1);
+        }
+        .wallet-menu-chevron, .wallet-menu-heading { color: #aeb4bc; }
+        .wallet-menu-panel { border-color: rgba(180, 190, 200, 0.18); background: rgba(8, 9, 10, 0.99); box-shadow: 0 16px 38px rgba(0, 0, 0, 0.58); }
+        .wallet-menu-account, .wallet-menu-action { color: #d1d5db; }
+        .wallet-menu-account:hover, .wallet-menu-action:hover,
+        .wallet-menu-account:focus-visible, .wallet-menu-action:focus-visible,
+        #wallet-menu .wallet-select:hover:not(:disabled), #wallet-menu .wallet-select:focus-visible,
+        #wallet-menu .wallet-menu-account:hover:not(:disabled), #wallet-menu .wallet-menu-account:focus-visible,
+        #wallet-menu .wallet-menu-account:active, #wallet-menu .wallet-menu-action:hover:not(:disabled),
+        #wallet-menu .wallet-menu-action:focus-visible, #wallet-menu .wallet-menu-action:active {
+            border-color: rgba(200, 210, 220, 0.38) !important;
+            background: rgba(255, 255, 255, 0.04) !important;
+            box-shadow: 0 0 6px rgba(180, 190, 200, 0.08) !important;
+            color: #fff;
+        }
+        .wallet-menu-account.is-active, .wallet-menu-action { color: #d1d5db; }
+        .wallet-menu-account.is-active::before { background: #b7bdc5; box-shadow: none; }
+        .wallet-menu-divider { background: rgba(180, 190, 200, 0.12); }
+
+        .card, .battlepass-mission-board, .purchase-plan-card, .profile-primary-card,
+        #profileView > .card:not(.profile-primary-card), .battlepass-task, .battlepass-level,
+        .battlepass-admin-row, .account-card, .profile-setup-card, .profile-display-card,
+        .profile-stat-card, .admin-account-card, .admin-creator-card, .promo-code-card,
+        .support-ticket-card, .support-review-card, .workspace-toolbar, .workspace-empty-state,
+        .account-preview-stat, .battlepass-panel[data-battlepass-panel="leaderboard"],
+        .battlepass-panel[data-battlepass-panel="profile"] {
+            border-color: rgba(180, 190, 200, 0.12);
+            box-shadow: 0 12px 32px rgba(0, 0, 0, 0.16);
+        }
+        .account-plan-name, .account-card-footer > span strong, .account-expanded > summary,
+        .account-expanded > summary:hover, .admin-account-card details summary,
+        .order-card-title, .order-card .form-group label span, .purchase-plan-rule strong,
+        .battlepass-eyebrow, .battlepass-group-title, .battlepass-profile-details > span,
+        .battlepass-level > strong, .battlepass-rank-badge, .battlepass-task-action,
+        .battlepass-reward-code, .leaderboard-my-rank, .leaderboard-position.is-top-three,
+        .battlepass-gem, .purchase-plan-reward-label::before {
+            color: #cbd0d6;
+        }
+        .account-preview-stat, .workspace-toolbar, .workspace-empty-state,
+        .purchase-plan-reward, .purchase-plan-rule, .leaderboard-card-stats > div,
+        .support-message, .order-metric, .battlepass-player-bar, .battlepass-ready-banner,
+        .battlepass-tabs, .battlepass-task, .battlepass-level {
+            background-color: rgba(10, 11, 12, 0.88);
+            border-color: rgba(180, 190, 200, 0.1);
+        }
+        .admin-account-card, .admin-creator-card, .promo-code-card, .support-ticket-card,
+        .support-review-card, .battlepass-shared-profile {
+            background: rgba(10, 11, 12, 0.9);
+        }
+        .admin-section-tab { color: #b7bdc5; }
+        .admin-section-tab:hover, .admin-section-tab:focus-visible, .admin-section-tab.active {
+            border-color: rgba(180, 190, 200, 0.28);
+            background: rgba(255, 255, 255, 0.035);
+            box-shadow: 0 0 6px rgba(180, 190, 200, 0.08);
+            color: #fff;
+        }
+        .account-filter-toggle input { accent-color: #aeb4bc; }
+        .account-preview-stat:nth-child(2) strong, .account-preview-stat:nth-child(3) strong { color: #e5e7eb; }
+        .profit-line { stroke: #b7bdc5; }
+        .account-card-footer > span strong, .account-expanded > summary, .account-expanded > summary:hover { color: #cbd0d6; }
+        .admin-account-card details summary, .battlepass-text-link { color: #cbd0d6; }
+        .admin-account-flag, .promo-code-status.claimed { color: #d1d5db; }
+
+        .order-card { border-color: rgba(180, 190, 200, 0.14); }
+        .order-metric { border-color: rgba(180, 190, 200, 0.1); }
+        .form-group input, .form-group select, .promo-claim-controls input,
+        .support-card textarea, .support-ticket-card textarea, .leaderboard-toolbar input {
+            background-color: rgba(8, 9, 10, 0.9);
+        }
+        .form-group input:focus, .form-group select:focus, input:focus, select:focus,
+        .support-card textarea:focus, .support-ticket-card textarea:focus {
+            border-color: rgba(200, 210, 220, 0.48);
+            box-shadow: 0 0 0 3px rgba(180, 190, 200, 0.09);
+        }
+        th { background: rgba(255, 255, 255, 0.045); color: #d1d5db; border-bottom-color: rgba(180, 190, 200, 0.14); }
+        td { border-bottom-color: rgba(180, 190, 200, 0.08); color: #d1d5db; }
+        .purchase-plan-card, .purchase-plan-card.is-featured {
+            background: linear-gradient(145deg, rgba(13, 14, 15, 0.99), rgba(6, 7, 8, 0.99));
+            border-color: rgba(180, 190, 200, 0.16);
+            box-shadow: 0 14px 36px rgba(0, 0, 0, 0.18);
+        }
+        .purchase-plan-status { border-color: rgba(180, 190, 200, 0.18); background: rgba(255, 255, 255, 0.035); color: #cbd0d6; }
+        .purchase-plan-status-icon { border-color: rgba(180, 190, 200, 0.28); }
+
+        .battlepass-level-segment i, .battlepass-mission-steps span.is-complete,
+        .battlepass-progress { background: #b7bdc5; }
+        .battlepass-gem { text-shadow: none; }
+        .battlepass-xp-mark, .battlepass-xp-total strong { color: #d1d5db; }
+        .battlepass-tab.active { background: rgba(255, 255, 255, 0.08); border-color: rgba(180, 190, 200, 0.16); }
+        .battlepass-tab:hover { background: rgba(255, 255, 255, 0.045); }
+        .battlepass-claim-all:hover:not(:disabled) { box-shadow: 0 0 8px rgba(180, 190, 200, 0.12); }
+        .battlepass-period-tag { border-color: rgba(180, 190, 200, 0.16); background: rgba(255, 255, 255, 0.035); color: #cbd0d6; }
+        .battlepass-task-status.is-ready { color: #d1d5db; }
+
+        .leaderboard-my-rank { border-color: rgba(180, 190, 200, 0.18); background: rgba(255, 255, 255, 0.035); }
+        .leaderboard-position.is-top-three { border-color: rgba(180, 190, 200, 0.2); }
+        .leaderboard-card.is-current-user { border-color: rgba(180, 190, 200, 0.2); }
+        .support-message-admin { border-left-color: #9ca3af; }
+        .support-stars { color: #d1d5db; }

@@ -84,13 +84,13 @@ test('trading terminal and homepage use the Blastrr logo image', () => {
   assert.match(landingHtml, /\.brand-mark\{object-fit:cover;clip-path:none\}/);
 });
 
-test('brand and display headings load the matching futuristic font', () => {
+test('homepage display font remains distinctive while the app uses the neutral documentation font', () => {
   assert.match(landingHtml, /fonts\.googleapis\.com\/css2\?family=Orbitron/);
-  assert.match(appHtml, /fonts\.googleapis\.com\/css2\?family=Orbitron/);
   assert.match(landingHtml, /\.brand\{[^}]*font-family:"Orbitron"[^}]*font-style:italic/);
   assert.match(landingHtml, /\.hero h1\{font-family:"Orbitron"[^}]*font-style:italic/);
-  assert.match(appCss, /\.logo > span \{ font-family: "Orbitron"[^}]*font-style: italic/);
-  assert.match(appCss, /\.battlepass-page-heading h1 \{[^}]*font-family: "Orbitron"[^}]*font-style: italic/);
+  assert.match(appCss, /\.logo > span, \.battlepass-page-heading h1 \{[\s\S]*?font-family: Inter/);
+  assert.doesNotMatch(appHtml, /fonts\.googleapis\.com\/css2\?family=Orbitron/);
+  assert.match(appCss, /body, button, input, select, textarea \{[\s\S]*?font-family: Inter/);
 });
 
 test('homepage navigation hover and active states stay transparent with a purple glow', () => {
@@ -114,6 +114,10 @@ test('terminal surfaces use a black glass theme with restrained neutral borders'
   assert.match(appCss, /header #nav-menu \{[\s\S]*?backdrop-filter: blur\(24px\) saturate\(145%\)/);
   assert.match(appCss, /\.hamburger-btn\.menu-open \.hamburger-glyph::before \{ transform: rotate\(45deg\); \}/);
   assert.match(appCss, /\.hamburger-btn\.menu-open \.hamburger-glyph::after \{ transform: rotate\(-45deg\); \}/);
+  assert.match(appCss, /Neutral documentation-inspired theme shared by every terminal and admin view/);
+  assert.match(appCss, /\.admin-section-tab:hover, \.admin-section-tab:focus-visible, \.admin-section-tab\.active \{[\s\S]*?rgba\(180, 190, 200, 0\.28\)/);
+  assert.match(appCss, /\.admin-account-card, \.admin-creator-card, \.promo-code-card, \.support-ticket-card/);
+  assert.match(appCss, /#wallet-menu \.wallet-menu-account:hover:not\(:disabled\)[\s\S]*?rgba\(200, 210, 220, 0\.38\)/);
 });
 
 test('trade entry uses metric cards, defaults to spot leverage, and scales the chart for screen size', () => {
@@ -129,7 +133,7 @@ test('trade entry uses metric cards, defaults to spot leverage, and scales the c
 
 test('TradingView chart uses homepage candle colors with a purple EMA overlay and matching order buttons', () => {
   assert.match(appJs, /"studies":\s*\["MAExp@tv-basicstudies"\]/);
-  assert.match(appJs, /"moving average exponential\.plot\.color":\s*"#b68aff"/);
+  assert.match(appJs, /"moving average exponential\.plot\.color":\s*"#b7bdc5"/);
   assert.match(appJs, /"mainSeriesProperties\.candleStyle\.upColor":\s*"#72f0c3"/);
   assert.match(appJs, /"mainSeriesProperties\.candleStyle\.downColor":\s*"#ff638e"/);
   assert.match(appCss, /\.order-actions \.btn-buy\s*\{[^}]*#72f0c3/);
@@ -154,8 +158,8 @@ test('mobile navigation has readable, touch-sized links and accessible expanded 
   assert.match(appCss, /max-height: calc\(100vh - 76px\)/);
   assert.match(appCss, /@media \(max-width: 700px\) \{[\s\S]*?header \{ flex-wrap: wrap; row-gap: 10px; gap: 10px; padding: 12px; \}[\s\S]*?\.header-actions \{ order: 2; flex: 1 0 100%;[\s\S]*?\.hamburger-btn \{ position: absolute; top: 12px; right: 12px;[\s\S]*?background: rgba\(6, 4, 10, 0\.99\)/);
   assert.match(appCss, /header #nav-menu \.nav-tab:not\(\.active\) \{ color: #e2e8f0; background: transparent; \}/);
-  assert.match(appCss, /\.nav-tab:hover, \.nav-tab:focus-visible \{[^}]*box-shadow: 0 0 12px rgba\(168, 85, 247, 0\.5\)/);
-  assert.match(appCss, /\.nav-tab\.active \{[^}]*box-shadow: 0 0 12px rgba\(168, 85, 247, 0\.5\)/);
+  assert.match(appCss, /\.nav-tab:hover, \.nav-tab:focus-visible,[\s\S]*?box-shadow: 0 0 6px rgba\(180, 190, 200, 0\.09\)/);
+  assert.match(appCss, /\.admin-section-tab:hover, \.admin-section-tab:focus-visible, \.admin-section-tab\.active \{[\s\S]*?box-shadow: 0 0 6px rgba\(180, 190, 200, 0\.08\)/);
   assert.match(appCss, /button:not\(\.nav-tab\):not\(\.admin-section-tab\)/);
 });
 

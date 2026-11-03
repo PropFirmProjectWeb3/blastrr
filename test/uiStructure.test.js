@@ -75,11 +75,17 @@ test('documentation hub is searchable, structured, and linked from the main entr
   assert.equal(riskTable.rows.length, 6);
 });
 
-test('trading terminal displays market stats and keeps account selection in its chart toolbar', () => {
+test('trading terminal displays spot stats and puts account selection first in trade inputs', () => {
   const marketBarStart = appHtml.indexOf('<div class="chart-market-bar"');
   const accountSelect = appHtml.indexOf('id="active-account-select"');
   const chartFrame = appHtml.indexOf('id="tradingview-widget-container"');
-  assert.ok(marketBarStart >= 0 && marketBarStart < accountSelect && accountSelect < chartFrame);
+  const orderCard = appHtml.indexOf('<div class="card order-card">');
+  const orderTitle = appHtml.indexOf('Order Execution', orderCard);
+  const accountLabel = appHtml.indexOf('Select your account', orderTitle);
+  const firstTradeControl = appHtml.indexOf('id="order-symbol"', accountSelect);
+  assert.ok(marketBarStart >= 0 && accountSelect > chartFrame);
+  assert.ok(accountLabel >= 0 && accountLabel < accountSelect && accountSelect < firstTradeControl);
+  assert.match(appHtml, /<label for="active-account-select">Select your account<\/label>/);
   for (const id of [
     'chart-mid-price', 'chart-bid-ask', 'chart-change-24h',
     'chart-high-24h', 'chart-low-24h', 'chart-volume-24h'
@@ -94,6 +100,7 @@ test('trading terminal displays market stats and keeps account selection in its 
   assert.match(appJs, /document\.title = `\$\$\{price\.toLocaleString/);
   assert.doesNotMatch(appJs, /chart-index-price|chart-funding-rate|chart-open-interest/);
   assert.match(appCss, /\.chart-market-bar/);
+  assert.match(appCss, /\.order-metric > strong \{[^}]*font-size: clamp\(12px, 1vw, 15px\)[^}]*white-space: nowrap/);
 });
 
 test('admin can toggle maintenance for each public page and set an outage message', () => {

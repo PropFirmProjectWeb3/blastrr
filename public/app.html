@@ -125,12 +125,6 @@
                             </div>
                         </div>
                         <div class="chart-market-bar" aria-label="Selected market information">
-                            <div class="chart-market-account">
-                                <label for="active-account-select">Active account</label>
-                                <select id="active-account-select" onchange="switchActiveAccount(this.value)">
-                                    <option value="">No Accounts Found</option>
-                                </select>
-                            </div>
                             <div class="chart-market-stat"><span>Mid Price</span><strong id="chart-mid-price">—</strong></div>
                             <div class="chart-market-stat"><span>Bid / Ask</span><strong id="chart-bid-ask">—</strong></div>
                             <div class="chart-market-stat"><span>24h Change</span><strong id="chart-change-24h">—</strong></div>
@@ -170,6 +164,13 @@
                     <div class="card order-card">
                         <div class="card-title order-card-title">Order Execution</div>
                         
+                        <div class="form-group">
+                            <label for="active-account-select">Select your account</label>
+                            <select id="active-account-select" onchange="switchActiveAccount(this.value)">
+                                <option value="">No Accounts Found</option>
+                            </select>
+                        </div>
+
                         <div class="form-group">
                             <label>Market Selection</label>
                             <select id="order-symbol" onchange="onSymbolChanged(this.value)" disabled>

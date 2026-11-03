@@ -38,7 +38,10 @@ test('ticket endpoints enforce wallet ownership, account ownership, and admin au
 
 test('review submission and moderation are wallet-bound and admin-protected', () => {
   assert.match(serverJs, /app\.post\('\/api\/user\/reviews', sensitiveLimiter, requireWalletSession/);
-  assert.match(serverJs, /EXISTS \(SELECT 1 FROM purchases purchase[\s\S]*?purchase\.account_id = a\.id/);
+  assert.match(serverJs, /app\.get\('\/api\/user\/review', requireWalletSession[\s\S]*?FROM accounts a[\s\S]*?WHERE LOWER\(a\.wallet_address\) = LOWER\(\?\)[\s\S]*?ORDER BY a\.created_at, a\.id/);
+  assert.match(serverJs, /WHERE a\.id = \? AND LOWER\(a\.wallet_address\) = LOWER\(\?\)/);
+  assert.doesNotMatch(serverJs.slice(serverJs.indexOf("app.get('/api/user/review'"), serverJs.indexOf("app.get('/api/reviews'")), /EXISTS \(SELECT 1 FROM purchases purchase/);
+  assert.match(serverJs, /Reviews are available only for accounts assigned to this wallet/);
   assert.match(serverJs, /WHERE a\.id = \? AND LOWER\(a\.wallet_address\) = LOWER\(\?\)/);
   assert.match(serverJs, /INSERT INTO user_reviews \(account_id, wallet_address, username, rating, comment, published\)/);
   assert.match(serverJs, /ON CONFLICT\(account_id\) DO UPDATE/);
@@ -56,6 +59,7 @@ test('support and moderation views render action controls and visual ticket stat
   assert.match(appHtml, /id="admin-ticket-list"/);
   assert.match(appHtml, /id="admin-review-list"/);
   assert.match(appHtml, /id="review-account" required disabled/);
+  assert.match(appHtml, /Any account assigned to your wallet is eligible, including free promo accounts/);
   assert.match(appHtml, /one review per account/i);
   assert.match(appJs, /data-review-account="\$\{escapeHTML\(review\.account_id\)\}"/);
   assert.match(appJs, /review_account_id: accountId/);

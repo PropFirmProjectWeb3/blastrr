@@ -3592,8 +3592,8 @@ let connectedWallet = null;
                 if (!accountSelect) return;
                 const previouslySelected = accountSelect.value;
                 accountSelect.innerHTML = userReviewAccounts.length
-                    ? userReviewAccounts.map(account => `<option value="${escapeHTML(account.account_id)}">${escapeHTML(account.plan_name || 'Purchased account')} · ${escapeHTML(account.account_id)}</option>`).join('')
-                    : '<option value="">No purchased accounts available</option>';
+                    ? userReviewAccounts.map(account => `<option value="${escapeHTML(account.account_id)}">${escapeHTML(account.plan_name || 'Account')} · ${escapeHTML(account.account_id)}</option>`).join('')
+                    : '<option value="">No assigned accounts available</option>';
                 accountSelect.disabled = userReviewAccounts.length === 0;
                 if (userReviewAccounts.some(account => account.account_id === previouslySelected)) {
                     accountSelect.value = previouslySelected;
@@ -3622,18 +3622,18 @@ let connectedWallet = null;
             if (!feedback) return;
             if (!userReviewAccounts.length) {
                 feedback.textContent = hasUsername
-                    ? 'A purchased account is required before you can submit a review.'
-                    : 'Set up your profile username and purchase an account before submitting a review.';
+                    ? 'An account assigned to your wallet is required before you can submit a review.'
+                    : 'Set up your profile username and claim or purchase an account before submitting a review.';
             } else if (!hasUsername) {
                 feedback.textContent = 'Set up your profile username before submitting a review.';
             } else if (!selectedAccount) {
-                feedback.textContent = 'Select a purchased account to write its review.';
+                feedback.textContent = 'Select an assigned account to write its review.';
             } else if (selectedAccount.rating) {
                 feedback.textContent = selectedAccount.published
                     ? 'Your review is published. Saving changes will send it for approval again.'
                     : 'Your review is awaiting admin approval. You may edit this account review.';
             } else {
-                feedback.textContent = 'One review is allowed per purchased account. Reviews are approved before appearing on the homepage.';
+                feedback.textContent = 'One review is allowed per assigned account. Reviews are approved before appearing on the homepage.';
             }
         }
 

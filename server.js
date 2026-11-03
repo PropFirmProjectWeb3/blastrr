@@ -1804,9 +1804,6 @@ app.get('/api/user/review', requireWalletSession, (req, res) => {
     LEFT JOIN plans p ON p.id = a.plan_id
     LEFT JOIN user_reviews r ON r.account_id = a.id AND LOWER(r.wallet_address) = LOWER(a.wallet_address)
     WHERE LOWER(a.wallet_address) = LOWER(?)
-      AND EXISTS (SELECT 1 FROM purchases purchase
-                  WHERE purchase.account_id = a.id
-                    AND LOWER(purchase.wallet_address) = LOWER(a.wallet_address))
     ORDER BY a.created_at, a.id`,
     [wallet],
     (err, accounts) => {
@@ -1821,21 +1818,18 @@ app.post('/api/user/reviews', sensitiveLimiter, requireWalletSession, (req, res)
   const rating = Number(req.body?.rating);
   const comment = typeof req.body?.comment === 'string' ? req.body.comment.trim() : '';
   if (!accountId || !Number.isInteger(rating) || rating < 1 || rating > 5 || comment.length < 10 || comment.length > 1500) {
-    return res.status(400).json({ error: 'Select a purchased account, choose 1–5 stars, and enter a review between 10 and 1,500 characters.' });
+    return res.status(400).json({ error: 'Select an account assigned to your wallet, choose 1–5 stars, and enter a review between 10 and 1,500 characters.' });
   }
   db.get('SELECT username FROM users WHERE LOWER(wallet_address) = LOWER(?)', [req.walletAddress], (err, user) => {
     if (err) return res.status(500).json({ error: 'Unable to load your profile.' });
     if (!user?.username) return res.status(400).json({ error: 'Create a profile username before submitting a review.' });
     db.get(
       `SELECT a.id FROM accounts a
-       WHERE a.id = ? AND LOWER(a.wallet_address) = LOWER(?)
-         AND EXISTS (SELECT 1 FROM purchases purchase
-                     WHERE purchase.account_id = a.id
-                       AND LOWER(purchase.wallet_address) = LOWER(a.wallet_address))`,
+       WHERE a.id = ? AND LOWER(a.wallet_address) = LOWER(?)`,
       [accountId, req.walletAddress],
       (accountErr, account) => {
-        if (accountErr) return res.status(500).json({ error: 'Unable to verify purchased account eligibility.' });
-        if (!account) return res.status(403).json({ error: 'Reviews are available only for accounts purchased by this wallet.' });
+        if (accountErr) return res.status(500).json({ error: 'Unable to verify account ownership.' });
+        if (!account) return res.status(403).json({ error: 'Reviews are available only for accounts assigned to this wallet.' });
         db.get(
           `SELECT xp_reward, points_reward FROM battlepass_tasks
            WHERE task_type = 'PLATFORM_REVIEW' AND is_builtin = 1 AND active = 1`,

@@ -8,6 +8,30 @@ const appJs = fs.readFileSync('public/js/app.js', 'utf8');
 const appCss = fs.readFileSync('public/css/app.css', 'utf8');
 const landingHtml = fs.readFileSync('public/index.html', 'utf8');
 const serverJs = fs.readFileSync('server.js', 'utf8');
+const faqHtml = fs.readFileSync('public/faq.html', 'utf8');
+const faqJs = fs.readFileSync('public/js/faq.js', 'utf8');
+const faqCss = fs.readFileSync('public/css/faq.css', 'utf8');
+const faqSections = JSON.parse(fs.readFileSync('public/faq-data.json', 'utf8'));
+
+test('searchable public FAQ is linked from the homepage and terminal navigation', () => {
+  assert.match(landingHtml, /<a href="faq\.html">FAQ<\/a>/);
+  assert.match(appHtml, /<a class="nav-tab" href="faq\.html">FAQ<\/a>/);
+  assert.match(faqHtml, /<title>FAQ &amp; Knowledge Base \| Blastrr<\/title>/);
+  assert.match(faqHtml, /<input id="faq-search" type="search"/);
+  assert.match(faqHtml, /id="faq-results" class="faq-results" role="status"/);
+  assert.match(faqHtml, /id="faq-content" class="faq-content"/);
+  assert.match(faqJs, /normalize\(`\$\{section\.title\} \$\{item\.question\} \$\{item\.answer\}`\)/);
+  assert.match(faqJs, /terms\.every\(term => searchableText\.includes\(term\)\)/);
+  assert.match(faqJs, /function formatAnswer\(value\)/);
+  assert.match(faqJs, /content\.replaceChildren\(\)/);
+  assert.match(faqCss, /\.faq-search-row input:focus/);
+  assert.equal(faqSections.length, 9);
+  assert.equal(faqSections.reduce((count, section) => count + section.items.length, 0), 66);
+  const faqQuestions = faqSections.flatMap(section => section.items.map(item => item.question));
+  assert.ok(faqQuestions.includes('My access fee payment shows as complete but I have not received my account. When will it be activated?'));
+  assert.ok(faqQuestions.includes('My simulated balance has not updated. What troubleshooting steps should I take?'));
+  assert.ok(faqQuestions.includes('My claim request shows as processing. How long does verification take?'));
+});
 
 test('trading terminal HTML loads its external stylesheet and application script', () => {
   assert.match(appHtml, /href="\/css\/app\.css"/);

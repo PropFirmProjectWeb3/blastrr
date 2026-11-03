@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="Search Blastrr answers about simulated accounts, trading rules, payments, and rewards.">
+    <title>FAQ &amp; Knowledge Base | Blastrr</title>
+    <link rel="icon" href="/favicon.png">
+    <link rel="stylesheet" href="/css/faq.css">
+    <script src="/js/faq.js" defer></script>
+</head>
+<body>
+    <header class="faq-header">
+        <a class="faq-brand" href="/index.html" aria-label="Blastrr home">
+            <img src="/favicon.png" alt="">
+            <span>BLASTRR</span>
+        </a>
+        <nav aria-label="Main navigation">
+            <a href="/index.html">Home</a>
+            <a href="/app.html">Trade Terminal</a>
+        </nav>
+    </header>
+    <main class="faq-main">
+        <section class="faq-intro" aria-labelledby="faq-title">
+            <p class="faq-eyebrow">BLASTRR KNOWLEDGE BASE</p>
+            <h1 id="faq-title">Frequently asked <span>questions</span></h1>
+            <p class="faq-description">Search answers about accounts, trading rules, payments, rewards, and the simulated environment.</p>
+        </section>
+        <section class="faq-search-panel" aria-label="Search frequently asked questions">
+            <label for="faq-search">Search all questions and answers</label>
+            <div class="faq-search-row">
+                <input id="faq-search" type="search" autocomplete="off" placeholder="Try “daily loss limit” or “payment methods”">
+                <button id="faq-clear" type="button" hidden>Clear</button>
+            </div>
+            <p id="faq-results" class="faq-results" role="status" aria-live="polite">Loading answers…</p>
+        </section>
+        <div id="faq-content" class="faq-content" aria-live="polite"></div>
+    </main>
+    <footer class="faq-footer">
+        <a href="/index.html">Blastrr home</a>
+        <span>All accounts and trading activity use simulated funds. Review the current platform terms and rules before participating.</span>
+    </footer>
+</body>
+</html>

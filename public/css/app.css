@@ -696,7 +696,10 @@
         .profile-display-card { margin-top: 0 !important; padding-top: 16px !important; border-top: 1px solid rgba(203, 213, 225, 0.095) !important; }
         .profile-stat-grid { margin: 18px 0 22px !important; gap: 10px; }
         .profile-stat-card { min-width: 0; margin: 0; padding: 14px; border: 1px solid rgba(203, 213, 225, 0.095); border-radius: 12px; background: rgba(4, 3, 7, 0.82); }
-        .profile-stat-card .card-title { color: #a5aab3; font-size: 11px; }
+        .profile-stat-card .card-title { color: #a5aab3; font-size: 11px; font-weight: 500; }
+        .profile-stat-value { margin: 0 0 12px; color: #d1d5db; font-size: 21px; font-weight: 500; }
+        .profile-referral-rate-row { display: flex; align-items: baseline; gap: 7px; margin: 4px 0; color: #b6bbc4; font-size: 13px; font-weight: 400; }
+        .profile-referral-rate { color: #d1d5db; font-weight: 500; }
         .profile-history-heading { margin: 0 0 12px; padding-bottom: 10px; border-bottom: 1px solid rgba(203, 213, 225, 0.095); font-size: 14px; }
         .profile-commission-list { display: grid; gap: 9px; }
         .profile-commission-card { align-items: center; justify-content: space-between; gap: 14px; padding: 13px 15px; }
@@ -705,6 +708,36 @@
         .profile-commission-main span, .profile-commission-details span, .profile-commission-details small { color: #98a2b3; font-size: 11px; }
         .profile-commission-details { justify-items: end; text-align: right; }
         .profile-commission-details strong { color: #6ee7b7; font-size: 13px; }
+        .creator-application-card { display: grid; gap: 14px; padding: 18px 20px; border-color: rgba(203, 213, 225, 0.1); border-radius: 15px; background: rgba(9, 8, 12, 0.94); }
+        .creator-application-heading { display: flex; align-items: center; justify-content: space-between; gap: 14px; }
+        .creator-application-heading h2 { margin: 0 0 4px; color: #d9dce2; font-size: 17px; font-weight: 500; letter-spacing: 0; }
+        .creator-application-heading .support-note, .creator-application-note { margin: 0; color: #9298a3; font-size: 12px; line-height: 1.55; }
+        .creator-application-note { margin-bottom: 14px; }
+        .creator-application-status { flex: 0 0 auto; padding: 5px 9px; border: 1px solid rgba(203, 213, 225, 0.16); border-radius: 20px; color: #b6bbc4; font-size: 11px; font-weight: 500; }
+        .creator-application-form { padding-top: 14px; border-top: 1px solid rgba(203, 213, 225, 0.09); }
+        .creator-social-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 14px; }
+        .creator-application-form .form-group { margin-bottom: 12px; }
+        .creator-application-form label { color: #aeb3bc; font-size: 12px; font-weight: 400; text-transform: none; }
+        .creator-application-form input, .creator-application-form select, .creator-application-form textarea { width: 100%; padding: 10px 11px; border: 1px solid rgba(203, 213, 225, 0.13); border-radius: 8px; background: rgba(5, 6, 9, 0.8); color: #d7d9de; color-scheme: dark; font: inherit; font-size: 13px; }
+        .creator-application-form textarea { min-height: 80px; resize: vertical; }
+        .creator-application-form input::placeholder, .creator-application-form textarea::placeholder { color: #676d78; }
+        .creator-application-actions { display: flex; align-items: center; gap: 14px; }
+        .creator-application-button { padding: 9px 13px; border: 1px solid rgba(203, 213, 225, 0.16); background: #25272c; color: #d9dce2; font-size: 12px; font-weight: 500; }
+        .creator-application-button:hover { background: #454852; }
+        .creator-application-cancel, .creator-application-reject { padding: 8px 10px; border: 1px solid rgba(203, 213, 225, 0.15); border-radius: 7px; background: transparent; color: #a7abb4; font: inherit; font-size: 12px; cursor: pointer; }
+        .creator-application-admin-card { padding: 16px; border: 1px solid var(--surface-border); border-radius: 12px; background: rgba(9, 6, 14, 0.88); }
+        .creator-application-admin-heading { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; }
+        .creator-application-admin-heading h3 { margin: 0 0 5px; color: #d9dce2; font-size: 14px; font-weight: 550; }
+        .creator-application-admin-heading code { color: #9298a3; font-size: 11px; }
+        .creator-application-admin-status { color: #a7abb4; font-size: 11px; text-transform: capitalize; }
+        .creator-application-admin-links { display: flex; flex-wrap: wrap; gap: 12px; margin: 13px 0; }
+        .creator-application-admin-links a, .creator-application-admin-links span { color: #b6bbc4; font-size: 12px; }
+        .creator-application-admin-card > p { margin: 9px 0; color: #c3c6cd; font-size: 12px; line-height: 1.5; overflow-wrap: anywhere; }
+        .creator-application-admin-card > p span { display: block; margin-bottom: 2px; color: #858b96; font-size: 11px; }
+        .creator-application-admin-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 14px; padding-top: 12px; border-top: 1px solid rgba(203, 213, 225, 0.09); }
+        .creator-application-admin-actions label { color: #a7abb4; font-size: 11px; }
+        .creator-application-admin-actions input { width: 90px; padding: 8px; border: 1px solid rgba(203, 213, 225, 0.14); border-radius: 7px; background: rgba(5, 6, 9, 0.8); color: #e5e7eb; }
+        .creator-application-admin-actions .btn-wallet { padding: 8px 11px; background: #373941; color: #e5e7eb; font-size: 12px; font-weight: 500; }
         #profileView > .card:not(.profile-primary-card) { margin-top: 12px; border-color: rgba(203, 213, 225, 0.095); border-radius: 15px; background: linear-gradient(145deg, rgba(12, 8, 18, 0.97), rgba(6, 4, 10, 0.97)); }
         .battlepass-profile-details { display: grid; flex: 1 1 220px; gap: 6px; min-width: 180px; }
         .battlepass-profile-details > strong { color: #fff; font-size: 18px; }
@@ -803,6 +836,10 @@
             .profile-setup-card, .profile-display-card { padding: 12px; }
             .profile-commission-card { align-items: flex-start; flex-direction: column; }
             .profile-commission-details { justify-items: start; text-align: left; }
+            .creator-application-card { padding: 14px; }
+            .creator-social-grid { grid-template-columns: 1fr; }
+            .creator-application-heading { align-items: flex-start; flex-direction: column; }
+            .creator-application-admin-actions > * { flex: 1 1 auto; }
             .battlepass-task { flex-direction: column; }
             .battlepass-task > button { width: 100%; }
             .battlepass-admin-row { grid-template-columns: 1fr 1fr; }

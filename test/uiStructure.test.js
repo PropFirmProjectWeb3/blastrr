@@ -14,6 +14,7 @@ const faqCss = fs.readFileSync('public/css/faq.css', 'utf8');
 const faqSections = JSON.parse(fs.readFileSync('public/faq-data.json', 'utf8'));
 const docsHtml = fs.readFileSync('public/docs.html', 'utf8');
 const docsJs = fs.readFileSync('public/js/docs.js', 'utf8');
+const docsCss = fs.readFileSync('public/css/docs.css', 'utf8');
 const docsSections = JSON.parse(fs.readFileSync('public/docs-data.json', 'utf8'));
 
 test('searchable public FAQ is linked from the homepage and terminal navigation', () => {
@@ -41,15 +42,35 @@ test('documentation hub is searchable, structured, and linked from the main entr
   assert.match(appHtml, /<a class="nav-tab" href="docs\.html">Docs<\/a>/);
   assert.match(docsHtml, /<title>Documentation \| Blastrr<\/title>/);
   assert.match(docsHtml, /id="docs-search" type="search"/);
-  assert.match(docsHtml, /id="docs-toc" class="docs-toc"/);
-  assert.match(docsJs, /normalize\(`\$\{section\.title\} \$\{section\.summary \|\| ''\} \$\{getGroupText\(group\)\}`\)/);
+  assert.match(docsHtml, /id="docs-nav" class="docs-nav"/);
+  assert.match(docsJs, /normalize\(`\$\{page\.title\} \$\{page\.summary \|\| ''\} \$\{getGroupText\(group\)\}`\)/);
   assert.match(docsJs, /terms\.every\(term => searchableText\.includes\(term\)\)/);
   assert.match(docsJs, /textContent = value/);
   assert.match(docsJs, /function renderTable\(table\)/);
-  assert.equal(docsSections.length, 4);
-  assert.equal(docsSections.reduce((count, section) => count + section.groups.length, 0), 18);
-  assert.ok(docsSections.some(section => section.title.includes('Trading Engine')));
-  assert.ok(docsSections.some(section => section.groups.some(group => group.title === 'Account Tiers' && group.table.rows.length === 5)));
+  assert.match(docsJs, /window\.addEventListener\('hashchange'/);
+  assert.match(docsCss, /\.docs-layout \{ display: grid; grid-template-columns:/);
+  assert.equal(docsSections.length, 13);
+  assert.equal(docsSections.reduce((count, page) => count + page.groups.length, 0), 65);
+  assert.ok(docsSections.some(page => page.title === 'Trading Markets'));
+  assert.ok(docsSections.some(page => page.title === 'Funding Rates'));
+  assert.ok(docsSections.some(page => page.title === 'Temporary Leverage Limits'));
+  const accountTiers = docsSections.find(page => page.id === 'account-tiers').groups.find(group => group.title === 'Straight-to-Funded Plans');
+  assert.ok(accountTiers);
+  assert.deepEqual(accountTiers.table.headers, [
+    'Tier', 'Simulated Capital', 'Account Type', 'Profit Target',
+    'Daily Loss Limit (5%)', 'Max Drawdown (10%)', 'Consistency Rule', 'Execution Schedule'
+  ]);
+  assert.deepEqual(accountTiers.table.rows.map(row => row[0]), [
+    'Micro $5k', 'Starter $10k', 'Trader $20k', 'Pro $50k (Popular)', 'Elite $100k', 'Whale $250k'
+  ]);
+  assert.deepEqual(accountTiers.table.rows.map(row => row[1]), [
+    '$5,000', '$10,000', '$20,000', '$50,000', '$100,000', '$250,000'
+  ]);
+  assert.ok(accountTiers.table.rows.every(row => row[2] === 'Straight to Funded' && row[7] === '24/7/365'));
+  assert.deepEqual(accountTiers.table.rows.map(row => row[3]), ['$1,000', '$2,000', '$4,000', '$10,000', '$20,000', '$50,000']);
+  assert.doesNotMatch(JSON.stringify(accountTiers.table), /USDT|off|Purchase Price|Fee|Price/i);
+  const riskTable = docsSections.find(page => page.id === 'loss-limits').groups.find(group => group.title === 'Standard Risk Parameters').table;
+  assert.equal(riskTable.rows.length, 6);
 });
 
 test('trading terminal HTML loads its external stylesheet and application script', () => {

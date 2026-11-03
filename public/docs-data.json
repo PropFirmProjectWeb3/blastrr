@@ -1,213 +1,647 @@
 [
   {
-    "title": "Home & Welcome",
-    "summary": "An introduction to Blastrr, its simulated trading platform, and how to get started.",
+    "id": "platform-overview",
+    "title": "Platform Overview",
+    "summary": "A guide to Blastrr's simulated markets, platform specifications, and trading architecture.",
     "groups": [
       {
         "title": "Welcome to Blastrr",
         "paragraphs": [
-          "Welcome to Blastrr | Next-Generation Simulated Trading & Performance Evaluation",
-          "Master the financial markets in a zero-risk virtual capital environment. Blastrr provides enterprise-grade price feeds, raw simulated spreads, up to 100x virtual leverage, and automated Web3 reward claims for retail and algorithmic traders worldwide."
+          "Blastrr is a simulated perpetual futures trading and performance evaluation platform giving traders access to digital asset, FX, index, and commodity markets in a simulated environment.",
+          "The platform combines synthetic liquidity and market spreads with simulated leverage, testnet settlement, and performance reward workflows. All account balances, orders, and positions use simulated funds; users do not risk personal trading capital through simulated trades."
+        ]
+      },
+      {
+        "title": "What You Can Trade",
+        "paragraphs": [
+          "Markets use a unified execution and cross-margin system, allowing positions across supported asset classes to share account collateral. Availability varies by market and account."
         ],
         "items": [
-          "Primary CTA: Launch Trading Terminal",
-          "Secondary CTA: Explore Evaluation Tiers",
-          "$0 Personal Financial Risk",
-          "Up to $100,000 Simulated Trading Capital",
-          "Instant Web3 Wallet Setup (Phantom, Solflare, MetaMask)",
-          "Automated 24/7 Risk Parameter Monitoring"
+          "Digital assets: BTC, ETH, SOL, LUN, and supported crypto perpetual pairs, available continuously.",
+          "Forex: supported major and minor currency pairs during their market sessions.",
+          "Commodities: supported metals and energy markets, including Gold (XAU), Silver (XAG), and Crude Oil (WTI).",
+          "Indices: supported benchmark markets, including S&P 500 (US500) and Nasdaq 100 (US100).",
+          "See Trading Markets for market availability shown in the terminal."
         ]
       },
       {
-        "title": "About Blastrr",
-        "paragraphs": [
-          "Blastrr is a privacy-first, Web3-native simulated trading environment. We bridge the gap between high-frequency execution engines and risk-free skill evaluation. Built for traders who want to prove their edge, test complex strategies, or operate simulated funded profiles, Blastrr provides realistic market conditions without requiring users to risk personal trading capital.",
-          "Our Mission: Democratize institutional-grade market access by evaluating trading discipline purely on merit, performance, and risk management.",
-          "Core Pillars: Real-time data fidelity, privacy protection via non-custodial wallet identity, zero-risk virtual balances, and transparent performance reward allocations."
-        ]
-      },
-      {
-        "title": "Getting Started",
-        "paragraphs": [
-          "Get up and running on Blastrr in under 60 seconds:"
-        ],
-        "items": [
-          "Connect Wallet or Email: Log in instantly using your Web3 wallet (Phantom, Solflare, MetaMask) or standard email authentication.",
-          "Select Account Profile: Choose between our Evaluation Phase (structured profit target) or Instant Account (skip evaluation, immediate simulated funded status).",
-          "Configure Terminal: Access your personalized trading dashboard, provision testnet faucet balances ($LUN / USDC), and configure custom layout preferences.",
-          "Execute & Evaluate: Open simulated perpetual futures, forex, or commodity positions while managing daily loss limits and maximum drawdown thresholds."
-        ]
-      },
-      {
-        "title": "Quick FAQ",
-        "paragraphs": [
-          "Quick access to core platform topics. Full Q&A details available in the interactive Documentation Hub."
-        ],
-        "items": [
-          "Is real money invested on Blastrr? No. All balances, orders, and positions use 100% simulated testnet capital.",
-          "How are performance rewards claimed? Traders operating simulated funded profiles can file a claim request directly to their connected Web3 wallet upon hitting eligibility criteria.",
-          "Are automated trading bots permitted? Yes. EAs, Web3 API webhooks, and algorithmic strategies are supported subject to standard risk compliance."
-        ]
-      }
-    ]
-  },
-  {
-    "title": "Trading Engine & Execution Specifications",
-    "summary": "Markets, order types, simulated cross margin, leverage tiers, funding, and temporary leverage limits.",
-    "groups": [
-      {
-        "title": "Markets",
-        "paragraphs": [
-          "Blastrr offers access to synthetic, real-time market data across three primary asset classes:"
-        ],
-        "items": [
-          "Digital Assets (Crypto Perpetuals): $BTC, $ETH, $SOL, $LUN, and major altcoins (24/7/365 trading).",
-          "Forex Pairs: Majors and Minors (EUR/USD, GBP/USD, USD/JPY) operating on global session hours.",
-          "Commodities & Indices: Gold (XAU), Crude Oil (WTI), S&P 500 (US500), and Nasdaq 100 (US100)."
-        ]
-      },
-      {
-        "title": "Order Types",
-        "paragraphs": [
-          "Execute orders with precision using our flexible order engine:"
-        ],
-        "items": [
-          "Market Orders: Immediate simulated fill at the prevailing Mark Price.",
-          "Limit Orders: Rest on the synthetic orderbook until matched at your specified target price or better.",
-          "Stop-Limit & Stop-Market Orders: Trigger entry execution once a designated stop price is breached.",
-          "Inline SL / TP: Attach Stop Loss and Take Profit levels directly during order creation or via drag-and-drop on live visual charts."
-        ]
-      },
-      {
-        "title": "Cross Margin & Leverage",
-        "paragraphs": [
-          "Simulated Cross Margin: Usable simulated equity is shared across all open positions in an account, allowing unrealized profits from one position to collateralize margin requirements for another.",
-          "Leverage Tiers:"
-        ],
-        "items": [
-          "Crypto Perpetuals: Up to 1:20",
-          "Forex Majors: Up to 1:100",
-          "Indices & Commodities: Up to 1:50"
-        ]
-      },
-      {
-        "title": "Funding Rates",
-        "paragraphs": [
-          "Perpetual contracts utilize simulated funding rates calculated every 8 hours to align synthetic contract pricing with live global spot index rates:",
-          "Funding Rate = Premium Index + Clamp(Interest Rate − Premium Index, a, b)",
-          "Note: Funding payments automatically credit or debit floating position equity."
-        ],
-        "items": [
-          "Long Pays Short: Applied when perpetual prices trade at a premium to spot.",
-          "Short Pays Long: Applied when perpetual prices trade at a discount to spot."
-        ]
-      },
-      {
-        "title": "Temporary Leverage Limits (TLL)",
-        "paragraphs": [
-          "During periods of extreme real-world market volatility, macro economic releases (NFP, CPI), or low weekend liquidity, Blastrr may apply Temporary Leverage Limits (TLL) to protect simulated accounts from artificial slippage and rapid margin exhaustion. TLL caps are announced via system notices and automatically revert once market stability resumes."
-        ]
-      }
-    ]
-  },
-  {
-    "title": "Platform Mechanics",
-    "summary": "Simulated balances, account access fees, reward claims, contract specifications, and exchange notices.",
-    "groups": [
-      {
-        "title": "Deposits (Simulated Faucet & Setup)",
-        "items": [
-          "Zero Real Deposits: Users never deposit live trading capital onto Blastrr.",
-          "Testnet Faucet: Provision virtual testnet balances ($USDC / $LUN) to demo workspaces via the dashboard header with one click.",
-          "Account Access Fees: Optional setup fees for evaluation profiles can be paid via Web3 wallet tokens (USDC, SOL, $LUN) or debit/credit card."
-        ]
-      },
-      {
-        "title": "Withdrawals (Reward Claims vs Token Transfers)",
-        "items": [
-          "Reward Claims: Converting simulated performance gains into Web3 wallet reward payouts (processed via the Blastrr Capital portal).",
-          "Supported Claim Chains: Solana (Phantom/Solflare) and EVM networks (Ethereum, Arbitrum, Base).",
-          "Processing Timeline: Audited and fulfilled within 24 to 48 hours of claim submission."
-        ]
-      },
-      {
-        "title": "Perpetual Contract Specifications",
-        "items": [
-          "Settlement Currency: Simulated USDC / $LUN",
-          "Contract Expiration: None (Perpetual rollover)",
-          "Minimum Order Size: 0.01 Lots / 1 Token Unit",
-          "Liquidation Engine: Automated risk closure triggered when Usable Margin reaches 0%."
-        ]
-      },
-      {
-        "title": "Exchange Notices",
-        "paragraphs": [
-          "Stay informed on scheduled platform maintenance, new token listings, synthetic orderbook updates, and holiday trading hours via our real-time banner notices and Discord community updates."
-        ]
-      }
-    ]
-  },
-  {
-    "title": "Blastrr Capital (Proprietary Evaluation & Rewards Program)",
-    "summary": "Evaluation paths, account tiers, risk enforcement, reward claims, and trading competitions.",
-    "groups": [
-      {
-        "title": "Overview",
-        "paragraphs": [
-          "Blastrr Capital is our structured performance evaluation framework. Traders demonstrate their market edge on virtual capital and unlock performance-based reward allocations with zero personal financial liability."
-        ],
-        "items": [
-          "Two Paths: Evaluation Phase (1-Step / 2-Step) or Instant Simulated Accounts.",
-          "Profit Share: Keep up to 90% of eligible performance reward splits.",
-          "Capital Tiers: Provisioned from $10,000 up to $100,000 in virtual capital."
-        ]
-      },
-      {
-        "title": "Account Tiers",
+        "title": "Key Platform Specifications",
         "table": {
-          "headers": ["Tier Size", "Path Type", "Virtual Profit Target", "Max Daily Loss", "Max Drawdown", "Profit Split", "Setup Fee"],
+          "headers": ["Feature", "Specification"],
           "rows": [
-            ["$10,000", "1-Step Eval", "10% ($1,000)", "4% ($400)", "8% ($800) Trailing", "80% / 20%", "One-time"],
-            ["$25,000", "1-Step Eval", "10% ($2,500)", "4% ($1,000)", "8% ($2,000) Trailing", "80% / 20%", "One-time"],
-            ["$50,000", "1-Step Eval", "10% ($5,000)", "4% ($2,000)", "8% ($4,000) Trailing", "85% / 15%", "One-time"],
-            ["$100,000", "1-Step Eval", "10% ($10,000)", "4% ($4,000)", "8% ($8,000) Trailing", "90% / 10%", "One-time"],
-            ["Instant ($10k)", "Instant Setup", "None (Skip Eval)", "N/A", "5% Static", "80% / 20%", "One-time"]
+            ["Asset coverage", "Digital assets, forex, commodities, and indices; available markets are shown in the terminal."],
+            ["Simulated leverage", "Market- and account-dependent; see Cross Margin & Leverage."],
+            ["Margin mode", "Unified cross margin across eligible positions."],
+            ["Account collateral", "Simulated testnet balances, such as USDC or LUN, where supported."],
+            ["Settlement", "Simulated fills and account balance updates."],
+            ["Financial liability", "Simulated trading does not put personal trading capital at risk."],
+            ["Performance rewards", "Subject to Blastrr Capital rules, eligibility, and review."]
           ]
         }
       },
       {
-        "title": "Loss Limits & Risk Enforcement",
-        "paragraphs": [
-          "Risk parameters are enforced automatically by the Blastrr execution engine:"
-        ],
+        "title": "Trading Architecture",
         "items": [
-          "Daily Loss Limit (DLL): Resets daily at 00:00 UTC. Calculated as starting equity minus daily limit percentage. If floating equity touches this boundary, all positions auto-close.",
-          "Maximum Drawdown (Max DD) — Evaluation Accounts: Trailing high-water equity until reaching initial starting balance, where it locks as a static floor.",
-          "Maximum Drawdown (Max DD) — Instant Accounts: Static floor fixed directly from starting account capital.",
-          "Breach Protocol: Hitting either floor results in immediate, permanent account termination."
+          "Unified cross margin: usable simulated account equity supports eligible open positions across markets.",
+          "Simulated collateral: supported testnet balances are used for simulated trading.",
+          "Real-time updates: order fills, floating PnL, and balance changes are reflected in the simulated account.",
+          "Automated risk controls: applicable loss limits and drawdown rules are monitored by the platform."
         ]
       },
       {
-        "title": "Claiming Profit",
+        "title": "Blastrr Capital",
         "paragraphs": [
-          "Submit reward claims directly from your user dashboard upon meeting performance criteria:"
+          "Blastrr Capital is the platform's simulated funded account and performance evaluation program. Current account availability and rules are described in Blastrr Capital Overview, Account Tiers, and Loss Limits & Risk Enforcement."
         ],
         "items": [
-          "First Claim Eligibility: 14 calendar days post first trade on a Simulated Funded profile.",
-          "Subsequent Frequency: Bi-weekly or monthly based on account tier.",
-          "Minimum Claim Threshold: $100 simulated net profit.",
-          "Verification: Requires 2-minute standard identity verification (KYC/AML) prior to first payout approval."
+          "Straight-to-funded plans provide simulated funded account access after checkout confirmation.",
+          "Eligible performance reward requests are subject to account rules, risk review, and verification.",
+          "No simulated performance result guarantees a real-world payment or financial return."
         ]
       },
       {
-        "title": "Trading Competitions",
+        "title": "Web3 and Account Access",
         "paragraphs": [
-          "Participate in monthly Blastrr Trading Tournaments!"
+          "Connect using a supported Web3 wallet, or use another sign-in method when offered by the platform. Wallet features and supported networks depend on the account flow."
+        ]
+      }
+    ]
+  },
+  {
+    "id": "getting-started",
+    "title": "Getting Started",
+    "summary": "Create an account, provision simulated collateral, place a first trade, and monitor positions.",
+    "groups": [
+      {
+        "title": "Choose a Sign-Up Method",
+        "items": [
+          "Web3 wallet: connect a supported wallet such as Phantom, Solflare, or MetaMask when available.",
+          "Email or social sign-in: use an alternative account method when offered, then link a Web3 wallet later if needed for wallet features."
+        ]
+      },
+      {
+        "title": "Provision Testnet Collateral",
+        "paragraphs": [
+          "Primary demo workspaces use simulated testnet collateral. Use the Faucet, Reset Balance, or other balance-provisioning control shown in your dashboard. The available action depends on your account type.",
+          "Simulated funded accounts are provisioned according to their account setup; they do not accept user deposits."
         ],
         "items": [
-          "Entry: Free or token-gated via $LUN holdings.",
-          "Objective: Highest percentage gain over a 30-day period while staying within maximum drawdown limits.",
-          "Prizes: Free evaluation account vouchers, $LUN token allocations, and VIP platform tier unlocks."
+          "All demo collateral is simulated; do not send real funds to a faucet or demo balance.",
+          "Available collateral can support eligible markets through the account's margin system."
+        ]
+      },
+      {
+        "title": "Place Your First Simulated Trade",
+        "items": [
+          "Select an active market in the terminal.",
+          "Choose Long or Short and select an available order type.",
+          "Set order size and leverage within the market and account limits.",
+          "Review risk indicators and order details before submitting."
+        ]
+      },
+      {
+        "title": "Manage and Monitor Positions",
+        "items": [
+          "Review open positions, floating PnL, mark price, and risk information in the terminal.",
+          "Set or adjust Stop Loss and Take Profit controls where available.",
+          "Track pending orders and cancel or amend them using the controls provided.",
+          "Read Loss Limits & Risk Enforcement before trading a Blastrr Capital account."
+        ]
+      },
+      {
+        "title": "Need Assistance?",
+        "paragraphs": [
+          "Use the platform support widget or the official support channels linked by Blastrr for account or platform help."
+        ]
+      }
+    ]
+  },
+  {
+    "id": "trading-markets",
+    "title": "Trading Markets",
+    "summary": "Market coverage, continuous crypto trading, leverage caps, and market discovery.",
+    "groups": [
+      {
+        "title": "Market Coverage",
+        "paragraphs": [
+          "Blastrr provides simulated perpetual markets. The Markets list in the Trading Terminal is the current source for active symbols and availability."
+        ],
+        "items": [
+          "Major digital assets: BTC/USD, ETH/USD, SOL/USD, and LUN/USD where listed.",
+          "Additional crypto markets may include assets such as AVAX, NEAR, ARB, SUI, LINK, UNI, AAVE, and TIA. Availability can change.",
+          "Other asset classes, including forex, commodities, and indices, are available only where shown as active in the terminal."
+        ]
+      },
+      {
+        "title": "Trading Schedule",
+        "paragraphs": [
+          "Crypto perpetual markets are designed for continuous 24/7/365 trading. Platform maintenance or service interruptions may temporarily affect access. Other asset classes may follow their applicable session schedules."
+        ]
+      },
+      {
+        "title": "Leverage Caps",
+        "paragraphs": [
+          "Leverage is set per market and may differ by account type. The order ticket's available leverage control and current platform rules are authoritative."
+        ],
+        "items": [
+          "Primary demo accounts may have higher leverage limits than Blastrr Capital accounts.",
+          "Blastrr Capital crypto leverage is limited according to the market and account risk rules.",
+          "Changing leverage changes required margin; it does not change the nominal dollar PnL of an unchanged position size."
+        ]
+      },
+      {
+        "title": "Example Market Leverage Tiers",
+        "paragraphs": [
+          "These examples reflect the supplied market specifications; actual limits can change. Confirm the cap for a selected pair in the terminal before trading."
+        ],
+        "table": {
+          "headers": ["Market group", "Example pairs", "Primary account example", "Blastrr Capital example"],
+          "rows": [
+            ["Major crypto", "BTC/USD, ETH/USD", "Up to 100x", "Up to 20x"],
+            ["Large-cap crypto", "SOL/USD, LUN/USD, BNB/USD", "Up to 50x", "Up to 20x"],
+            ["Selected large-cap pairs", "XRP/USD, DOGE/USD, ADA/USD, AVAX/USD, LINK/USD, SUI/USD", "Up to 50x", "Up to 15x"],
+            ["Mid-cap pairs", "DOT/USD, NEAR/USD, MATIC/USD, LTC/USD, BCH/USD, AAVE/USD, ARB/USD, OP/USD", "Up to 25x", "Up to 10x"],
+            ["Volatile altcoins", "WIF/USD, TIA/USD, INJ/USD, FTM/USD, SEI/USD, FLOKI/USD, BONK/USD", "Up to 20x", "Up to 10x"],
+            ["Selected higher-volatility pairs", "GALA/USD, FLOW/USD, ENA/USD, W/USD, JUP/USD, ORDI/USD, WORLD/USD", "Up to 20x", "Up to 5x"]
+          ]
+        }
+      },
+      {
+        "title": "Fees",
+        "paragraphs": [
+          "Trading fees, spreads, and funding can vary by market and execution type. Review current fee information in the platform before trading; displayed platform terms take precedence over this overview."
+        ]
+      },
+      {
+        "title": "Find and Filter Markets",
+        "items": [
+          "Search active pairs by ticker or asset name in the Markets area.",
+          "Use available market filters and watchlist controls to organize symbols.",
+          "Confirm the selected market, its current limits, and trading status in the order ticket before submitting an order."
+        ]
+      }
+    ]
+  },
+  {
+    "id": "order-types",
+    "title": "Order Types",
+    "summary": "Market and limit orders, time in force, reduce-only controls, and conditional TP/SL orders.",
+    "groups": [
+      {
+        "title": "Supported Order Types",
+        "items": [
+          "Market order: requests immediate simulated execution against available market liquidity. The fill price may differ from the displayed price.",
+          "Limit order: sets a maximum buy price or minimum sell price. Execution depends on the market reaching the order price and available liquidity.",
+          "Stop-Limit or other conditional orders: available only where shown in the terminal; the stop trigger and resulting order behavior depend on the selected order configuration."
+        ]
+      },
+      {
+        "title": "Time in Force",
+        "paragraphs": [
+          "Time in force controls how long an unfilled order remains active. Options shown may vary by order type."
+        ],
+        "table": {
+          "headers": ["Option", "Name", "Behavior"],
+          "rows": [
+            ["GTC", "Good 'Til Cancelled", "Rests until filled or cancelled."],
+            ["IOC", "Immediate or Cancel", "Executes available quantity immediately and cancels any remainder."],
+            ["FOK", "Fill or Kill", "Executes the full quantity immediately or cancels the order."],
+            ["ALO", "Post-only", "Rejects an order that would immediately execute as a taker, where supported."]
+          ]
+        }
+      },
+      {
+        "title": "Reduce Only",
+        "paragraphs": [
+          "Reduce Only orders are intended to decrease or close an existing position. They should not increase or reverse the position. The platform may reject an order if it would not reduce the current position."
+        ]
+      },
+      {
+        "title": "Take Profit and Stop Loss",
+        "items": [
+          "Take Profit (TP) can trigger a closing order when a selected price condition is met.",
+          "Stop Loss (SL) can trigger a closing order when a selected loss boundary is reached.",
+          "Where available, TP/SL can be set during order entry or adjusted on an open position.",
+          "Trigger execution depends on the selected trigger and order type, available liquidity, and current platform conditions."
+        ]
+      },
+      {
+        "title": "Execution and Risk Indicators",
+        "paragraphs": [
+          "Orders execute against the platform's simulated market and order book. Limit orders may fill partially; market execution can be affected by liquidity and simulated slippage.",
+          "Review the order ticket's Fail Price or liquidation indicator when available. It is an estimate of a risk boundary, not a guarantee of the eventual execution price."
+        ]
+      }
+    ]
+  },
+  {
+    "id": "cross-margin-leverage",
+    "title": "Cross Margin & Leverage",
+    "summary": "How simulated margin, position sizing, market leverage caps, and portfolio risk work.",
+    "groups": [
+      {
+        "title": "Overview",
+        "paragraphs": [
+          "Eligible Blastrr accounts use cross margin backed by simulated collateral. Usable account equity can support multiple open positions rather than being isolated to one market. All balances, positions, and executions remain simulated."
+        ]
+      },
+      {
+        "title": "Margin and Position Sizing",
+        "paragraphs": [
+          "Margin is the portion of simulated equity required to support a position. Leverage increases the notional exposure supported by a given margin amount and magnifies both simulated gains and losses.",
+          "Notional Value = Position Quantity × Simulated Mark Price\nEstimated Initial Margin = Notional Value ÷ Selected Leverage",
+          "Changing leverage affects margin requirements for new orders; it does not change the dollar PnL of an unchanged position size."
+        ]
+      },
+      {
+        "title": "Leverage Limits",
+        "paragraphs": [
+          "Maximum leverage is market- and account-dependent. Primary demo accounts and Blastrr Capital accounts may have different caps. Use the order ticket for current allowed leverage."
+        ],
+        "items": [
+          "Blastrr Capital accounts use lower leverage caps than some demo markets.",
+          "Caps can vary between major and more volatile crypto pairs.",
+          "Temporary Leverage Limits may further reduce limits during specified events."
+        ]
+      },
+      {
+        "title": "Unified Cross Margin",
+        "paragraphs": [
+          "Usable simulated collateral supports eligible open positions. Portfolio equity reflects collateral and realized and floating PnL, subject to platform accounting and transfers.",
+          "Effective Portfolio Leverage = Total Notional Value of Open Positions ÷ Portfolio Equity",
+          "Cross margin can allow profits in one position to offset losses in another, but it also exposes shared account equity to losses across open positions."
+        ]
+      },
+      {
+        "title": "Margin Requirements and Liquidation",
+        "paragraphs": [
+          "New orders require sufficient available equity to meet initial margin requirements. If equity falls below applicable maintenance requirements, the platform may liquidate positions. Blastrr Capital loss limits can invalidate an account independently of ordinary margin requirements."
+        ]
+      },
+      {
+        "title": "Risk on Blastrr Capital Accounts",
+        "items": [
+          "Daily Loss Limit checks account equity, including applicable floating PnL, against the daily floor.",
+          "Maximum Drawdown checks equity against the account's fixed drawdown floor.",
+          "Leverage and position size affect how quickly market movements can approach these risk boundaries."
+        ]
+      }
+    ]
+  },
+  {
+    "id": "funding-rates",
+    "title": "Funding Rates",
+    "summary": "What simulated funding represents, how payments affect positions, and how to view current rates.",
+    "groups": [
+      {
+        "title": "Overview",
+        "paragraphs": [
+          "Funding is a simulated transfer between long and short holders, not a platform trading fee. Funding mechanisms are used in perpetual futures to help keep a contract price aligned with a reference market.",
+          "When funding is positive, long holders generally pay short holders. When funding is negative, short holders generally pay long holders. Funding payments adjust simulated position equity."
+        ]
+      },
+      {
+        "title": "Settlement Frequency",
+        "paragraphs": [
+          "Funding intervals can vary by market and platform configuration. Check the current rate and next settlement timing displayed in the trading terminal; do not rely on a fixed interval from this guide."
+        ]
+      },
+      {
+        "title": "Funding Rate Components",
+        "paragraphs": [
+          "Funding calculations may use the premium between synthetic execution prices and a reference index, alongside an interest component and configured clamps. Exact inputs and intervals may change by market.",
+          "Premium Index = (Buy Impact Price Premium − Sell Impact Price Premium) ÷ Index Price",
+          "The supplied crypto specification describes: I = Annual Interest Rate × H ÷ (365 × 24), and Hourly Funding Rate = [P + clamp(I − P, −K × I, +K × I)] ÷ H.",
+          "In this model, P is the average premium index, I is the interval interest rate, H is the normalization interval, and K is the clamp multiplier. The supplied example parameters are a 10.95% annual interest rate, H = 24 hours, and K = 1.",
+          "The platform's displayed funding rate is the source of truth for the applicable market and settlement period."
+        ]
+      },
+      {
+        "title": "Funding Payment Example",
+        "paragraphs": [
+          "Funding Payment = Position Notional × Funding Rate.",
+          "For example, a $1,000,000 simulated position at a 0.00375% hourly funding rate would produce a $37.50 simulated payment for that hour. The paying side depends on the funding direction.",
+          "This is an illustration, not a quoted rate or settlement schedule. Use the rate and next settlement timing displayed in the terminal."
+        ]
+      },
+      {
+        "title": "How Funding Affects Risk",
+        "items": [
+          "Funding credits or debits affect floating position equity.",
+          "A large funding payment can change an account's distance from its Daily Loss Limit or Maximum Drawdown floor.",
+          "Review funding information in the terminal before holding a position through a settlement."
+        ]
+      }
+    ]
+  },
+  {
+    "id": "temporary-leverage-limits",
+    "title": "Temporary Leverage Limits",
+    "summary": "How temporary leverage restrictions may affect new orders, resting orders, and open positions.",
+    "groups": [
+      {
+        "title": "Overview",
+        "paragraphs": [
+          "During periods of extreme volatility, reduced liquidity, major market events, or infrastructure maintenance, Blastrr may temporarily lower leverage limits on selected markets. Any active restriction and its scope should be confirmed from current platform notices and order ticket settings."
+        ]
+      },
+      {
+        "title": "When a Limit Activates",
+        "items": [
+          "New orders may remain available but are subject to the temporary leverage cap.",
+          "Unfilled orders that exceed an applicable reduced limit may be cancelled or rejected.",
+          "The handling of open positions depends on the announced event rules, account equity, and current platform risk controls.",
+          "Attached TP/SL controls may remain active, subject to platform position changes and order behavior."
+        ]
+      },
+      {
+        "title": "Example Temporary Caps",
+        "paragraphs": [
+          "The source material gives the following examples for Blastrr Capital accounts. They are illustrative only; active restrictions may differ and are announced through current platform notices and order ticket settings."
+        ],
+        "table": {
+          "headers": ["Market group", "Example standard cap", "Example temporary cap"],
+          "rows": [
+            ["BTC/USD and ETH/USD", "20x", "5x"],
+            ["SOL/USD, LUN/USD, and BNB/USD", "20x", "5x"],
+            ["PEPE/USD, WIF/USD, and TIA/USD", "10x", "3x"]
+          ]
+        }
+      },
+      {
+        "title": "When a Limit Ends",
+        "paragraphs": [
+          "When a temporary restriction is removed, ordinary market and account limits may resume. Orders cancelled during an event may need to be submitted again. Check platform notices and current order settings."
+        ]
+      },
+      {
+        "title": "Managing Positions During an Event",
+        "items": [
+          "Monitor available collateral and account equity.",
+          "Consider reducing leverage or position size before a scheduled restriction takes effect.",
+          "Review open orders and TP/SL settings after any market or position adjustment."
+        ]
+      }
+    ]
+  },
+  {
+    "id": "deposits-testnet-collateral",
+    "title": "Deposits & Testnet Collateral",
+    "summary": "Provisioning simulated balances, faucet access, and troubleshooting balance updates.",
+    "groups": [
+      {
+        "title": "Overview",
+        "paragraphs": [
+          "Primary demo workspaces may use virtual testnet collateral such as USDT, USDC, or LUN. These balances are simulated and are not a deposit of live trading capital.",
+          "Blastrr Capital simulated funded accounts are provisioned according to account setup and do not accept user deposits."
+        ]
+      },
+      {
+        "title": "Ways to Provision a Demo Balance",
+        "items": [
+          "Use the Faucet, Reset Balance, or Top-Up control shown in the dashboard when available.",
+          "Wallet-based testnet features and supported networks depend on your account and the active platform configuration.",
+          "Never send real tokens to a simulated faucet or an address not explicitly provided for a supported transaction."
+        ]
+      },
+      {
+        "title": "Minimums and Availability",
+        "paragraphs": [
+          "Faucet amounts, request limits, minimums, and supported networks can change. Follow the controls and instructions shown in the platform."
+        ]
+      },
+      {
+        "title": "Balance Troubleshooting",
+        "items": [
+          "Check whether a Process Faucet or synchronization action is available in the dashboard.",
+          "Refresh your session after allowing any displayed network confirmation time.",
+          "If needed, disconnect and reconnect your wallet, then confirm the selected network.",
+          "If the balance still does not update, contact support through the platform widget or the official support channel."
+        ]
+      }
+    ]
+  },
+  {
+    "id": "withdrawals",
+    "title": "Withdrawals",
+    "summary": "Distinguish wallet transfers from performance claims and review transfer steps and status.",
+    "groups": [
+      {
+        "title": "Claim Profit vs. Withdrawal",
+        "paragraphs": [
+          "A Claim Profit request moves eligible simulated performance rewards from a Blastrr Capital account to the user's Primary Account, subject to review.",
+          "A withdrawal or wallet transfer moves an available balance from a Primary Account to an external wallet. These are separate flows with different eligibility, verification, processing, and network requirements."
+        ]
+      },
+      {
+        "title": "Processing and Networks",
+        "paragraphs": [
+          "Processing times and supported networks depend on the transaction and current platform conditions. Review the withdrawal panel for the latest supported networks, asset, fees, limits, and estimated timing."
+        ]
+      },
+      {
+        "title": "How to Withdraw",
+        "items": [
+          "Open the Withdraw control from the appropriate account view.",
+          "Enter or select the destination public wallet address and choose a supported network.",
+          "Enter the amount and review the asset, destination, network, and any displayed fees or limits.",
+          "Confirm only after verifying the details. On-chain transfers may be irreversible."
+        ]
+      },
+      {
+        "title": "Limits and Verification",
+        "paragraphs": [
+          "Minimum amounts, rolling limits, security reviews, and identity checks can depend on account status and current platform policy. The supplied documentation describes a 1 USDT minimum and a 50,000 USDT rolling 24-hour transfer threshold, with larger requests subject to additional review. Confirm current requirements in the withdrawal panel."
+        ]
+      },
+      {
+        "title": "Track a Transfer",
+        "items": [
+          "Use the Withdrawals or Claims history in your dashboard to review type, asset, amount, status, date, and transaction reference when available.",
+          "If a transfer appears complete but has not arrived, inspect its transaction reference on the relevant block explorer, then contact support with the transaction details."
+        ]
+      }
+    ]
+  },
+  {
+    "id": "capital-overview",
+    "title": "Blastrr Capital Overview",
+    "summary": "Straight-to-funded simulated accounts, their shared rules, and reward eligibility.",
+    "groups": [
+      {
+        "title": "Program Overview",
+        "paragraphs": [
+          "Blastrr Capital provides Straight-to-Funded simulated accounts. Accounts are provisioned as simulated funded profiles after checkout confirmation; there are no evaluation stages in the current plan structure.",
+          "All balances, orders, and positions are simulated. Funded status does not represent live trading capital or guarantee a real-world payment. Reward requests are subject to current terms, risk review, and verification."
+        ]
+      },
+      {
+        "title": "What the Program Provides",
+        "items": [
+          "Simulated capital assigned to the selected plan.",
+          "A shared trading interface and eligible crypto perpetual market access.",
+          "Account-specific leverage limits and risk boundaries.",
+          "The ability to submit eligible performance reward requests, subject to account rules."
+        ]
+      },
+      {
+        "title": "Risk Rules",
+        "paragraphs": [
+          "Current Straight-to-Funded plans use a 5% Daily Loss Limit and a 10% static Maximum Drawdown, plus a 40% single-day profit consistency rule for reward claims. See Account Tiers and Loss Limits & Risk Enforcement for details."
+        ]
+      },
+      {
+        "title": "Account Management",
+        "items": [
+          "Account caps, available markets, leverage, and claim eligibility are governed by current platform rules.",
+          "Account access fee policies and refund eligibility are displayed during checkout and in the current terms.",
+          "Claim Profit and external wallet withdrawals are separate account flows."
+        ]
+      }
+    ]
+  },
+  {
+    "id": "account-tiers",
+    "title": "Blastrr Capital Account Tiers",
+    "summary": "Current Straight-to-Funded capital tiers and their shared risk and consistency parameters.",
+    "groups": [
+      {
+        "title": "Straight-to-Funded Plans",
+        "paragraphs": [
+          "Blastrr Capital currently offers Straight-to-Funded simulated accounts. Accounts are provisioned after checkout confirmation. No evaluation or multi-step challenge is required.",
+          "The table lists account parameters, not purchase pricing. Current checkout and platform rules remain authoritative."
+        ],
+        "table": {
+          "headers": ["Tier", "Simulated Capital", "Account Type", "Profit Target", "Daily Loss Limit (5%)", "Max Drawdown (10%)", "Consistency Rule", "Execution Schedule"],
+          "rows": [
+            ["Micro $5k", "$5,000", "Straight to Funded", "$1,000", "$250", "$500", "40% max single-day profit", "24/7/365"],
+            ["Starter $10k", "$10,000", "Straight to Funded", "$2,000", "$500", "$1,000", "40% max single-day profit", "24/7/365"],
+            ["Trader $20k", "$20,000", "Straight to Funded", "$4,000", "$1,000", "$2,000", "40% max single-day profit", "24/7/365"],
+            ["Pro $50k (Popular)", "$50,000", "Straight to Funded", "$10,000", "$2,500", "$5,000", "40% max single-day profit", "24/7/365"],
+            ["Elite $100k", "$100,000", "Straight to Funded", "$20,000", "$5,000", "$10,000", "40% max single-day profit", "24/7/365"],
+            ["Whale $250k", "$250,000", "Straight to Funded", "$50,000", "$12,500", "$25,000", "40% max single-day profit", "24/7/365"]
+          ]
+        }
+      },
+      {
+        "title": "Universal Tier Parameters",
+        "items": [
+          "Daily Loss Limit: 5% of starting daily equity, resetting at 00:00 UTC. Applicable equity checks include floating PnL.",
+          "Maximum Drawdown: fixed static floor calculated from initial starting capital at 10%.",
+          "Profit consistency: at claim time, no single trading day may account for more than 40% of total net virtual profit.",
+          "Crypto execution: available crypto perpetuals are intended to trade continuously, subject to platform availability and maintenance."
+        ]
+      }
+    ]
+  },
+  {
+    "id": "loss-limits",
+    "title": "Loss Limits & Risk Enforcement",
+    "summary": "Daily loss floors, static drawdown, account invalidation, and pre-trade risk indicators.",
+    "groups": [
+      {
+        "title": "Standard Risk Parameters",
+        "paragraphs": [
+          "Straight-to-Funded Blastrr Capital accounts use two continuously monitored risk boundaries: a 5% Daily Loss Limit and a 10% static Maximum Drawdown. Values below are based on the stated starting simulated capital."
+        ],
+        "table": {
+          "headers": ["Tier", "Simulated Capital", "Daily Loss Limit (5%)", "Daily Equity Floor at Starting Balance", "Max Drawdown (10%)", "Fixed Max Drawdown Floor"],
+          "rows": [
+            ["Micro $5k", "$5,000", "$250", "$4,750", "$500", "$4,500"],
+            ["Starter $10k", "$10,000", "$500", "$9,500", "$1,000", "$9,000"],
+            ["Trader $20k", "$20,000", "$1,000", "$19,000", "$2,000", "$18,000"],
+            ["Pro $50k", "$50,000", "$2,500", "$47,500", "$5,000", "$45,000"],
+            ["Elite $100k", "$100,000", "$5,000", "$95,000", "$10,000", "$90,000"],
+            ["Whale $250k", "$250,000", "$12,500", "$237,500", "$25,000", "$225,000"]
+          ]
+        }
+      },
+      {
+        "title": "Maximum Drawdown (10% Static Floor)",
+        "paragraphs": [
+          "The Maximum Drawdown is a static dollar floor set from the account's initial simulated capital. It does not trail high-water equity or move up with profits.",
+          "Static Floor = Initial Capital − (Initial Capital × 10%)",
+          "If account equity, including applicable floating PnL, reaches the floor, the account may be invalidated under current risk rules."
+        ]
+      },
+      {
+        "title": "Daily Loss Limit (5% Daily Reset)",
+        "paragraphs": [
+          "The Daily Loss Limit resets at 00:00 UTC. The reset balance is captured according to platform accounting rules. Floating equity is monitored against the daily floor.",
+          "Daily Equity Floor = Reset Balance × 0.95 + Net Transfers Since Reset",
+          "Intraday profits do not raise that day's floor; the floor is recalculated at the next reset. Applicable transfers may adjust the floor."
+        ]
+      },
+      {
+        "title": "Breach Handling",
+        "paragraphs": [
+          "Touching or crossing an applicable risk floor can result in immediate account invalidation. The system may cancel pending orders and close open positions. Follow the current account rules; do not assume there is a warning or grace period."
+        ]
+      },
+      {
+        "title": "Profit Consistency Rule",
+        "paragraphs": [
+          "For a reward claim, no single trading day may account for more than 40% of total accumulated net virtual profit. If the best day exceeds this threshold, additional eligible trading profit may be needed before a claim meets the rule."
+        ]
+      },
+      {
+        "title": "Pre-Trade Risk Indicator",
+        "paragraphs": [
+          "The order ticket may show a Fail Price or risk indicator estimating where a position could reach an account loss boundary. It is an estimate based on displayed assumptions, not a guarantee. Review it alongside position size, leverage, and account equity before placing an order."
+        ]
+      }
+    ]
+  },
+  {
+    "id": "claiming-rewards",
+    "title": "Claiming Performance Rewards",
+    "summary": "Claim Profit requests, eligibility, review, verification, and the separate withdrawal step.",
+    "groups": [
+      {
+        "title": "Overview",
+        "paragraphs": [
+          "Claim Profit requests transfer eligible simulated performance rewards from a Blastrr Capital simulated funded account to the user's Primary Account. A separate withdrawal is needed to move a Primary Account balance to an external wallet.",
+          "A claim is subject to account rules, risk review, current eligibility requirements, and verification. Simulated performance does not guarantee a real-world payout."
+        ]
+      },
+      {
+        "title": "Claim Flow",
+        "items": [
+          "Submit a Claim Profit request from the account portfolio when eligible; close positions first if required by the platform.",
+          "Select an available reward asset if the form offers a choice.",
+          "The platform reviews risk limits, trading history, consistency rules, and verification status.",
+          "Approved requests are credited according to the current claim process. Withdrawals to external wallets use a separate flow."
+        ]
+      },
+      {
+        "title": "Eligibility and Processing",
+        "table": {
+          "headers": ["Requirement", "Current program detail"],
+          "rows": [
+            ["First claim", "Eligibility begins 14 calendar days after the first trade on a simulated funded account."],
+            ["Minimum claim", "$100 in eligible simulated net profit."],
+            ["Profit consistency", "No single day may exceed 40% of total net virtual profit at claim time."],
+            ["Risk audit", "The account must comply with its Daily Loss Limit and Maximum Drawdown."],
+            ["Processing", "Subject to audit and verification; follow the timing shown in the claim flow."]
+          ]
+        }
+      },
+      {
+        "title": "Reward Split",
+        "paragraphs": [
+          "The reward split is set by the applicable Blastrr Capital plan and current terms. Review the split shown for your account when submitting a claim; do not assume all plans use the same percentage."
+        ]
+      },
+      {
+        "title": "Identity Verification",
+        "paragraphs": [
+          "A first reward claim may require identity verification, such as an ID check and selfie, before approval. Subsequent requests follow the verification requirements presented by the platform."
+        ]
+      },
+      {
+        "title": "Claim Profit vs. Wallet Transfer",
+        "paragraphs": [
+          "Claim Profit moves eligible rewards internally from a simulated funded account to a Primary Account. A wallet transfer moves an available Primary Account balance to an external Web3 address. Check the destination, asset, and network carefully; external blockchain transfers may be irreversible."
         ]
       }
     ]

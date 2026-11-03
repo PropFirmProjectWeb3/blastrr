@@ -25,6 +25,24 @@ function initTables() {
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     )`);
 
+    db.run(`CREATE TABLE IF NOT EXISTS creator_applications (
+      wallet_address TEXT PRIMARY KEY,
+      x_url TEXT,
+      youtube_url TEXT,
+      tiktok_url TEXT,
+      instagram_url TEXT,
+      twitch_url TEXT,
+      discord_url TEXT,
+      website_url TEXT,
+      community_size TEXT NOT NULL,
+      community_description TEXT NOT NULL,
+      creator_motivation TEXT NOT NULL,
+      status TEXT NOT NULL DEFAULT 'PENDING' CHECK(status IN ('PENDING', 'APPROVED', 'REJECTED')),
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      reviewed_at DATETIME
+    )`);
+
     db.run(`CREATE TABLE IF NOT EXISTS plans (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       name TEXT NOT NULL,

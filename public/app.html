@@ -392,7 +392,7 @@
                             <div>
                             <p style="margin: 4px 0;"><strong>Username:</strong> <span id="disp-username" style="color: #c084fc; font-weight: 600;">-</span></p>
                             <p style="margin: 4px 0;"><strong>Your Promo Code:</strong> <code id="disp-code" style="background: rgba(5, 7, 11, 0.9); padding: 4px 10px; border-radius: 6px; color: #34d399; border: 1px solid rgba(52, 211, 153, 0.2);">-</code></p>
-                            <p style="margin: 4px 0;"><strong>Your referral commission:</strong> <span id="disp-referral-pct" style="color: #c084fc; font-weight: 600;">2%</span></p>
+                            <p class="profile-referral-rate-row"><span>Your referral commission</span><span id="disp-referral-pct" class="profile-referral-rate">2%</span></p>
                             </div>
                         </div>
                         <button class="btn-share-x" onclick="shareCreatorCodeOnX()">Share Promo Code on X</button>
@@ -403,11 +403,11 @@
                     <div class="grid-3 profile-stat-grid">
                         <div class="profile-stat-card">
                             <div class="card-title" style="font-size: 13px; color: #9ca3af; margin-bottom: 8px;">Total Referred Traders</div>
-                            <p id="stat-ref-count" style="font-size: 26px; font-weight: 800; color: #34d399; margin: 0;">0</p>
+                            <p id="stat-ref-count" class="profile-stat-value">0</p>
                         </div>
                         <div class="profile-stat-card">
                             <div class="card-title" style="font-size: 13px; color: #9ca3af; margin-bottom: 8px;">Available Commission Balance</div>
-                            <p id="stat-ref-earnings" style="font-size: 26px; font-weight: 800; color: #c084fc; margin: 0; margin-bottom: 12px;">$0.00 USDT</p>
+                            <p id="stat-ref-earnings" class="profile-stat-value">$0.00 USDT</p>
                             <button class="btn-wallet" style="padding: 6px 14px; font-size: 12px; background: #059669;" onclick="requestCommissionWithdrawal()">Withdraw Commissions</button>
                         </div>
                     </div>
@@ -427,6 +427,56 @@
                 </div>
                 <p id="free-account-feedback" class="support-feedback" role="status" aria-live="polite"></p>
             </div>
+            <section class="card creator-application-card" aria-labelledby="creator-application-title">
+                <div class="creator-application-heading">
+                    <div>
+                        <h2 id="creator-application-title">Become a creator</h2>
+                        <p class="support-note">Share your community and social profiles to apply for a higher referral bonus.</p>
+                    </div>
+                    <span id="creator-application-status" class="creator-application-status" hidden></span>
+                </div>
+                <div id="creator-application-intro">
+                    <p class="creator-application-note">Applications are reviewed by the Blastrr team. If approved, your custom referral bonus will be shown on this profile.</p>
+                    <button id="creator-application-start" class="btn-wallet creator-application-button" type="button">Apply to become a creator</button>
+                </div>
+                <form id="creator-application-form" class="creator-application-form" hidden>
+                    <p class="creator-application-note">Add links for the platforms you use. At least one social profile link is required. You can edit and resubmit your application at any time.</p>
+                    <div class="creator-social-grid">
+                        <div class="form-group"><label for="creator-x-url">X profile</label><input id="creator-x-url" type="url" maxlength="300" placeholder="https://x.com/yourname"></div>
+                        <div class="form-group"><label for="creator-youtube-url">YouTube channel</label><input id="creator-youtube-url" type="url" maxlength="300" placeholder="https://youtube.com/@yourchannel"></div>
+                        <div class="form-group"><label for="creator-tiktok-url">TikTok profile</label><input id="creator-tiktok-url" type="url" maxlength="300" placeholder="https://tiktok.com/@yourname"></div>
+                        <div class="form-group"><label for="creator-instagram-url">Instagram profile</label><input id="creator-instagram-url" type="url" maxlength="300" placeholder="https://instagram.com/yourname"></div>
+                        <div class="form-group"><label for="creator-twitch-url">Twitch channel</label><input id="creator-twitch-url" type="url" maxlength="300" placeholder="https://twitch.tv/yourname"></div>
+                        <div class="form-group"><label for="creator-discord-url">Discord community</label><input id="creator-discord-url" type="url" maxlength="300" placeholder="https://discord.gg/yourcommunity"></div>
+                        <div class="form-group"><label for="creator-website-url">Website or other profile</label><input id="creator-website-url" type="url" maxlength="300" placeholder="https://example.com"></div>
+                    </div>
+                    <div class="form-group">
+                        <label for="creator-community-size">Approximate community size</label>
+                        <select id="creator-community-size" required>
+                            <option value="">Select a range</option>
+                            <option value="Just me">Just me</option>
+                            <option value="1-100">1-100</option>
+                            <option value="101-1,000">101-1,000</option>
+                            <option value="1,001-10,000">1,001-10,000</option>
+                            <option value="10,001-100,000">10,001-100,000</option>
+                            <option value="100,000+">100,000+</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="creator-community-description">Tell us about your community</label>
+                        <textarea id="creator-community-description" rows="3" minlength="10" maxlength="1000" required placeholder="Where is your community, and what trading or crypto content do you share?"></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label for="creator-motivation">Why would you like to become a Blastrr creator?</label>
+                        <textarea id="creator-motivation" rows="3" minlength="10" maxlength="1000" required placeholder="Tell us how you would introduce Blastrr to your audience."></textarea>
+                    </div>
+                    <div class="creator-application-actions">
+                        <button class="btn-wallet creator-application-button" type="submit">Submit application</button>
+                        <button id="creator-application-cancel" class="creator-application-cancel" type="button">Cancel</button>
+                    </div>
+                    <p id="creator-application-feedback" class="support-feedback" role="status" aria-live="polite"></p>
+                </form>
+            </section>
             <div class="card support-card">
                 <div class="card-title">Account support tickets</div>
                 <p class="support-note">Describe the issue in text and attach it to the account where possible. Do not include passwords, seed phrases, or private keys. File uploads are not supported.</p>
@@ -569,6 +619,13 @@
             </div>
             </div>
             <div id="admin-creators-panel" class="admin-section-panel" role="tabpanel" hidden>
+                <div class="card admin-creator-applications-card">
+                    <div class="card-title">Creator applications</div>
+                    <p class="support-note">Review community details and approve creators with a custom referral bonus. Changes apply to future referrals.</p>
+                    <div id="admin-creator-applications" class="support-card-list">
+                        <p class="account-chart-empty">Creator applications will appear here.</p>
+                    </div>
+                </div>
                 <div class="card">
                     <div class="card-title">Creator referral commissions</div>
                     <p class="support-note">Search creator profiles by username and set their commission rate from 0% to 100%. The new rate applies to future referrals only.</p>

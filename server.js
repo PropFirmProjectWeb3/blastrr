@@ -1268,20 +1268,30 @@ app.get('/api/user/profile', requireWalletSession, (req, res) => {
        FROM referrals WHERE LOWER(referrer_wallet) = LOWER(?)`, 
       [wallet], 
       (err2, stats) => {
+        if (err2) return res.status(500).json({ error: 'Unable to load referral totals.' });
         db.all(
           `SELECT SUM(amount) as total_withdrawn FROM referral_withdrawals WHERE LOWER(wallet_address) = LOWER(?) AND status != 'REJECTED'`,
           [wallet],
           (err3, wdrStats) => {
+            if (err3) return res.status(500).json({ error: 'Unable to load referral withdrawal totals.' });
             const totalEarned = stats[0]?.total_earned || 0;
             const totalWithdrawn = wdrStats[0]?.total_withdrawn || 0;
-            res.json({
-              user: user || null,
-              stats: {
-                total_referrals: stats[0]?.total_referrals || 0,
-                total_earned: totalEarned,
-                available_commission: Math.max(0, totalEarned - totalWithdrawn)
+            db.get(
+              'SELECT x_url, youtube_url, tiktok_url, instagram_url, twitch_url, discord_url, website_url, community_size, community_description, creator_motivation, status, created_at, updated_at, reviewed_at FROM creator_applications WHERE LOWER(wallet_address) = LOWER(?)',
+              [wallet],
+              (applicationErr, application) => {
+                if (applicationErr) return res.status(500).json({ error: 'Unable to load creator application.' });
+                res.json({
+                  user: user || null,
+                  application: application || null,
+                  stats: {
+                    total_referrals: stats[0]?.total_referrals || 0,
+                    total_earned: totalEarned,
+                    available_commission: Math.max(0, totalEarned - totalWithdrawn)
+                  }
+                });
               }
-            });
+            );
           }
         );
       }
@@ -1327,6 +1337,147 @@ app.post('/api/user/profile', sensitiveLimiter, requireTradeSignature, (req, res
       );
     }
   );
+});
+
+app.post('/api/user/creator-application', sensitiveLimiter, requireTradeSignature, (req, res) => {
+  const wallet = req.body.wallet_address.toLowerCase();
+  const linkFields = ['x_url', 'youtube_url', 'tiktok_url', 'instagram_url', 'twitch_url', 'discord_url', 'website_url'];
+  const links = {};
+  for (const field of linkFields) {
+    const value = typeof req.body[field] === 'string' ? req.body[field].trim() : '';
+    if (value.length > 300) return res.status(400).json({ error: 'Social profile links must be 300 characters or fewer.' });
+    if (value) {
+      try {
+        const parsed = new URL(value);
+        if (!['http:', 'https:'].includes(parsed.protocol) || !parsed.hostname) throw new Error('Invalid URL');
+      } catch {
+        return res.status(400).json({ error: 'Enter valid http or https links for social profiles.' });
+      }
+    }
+    links[field] = value || null;
+  }
+  if (!linkFields.some(field => links[field])) {
+    return res.status(400).json({ error: 'Add at least one social profile link.' });
+  }
+
+  const communitySize = typeof req.body.community_size === 'string' ? req.body.community_size.trim() : '';
+  const communityDescription = typeof req.body.community_description === 'string' ? req.body.community_description.trim() : '';
+  const creatorMotivation = typeof req.body.creator_motivation === 'string' ? req.body.creator_motivation.trim() : '';
+  const allowedCommunitySizes = ['Just me', '1-100', '101-1,000', '1,001-10,000', '10,001-100,000', '100,000+'];
+  if (!allowedCommunitySizes.includes(communitySize) ||
+      communityDescription.length < 10 || communityDescription.length > 1000 ||
+      creatorMotivation.length < 10 || creatorMotivation.length > 1000) {
+    return res.status(400).json({ error: 'Choose a community size and answer both questions in 10 to 1,000 characters.' });
+  }
+
+  db.run(
+    `INSERT INTO creator_applications
+      (wallet_address, x_url, youtube_url, tiktok_url, instagram_url, twitch_url, discord_url, website_url,
+       community_size, community_description, creator_motivation, status, updated_at, reviewed_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'PENDING', CURRENT_TIMESTAMP, NULL)
+     ON CONFLICT(wallet_address) DO UPDATE SET
+       x_url = excluded.x_url,
+       youtube_url = excluded.youtube_url,
+       tiktok_url = excluded.tiktok_url,
+       instagram_url = excluded.instagram_url,
+       twitch_url = excluded.twitch_url,
+       discord_url = excluded.discord_url,
+       website_url = excluded.website_url,
+       community_size = excluded.community_size,
+       community_description = excluded.community_description,
+       creator_motivation = excluded.creator_motivation,
+       status = 'PENDING',
+       updated_at = CURRENT_TIMESTAMP,
+       reviewed_at = NULL`,
+    [wallet, ...linkFields.map(field => links[field]), communitySize, communityDescription, creatorMotivation],
+    err => {
+      if (err) return res.status(500).json({ error: 'Unable to save creator application.' });
+      res.json({ success: true, status: 'PENDING' });
+    }
+  );
+});
+
+app.post('/api/admin/creator-applications/list', sensitiveLimiter, requireTradeSignature, requireAdminWallet, (req, res) => {
+  db.all(
+    `SELECT ca.*, u.username, COALESCE(u.referral_pct, 2) AS referral_pct
+     FROM creator_applications ca
+     LEFT JOIN users u ON LOWER(u.wallet_address) = LOWER(ca.wallet_address)
+     ORDER BY CASE ca.status WHEN 'PENDING' THEN 0 WHEN 'APPROVED' THEN 1 ELSE 2 END,
+              ca.updated_at DESC
+     LIMIT 200`,
+    [],
+    (err, applications) => {
+      if (err) return res.status(500).json({ error: 'Unable to load creator applications.' });
+      res.json({ applications: applications || [] });
+    }
+  );
+});
+
+app.post('/api/admin/creator-applications/action', sensitiveLimiter, requireTradeSignature, requireAdminWallet, (req, res) => {
+  const wallet = req.body?.user_wallet;
+  const action = req.body?.action;
+  const referralPct = Number(req.body?.referral_pct);
+  if (typeof wallet !== 'string' || !ethers.isAddress(wallet) || !['APPROVE', 'REJECT'].includes(action)) {
+    return res.status(400).json({ error: 'Choose a valid creator application and approval action.' });
+  }
+  if (action === 'APPROVE' && (!Number.isFinite(referralPct) || referralPct < 0 || referralPct > 100)) {
+    return res.status(400).json({ error: 'Choose a referral bonus from 0% to 100%.' });
+  }
+
+  const normalizedPct = Math.round(referralPct * 100) / 100;
+  const rollback = (status, error) => db.run('ROLLBACK', () => res.status(status).json({ error }));
+  db.serialize(() => {
+    db.run('BEGIN IMMEDIATE', beginErr => {
+      if (beginErr) return res.status(500).json({ error: 'Unable to start creator application review.' });
+      db.get(
+        'SELECT wallet_address FROM creator_applications WHERE LOWER(wallet_address) = LOWER(?)',
+        [wallet],
+        (findErr, application) => {
+          if (findErr) return rollback(500, 'Unable to load creator application.');
+          if (!application) return rollback(404, 'Creator application not found.');
+          const status = action === 'APPROVE' ? 'APPROVED' : 'REJECTED';
+          db.run(
+            'UPDATE creator_applications SET status = ?, updated_at = CURRENT_TIMESTAMP, reviewed_at = CURRENT_TIMESTAMP WHERE LOWER(wallet_address) = LOWER(?)',
+            [status, wallet],
+            updateErr => {
+              if (updateErr) return rollback(500, 'Unable to update creator application status.');
+              const finish = () => db.run('COMMIT', commitErr => {
+                if (commitErr) return rollback(500, 'Unable to save creator application review.');
+                res.json({ success: true, status, referral_pct: action === 'APPROVE' ? normalizedPct : 2 });
+              });
+              const rate = action === 'APPROVE' ? normalizedPct : 2;
+              if (action === 'REJECT') {
+                return db.run(
+                  'UPDATE users SET referral_pct = 2 WHERE LOWER(wallet_address) = LOWER(?)',
+                  [application.wallet_address],
+                  rateErr => rateErr
+                    ? rollback(500, 'Unable to reset creator referral bonus.')
+                    : finish()
+                );
+              }
+              db.run(
+                `INSERT INTO users (wallet_address, referral_pct)
+                 SELECT ?, ? WHERE NOT EXISTS (
+                   SELECT 1 FROM users WHERE LOWER(wallet_address) = LOWER(?)
+                 )`,
+                [application.wallet_address, rate, application.wallet_address],
+                insertErr => {
+                  if (insertErr) return rollback(500, 'Unable to assign creator referral bonus.');
+                  db.run(
+                    'UPDATE users SET referral_pct = ? WHERE LOWER(wallet_address) = LOWER(?)',
+                    [rate, application.wallet_address],
+                    rateErr => rateErr
+                      ? rollback(500, 'Unable to assign creator referral bonus.')
+                      : finish()
+                  );
+                }
+              );
+            }
+          );
+        }
+      );
+    });
+  });
 });
 
 app.post('/api/promo/claim', sensitiveLimiter, requireWalletSession, (req, res) => {

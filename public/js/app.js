@@ -514,7 +514,10 @@ let connectedWallet = null;
                 loadAdminAccounts();
                 loadAdminTickets();
                 loadAdminReviews();
-                if (document.getElementById('admin-creators-panel')?.hidden === false) loadAdminPromoManagement();
+                if (document.getElementById('admin-creators-panel')?.hidden === false) {
+                    loadAdminCreatorApplications();
+                    loadAdminPromoManagement();
+                }
                 if (document.getElementById('admin-battlepass-panel')?.hidden === false) loadAdminBattlePass();
             }
             else if (viewId === 'leaderboardView') loadLeaderboard(currentLeaderboardMode);
@@ -537,7 +540,10 @@ let connectedWallet = null;
                 tab?.classList.toggle('active', selected);
                 tab?.setAttribute('aria-selected', String(selected));
             });
-            if (panelId === 'admin-creators-panel') loadAdminPromoManagement();
+            if (panelId === 'admin-creators-panel') {
+                loadAdminCreatorApplications();
+                loadAdminPromoManagement();
+            }
             if (panelId === 'admin-battlepass-panel') loadAdminBattlePass();
         }
 
@@ -2347,6 +2353,94 @@ let connectedWallet = null;
             }
         }
 
+        async function loadAdminCreatorApplications() {
+            const container = document.getElementById('admin-creator-applications');
+            if (!container) return;
+            container.innerHTML = '<p class="account-chart-empty">Loading creator applications...</p>';
+            try {
+                const authorization = await signedTradeAuthorization();
+                const response = await fetch('/api/admin/creator-applications/list', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(authorization)
+                });
+                const data = await readAdminApiResponse(response, '/api/admin/creator-applications/list');
+                if (!response.ok) throw new Error(data.error || 'Unable to load creator applications.');
+                if (!data.applications?.length) {
+                    container.innerHTML = '<p class="account-chart-empty">No creator applications have been submitted.</p>';
+                    return;
+                }
+
+                const socialLinks = [
+                    ['X', 'x_url'],
+                    ['YouTube', 'youtube_url'],
+                    ['TikTok', 'tiktok_url'],
+                    ['Instagram', 'instagram_url'],
+                    ['Twitch', 'twitch_url'],
+                    ['Discord', 'discord_url'],
+                    ['Website', 'website_url']
+                ];
+                container.innerHTML = data.applications.map((application, index) => {
+                    const links = socialLinks
+                        .filter(([, key]) => application[key])
+                        .map(([label, key]) => `<a href="${escapeHTML(application[key])}" target="_blank" rel="noopener noreferrer">${label}</a>`)
+                        .join('');
+                    const status = String(application.status || 'PENDING').toLowerCase().replaceAll('_', ' ');
+                    return `
+                        <article class="creator-application-admin-card" data-creator-application-wallet="${escapeHTML(application.wallet_address)}">
+                            <div class="creator-application-admin-heading">
+                                <div>
+                                    <h3>${application.username ? `@${escapeHTML(application.username)}` : 'Creator applicant'}</h3>
+                                    <code>${escapeHTML(application.wallet_address)}</code>
+                                </div>
+                                <span class="creator-application-admin-status">${escapeHTML(status)}</span>
+                            </div>
+                            <div class="creator-application-admin-links">${links || '<span>No social profile links</span>'}</div>
+                            <p><span>Community size</span>${escapeHTML(application.community_size)}</p>
+                            <p><span>Community</span>${escapeHTML(application.community_description)}</p>
+                            <p><span>Why Blastrr</span>${escapeHTML(application.creator_motivation)}</p>
+                            <div class="creator-application-admin-actions">
+                                <label for="creator-application-rate-${index}">Referral bonus (%)</label>
+                                <input id="creator-application-rate-${index}" type="number" min="0" max="100" step="0.01" value="${Number(application.referral_pct ?? 2)}">
+                                <button class="btn-wallet" type="button" data-creator-application-action="APPROVE">${application.status === 'APPROVED' ? 'Save bonus' : 'Approve'}</button>
+                                <button class="creator-application-reject" type="button" data-creator-application-action="REJECT">Reject</button>
+                            </div>
+                        </article>
+                    `;
+                }).join('');
+            } catch (err) {
+                console.error(err);
+                container.innerHTML = `<p class="support-feedback">${escapeHTML(err.message)}</p>`;
+            }
+        }
+
+        async function reviewCreatorApplication(wallet, action, card, button) {
+            const input = card?.querySelector('input[type="number"]');
+            const referralPct = action === 'APPROVE' ? Number(input?.value) : undefined;
+            if (action === 'APPROVE' && (!Number.isFinite(referralPct) || referralPct < 0 || referralPct > 100)) {
+                alert('Enter a referral bonus from 0% to 100%.');
+                return;
+            }
+            if (button) button.disabled = true;
+            try {
+                const authorization = await signedTradeAuthorization();
+                const response = await fetch('/api/admin/creator-applications/action', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ ...authorization, user_wallet: wallet, action, referral_pct: referralPct })
+                });
+                const data = await readAdminApiResponse(response, '/api/admin/creator-applications/action');
+                if (!response.ok) throw new Error(data.error || 'Unable to review creator application.');
+                await loadAdminCreatorApplications();
+                const search = document.getElementById('admin-creator-search')?.value.trim();
+                if (search?.length >= 2) await loadAdminCreatorSearch(search);
+            } catch (err) {
+                console.error(err);
+                alert(err.message);
+                if (button) button.disabled = false;
+            }
+        }
+
         async function saveAdminReferralRate(wallet, referralPct, button) {
             if (button) button.disabled = true;
             try {
@@ -2858,6 +2952,7 @@ let connectedWallet = null;
             try {
                 const res = await walletFetch(`/api/user/profile?wallet=${encodeURIComponent(wallet)}`);
                 const data = await res.json();
+                if (!res.ok) throw new Error(data.error || 'Unable to load your profile.');
                 
                 const setupBox = document.getElementById('profile-setup-box');
                 const dispBox = document.getElementById('profile-display-box');
@@ -2896,12 +2991,111 @@ let connectedWallet = null;
                     if (dispBox) dispBox.style.display = 'none';
                     if (editBtn) editBtn.style.display = 'none';
                 }
+                renderCreatorApplication(data.application);
 
                 const reviewUsername = document.getElementById('review-username');
                 if (reviewUsername) reviewUsername.value = currentUserProfile?.username || '';
                 await loadUserReview(wallet);
                 loadLeaderboard(currentLeaderboardMode);
             } catch (err) { console.error(err); }
+        }
+
+        function renderCreatorApplication(application) {
+            const form = document.getElementById('creator-application-form');
+            const status = document.getElementById('creator-application-status');
+            const startButton = document.getElementById('creator-application-start');
+            if (!form || !status || !startButton) return;
+
+            const fields = {
+                'creator-x-url': application?.x_url,
+                'creator-youtube-url': application?.youtube_url,
+                'creator-tiktok-url': application?.tiktok_url,
+                'creator-instagram-url': application?.instagram_url,
+                'creator-twitch-url': application?.twitch_url,
+                'creator-discord-url': application?.discord_url,
+                'creator-website-url': application?.website_url,
+                'creator-community-size': application?.community_size,
+                'creator-community-description': application?.community_description,
+                'creator-motivation': application?.creator_motivation
+            };
+            Object.entries(fields).forEach(([id, value]) => {
+                const field = document.getElementById(id);
+                if (field) field.value = value || '';
+            });
+
+            const intro = document.getElementById('creator-application-intro');
+            startButton.hidden = false;
+            if (application) {
+                const statusText = {
+                    PENDING: 'Under review',
+                    APPROVED: 'Approved',
+                    REJECTED: 'Not approved'
+                }[application.status] || 'Under review';
+                status.textContent = statusText;
+                status.hidden = false;
+                intro?.classList.add('creator-application-existing');
+                startButton.textContent = 'Edit application';
+            } else {
+                status.hidden = true;
+                intro?.classList.remove('creator-application-existing');
+                startButton.textContent = 'Apply to become a creator';
+            }
+            form.hidden = true;
+            const feedback = document.getElementById('creator-application-feedback');
+            if (feedback) feedback.textContent = '';
+        }
+
+        async function submitCreatorApplication(event) {
+            event.preventDefault();
+            const form = event.currentTarget;
+            const feedback = document.getElementById('creator-application-feedback');
+            const button = form.querySelector('button[type="submit"]');
+            const linkIds = [
+                'creator-x-url', 'creator-youtube-url', 'creator-tiktok-url',
+                'creator-instagram-url', 'creator-twitch-url', 'creator-discord-url',
+                'creator-website-url'
+            ];
+            if (!linkIds.some(id => document.getElementById(id)?.value.trim())) {
+                if (feedback) feedback.textContent = 'Add at least one social profile link.';
+                return;
+            }
+            if (!connectedWallet) {
+                if (feedback) feedback.textContent = 'Connect your wallet before applying.';
+                return;
+            }
+
+            if (button) button.disabled = true;
+            if (feedback) feedback.textContent = 'Submitting your application...';
+            try {
+                const authorization = await signedTradeAuthorization();
+                const response = await fetch('/api/user/creator-application', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        ...authorization,
+                        x_url: document.getElementById('creator-x-url').value.trim(),
+                        youtube_url: document.getElementById('creator-youtube-url').value.trim(),
+                        tiktok_url: document.getElementById('creator-tiktok-url').value.trim(),
+                        instagram_url: document.getElementById('creator-instagram-url').value.trim(),
+                        twitch_url: document.getElementById('creator-twitch-url').value.trim(),
+                        discord_url: document.getElementById('creator-discord-url').value.trim(),
+                        website_url: document.getElementById('creator-website-url').value.trim(),
+                        community_size: document.getElementById('creator-community-size').value,
+                        community_description: document.getElementById('creator-community-description').value.trim(),
+                        creator_motivation: document.getElementById('creator-motivation').value.trim()
+                    })
+                });
+                const data = await response.json();
+                if (!response.ok) throw new Error(data.error || 'Unable to submit creator application.');
+                if (feedback) feedback.textContent = 'Application submitted. You can edit it while it is under review.';
+                form.hidden = true;
+                await loadUserProfile(connectedWallet);
+            } catch (err) {
+                console.error(err);
+                if (feedback) feedback.textContent = err.message;
+            } finally {
+                if (button) button.disabled = false;
+            }
         }
 
         async function claimFreeAccountCode() {
@@ -3306,6 +3500,31 @@ let connectedWallet = null;
 
         document.getElementById('support-ticket-form')?.addEventListener('submit', submitSupportTicket);
         document.getElementById('user-review-form')?.addEventListener('submit', submitUserReview);
+        document.getElementById('creator-application-start')?.addEventListener('click', () => {
+            const form = document.getElementById('creator-application-form');
+            const button = document.getElementById('creator-application-start');
+            if (form) form.hidden = false;
+            if (button) button.hidden = true;
+        });
+        document.getElementById('creator-application-cancel')?.addEventListener('click', () => {
+            const form = document.getElementById('creator-application-form');
+            const button = document.getElementById('creator-application-start');
+            if (form) form.hidden = true;
+            if (button) button.hidden = false;
+        });
+        document.getElementById('creator-application-form')?.addEventListener('submit', submitCreatorApplication);
+        document.getElementById('admin-creator-applications')?.addEventListener('click', event => {
+            const button = event.target.closest('[data-creator-application-action]');
+            const card = button?.closest('[data-creator-application-wallet]');
+            if (button && card) {
+                reviewCreatorApplication(
+                    card.dataset.creatorApplicationWallet,
+                    button.dataset.creatorApplicationAction,
+                    card,
+                    button
+                );
+            }
+        });
         document.getElementById('admin-creator-search-form')?.addEventListener('submit', event => {
             event.preventDefault();
             loadAdminCreatorSearch(document.getElementById('admin-creator-search')?.value.trim() || '');

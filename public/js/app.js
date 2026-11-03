@@ -20,6 +20,10 @@ let connectedWallet = null;
         let plansData = [];
         let planLoadAttempts = 0;
         let livePriceInterval = null;
+        let marketTickerSocket = null;
+        let marketTickerReconnectTimer = null;
+        let marketTickerReconnectAttempts = 0;
+        let marketTickerItems = new Map();
         let autoSyncInterval = null;
         let currentLivePrice = 0;
         let displayedOpenTrades = [];
@@ -230,6 +234,7 @@ let connectedWallet = null;
             select.disabled = false;
             const defaultMarket = marketsData.find(market => market.pair === 'NDX100USDT') || marketsData[0];
             select.value = defaultMarket.symbol;
+            initializeMarketPriceTicker();
             onSymbolChanged(defaultMarket.symbol);
         }
 
@@ -483,6 +488,116 @@ let connectedWallet = null;
                 minimumFractionDigits: 2,
                 maximumFractionDigits: 2
             })} | ${baseAsset}`;
+        }
+
+        function createMarketTickerItem(market, interactive) {
+            const item = document.createElement(interactive ? 'button' : 'span');
+            item.className = 'market-ticker-item';
+            if (interactive) {
+                item.type = 'button';
+                item.dataset.tickerSymbol = market.symbol;
+                item.setAttribute('aria-label', `Select ${market.label}`);
+            }
+
+            const pair = document.createElement('span');
+            pair.className = 'market-ticker-pair';
+            pair.textContent = market.pair.replace(/USDT$/, '/USDT');
+            const price = document.createElement('strong');
+            price.className = 'market-ticker-price';
+            price.textContent = '—';
+            const change = document.createElement('span');
+            change.className = 'market-ticker-change';
+            change.textContent = '—';
+            item.append(pair, price, change);
+            return { item, price, change };
+        }
+
+        function initializeMarketPriceTicker() {
+            const track = document.getElementById('market-ticker-track');
+            if (!track) return;
+            const markets = marketsData.filter(market =>
+                market.enabled !== false && market.source === 'BINANCE_SPOT' && market.pair && market.symbol
+            );
+            marketTickerItems = new Map();
+            track.replaceChildren();
+
+            const primaryGroup = document.createElement('div');
+            primaryGroup.className = 'market-ticker-group';
+            const repeatedGroup = document.createElement('div');
+            repeatedGroup.className = 'market-ticker-group';
+            repeatedGroup.setAttribute('aria-hidden', 'true');
+
+            markets.forEach(market => {
+                const primary = createMarketTickerItem(market, true);
+                const repeated = createMarketTickerItem(market, false);
+                marketTickerItems.set(market.pair, [primary, repeated]);
+                primaryGroup.append(primary.item);
+                repeatedGroup.append(repeated.item);
+            });
+            track.append(primaryGroup, repeatedGroup);
+            track.addEventListener('click', event => {
+                const button = event.target.closest('[data-ticker-symbol]');
+                if (!button) return;
+                const select = document.getElementById('order-symbol');
+                if (select && select.value !== button.dataset.tickerSymbol) {
+                    select.value = button.dataset.tickerSymbol;
+                    onSymbolChanged(select.value);
+                }
+            });
+            connectMarketPriceTicker(markets);
+        }
+
+        function connectMarketPriceTicker(markets) {
+            const status = document.getElementById('market-ticker-status');
+            if (!markets.length) {
+                if (status) status.textContent = 'No spot markets configured';
+                return;
+            }
+            if (typeof WebSocket === 'undefined') {
+                if (status) status.textContent = 'Live prices unavailable';
+                return;
+            }
+
+            const streams = markets.map(market => `${market.pair.toLowerCase()}@ticker`).join('/');
+            const socket = new WebSocket(`wss://stream.binance.com:9443/stream?streams=${streams}`);
+            marketTickerSocket = socket;
+            socket.addEventListener('open', () => {
+                marketTickerReconnectAttempts = 0;
+                if (status) status.textContent = 'LIVE · BINANCE SPOT';
+            });
+            socket.addEventListener('message', event => {
+                try {
+                    const ticker = JSON.parse(event.data)?.data;
+                    const items = marketTickerItems.get(ticker?.s);
+                    if (!items) return;
+                    const price = Number(ticker.c);
+                    const change = Number(ticker.P);
+                    if (!Number.isFinite(price) || price <= 0 || !Number.isFinite(change)) return;
+                    const formattedPrice = new Intl.NumberFormat(undefined, {
+                        style: 'currency',
+                        currency: 'USD',
+                        maximumSignificantDigits: 8
+                    }).format(price);
+                    const formattedChange = `${change >= 0 ? '+' : ''}${change.toFixed(2)}%`;
+                    items.forEach(item => {
+                        item.price.textContent = formattedPrice;
+                        item.change.textContent = formattedChange;
+                        item.change.classList.toggle('is-positive', change > 0);
+                        item.change.classList.toggle('is-negative', change < 0);
+                    });
+                } catch (error) {
+                    console.warn('Invalid Binance spot ticker message:', error);
+                }
+            });
+            socket.addEventListener('close', () => {
+                if (marketTickerSocket !== socket) return;
+                if (status) status.textContent = 'Reconnecting to spot markets';
+                const delay = Math.min(30000, 1000 * (2 ** marketTickerReconnectAttempts));
+                marketTickerReconnectAttempts += 1;
+                clearTimeout(marketTickerReconnectTimer);
+                marketTickerReconnectTimer = setTimeout(() => connectMarketPriceTicker(markets), delay);
+            });
+            socket.addEventListener('error', () => socket.close());
         }
 
         function renderChartMarketStats(ticker) {

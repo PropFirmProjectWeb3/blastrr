@@ -352,7 +352,7 @@
         }
         .status-pill.connected { background: rgba(16, 90, 72, 0.34); color: #6ee7b7; border-color: rgba(110, 231, 183, 0.22); }
 
-        main { padding: 28px; max-width: 1920px; margin: 0 auto; }
+        main { padding: 28px 28px 76px; max-width: 1920px; margin: 0 auto; }
         .view-panel { display: none; }
         .view-panel.active { display: block; animation: fadeIn 0.25s ease-out; }
 
@@ -506,6 +506,22 @@
         .chart-market-stat > strong { color: #e1e4e8; font-size: 15px; font-weight: 500; white-space: nowrap; font-variant-numeric: tabular-nums; }
         .chart-market-stat > strong.is-positive { color: #6ee7b7; }
         .chart-market-stat > strong.is-negative { color: #f87171; }
+        .market-price-ticker { position: fixed; right: 0; bottom: 0; left: 0; z-index: 900; display: flex; align-items: center; height: 44px; overflow: hidden; border-top: 1px solid rgba(110, 231, 183, 0.12); background: rgba(14, 19, 17, 0.98); }
+        .market-ticker-status { position: absolute; width: 1px; height: 1px; padding: 0; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; clip-path: inset(50%); }
+        .market-ticker-viewport { width: 100%; overflow: hidden; mask-image: linear-gradient(90deg, transparent, #000 2%, #000 98%, transparent); }
+        .market-ticker-track { display: flex; width: max-content; animation: market-ticker-scroll 55s linear infinite; }
+        .market-ticker-track:hover, .market-ticker-track:focus-within { animation-play-state: paused; }
+        .market-ticker-group { display: flex; flex: 0 0 auto; align-items: center; }
+        .market-ticker-item { display: inline-flex; align-items: baseline; gap: 8px; margin-right: 30px; padding: 0; border: 0; background: transparent; color: #d1d5db; font: inherit; white-space: nowrap; }
+        button.market-ticker-item { cursor: pointer; }
+        button.market-ticker-item:hover .market-ticker-pair { color: #fff; }
+        .market-ticker-pair { color: #e5e7eb; font-size: 13px; font-weight: 650; }
+        .market-ticker-price { color: #cbd5d1; font-size: 12px; font-weight: 550; font-variant-numeric: tabular-nums; }
+        .market-ticker-change { color: #9298a1; font-size: 12px; font-weight: 600; font-variant-numeric: tabular-nums; }
+        .market-ticker-change.is-positive { color: #6ee7b7; }
+        .market-ticker-change.is-negative { color: #f87171; }
+        @keyframes market-ticker-scroll { to { transform: translateX(-50%); } }
+        @media (prefers-reduced-motion: reduce) { .market-ticker-track { animation: none; } }
         .maintenance-notice-card { width: min(100%, 720px); margin: clamp(24px, 8vh, 80px) auto; padding: clamp(24px, 5vw, 44px); border-color: rgba(180, 190, 200, 0.14); background: rgba(10, 12, 14, 0.96); }
         .maintenance-eyebrow { color: #9298a1; font-size: 10px; font-weight: 600; letter-spacing: 0.14em; }
         .maintenance-notice-card h1 { margin: 10px 0; color: #e5e7eb; font-size: clamp(24px, 4vw, 34px); font-weight: 600; letter-spacing: -0.035em; }
@@ -580,8 +596,8 @@
 
         .btn-buy { width: 100%; background: linear-gradient(135deg, rgba(5, 120, 87, 0.76), rgba(6, 95, 70, 0.82)); color: white; border: 1px solid rgba(110, 231, 183, 0.22); padding: 12px; border-radius: 9px; font-weight: 700; cursor: pointer; font-size: 14px; margin-bottom: 10px; }
         .btn-sell { width: 100%; background: linear-gradient(135deg, rgba(153, 54, 62, 0.76), rgba(127, 29, 40, 0.82)); color: white; border: 1px solid rgba(252, 165, 165, 0.2); padding: 12px; border-radius: 9px; font-weight: 700; cursor: pointer; font-size: 14px; }
-        .order-actions .btn-buy { background: linear-gradient(135deg, #72f0c3, #43d9a4); color: #06251c; border-color: rgba(114, 240, 195, 0.8); }
-        .order-actions .btn-sell { background: linear-gradient(135deg, #ff638e, #f04470); color: #310814; border-color: rgba(255, 99, 142, 0.8); }
+        .order-actions .btn-buy { background: linear-gradient(135deg, #72f0c3, #72f0c3); color: #06251c; border-color: rgba(114, 240, 195, 0.8); }
+        .order-actions .btn-sell { background: linear-gradient(135deg, #c084fc, #a855f7); color: #180b24; border-color: rgba(192, 132, 252, 0.8); }
 
         .table-responsive { width: 100%; overflow-x: auto; }
         table { width: 100%; border-collapse: collapse; text-align: left; font-size: 13.5px; min-width: 600px; }
@@ -617,7 +633,11 @@
         }
 
         @media (max-width: 700px) {
-            main { padding: 16px 12px; }
+            main { padding: 16px 12px 64px; }
+            .market-price-ticker { height: 42px; }
+            .market-ticker-item { gap: 6px; margin-right: 22px; }
+            .market-ticker-pair { font-size: 12px; }
+            .market-ticker-price, .market-ticker-change { font-size: 11px; }
             .chart-heading-group { gap: 8px; }
             .market-hours-status { font-size: 9px; }
             .chart-market-bar { gap: 16px; margin-bottom: 8px; padding: 10px 11px; }
@@ -1154,28 +1174,28 @@
             box-shadow: 0 0 12px rgba(248, 113, 113, 0.2) !important;
         }
         .order-actions button.btn-buy:not(.nav-tab):not(.admin-section-tab) {
-            background: linear-gradient(135deg, rgba(114, 240, 195, 0.2), rgba(67, 217, 164, 0.3)) !important;
+            background: linear-gradient(135deg, rgba(114, 240, 195, 0.2), rgba(114, 240, 195, 0.3)) !important;
             border-color: rgba(114, 240, 195, 0.48) !important;
-            color: #baf8df !important;
+            color: #72f0c3 !important;
             box-shadow: inset 0 0 14px rgba(114, 240, 195, 0.08) !important;
         }
         .order-actions button.btn-buy:not(.nav-tab):not(.admin-section-tab):hover:not(:disabled),
         .order-actions button.btn-buy:not(.nav-tab):not(.admin-section-tab):focus-visible {
-            background: linear-gradient(135deg, rgba(114, 240, 195, 0.3), rgba(67, 217, 164, 0.42)) !important;
+            background: linear-gradient(135deg, rgba(114, 240, 195, 0.3), rgba(114, 240, 195, 0.42)) !important;
             border-color: rgba(114, 240, 195, 0.72) !important;
             box-shadow: 0 0 14px rgba(114, 240, 195, 0.2), inset 0 0 14px rgba(114, 240, 195, 0.1) !important;
         }
         .order-actions button.btn-sell:not(.nav-tab):not(.admin-section-tab) {
-            background: linear-gradient(135deg, rgba(255, 99, 142, 0.2), rgba(240, 68, 112, 0.3)) !important;
-            border-color: rgba(255, 99, 142, 0.48) !important;
-            color: #ffd0dc !important;
-            box-shadow: inset 0 0 14px rgba(255, 99, 142, 0.08) !important;
+            background: linear-gradient(135deg, rgba(192, 132, 252, 0.2), rgba(168, 85, 247, 0.3)) !important;
+            border-color: rgba(192, 132, 252, 0.48) !important;
+            color: #d8b4fe !important;
+            box-shadow: inset 0 0 14px rgba(192, 132, 252, 0.08) !important;
         }
         .order-actions button.btn-sell:not(.nav-tab):not(.admin-section-tab):hover:not(:disabled),
         .order-actions button.btn-sell:not(.nav-tab):not(.admin-section-tab):focus-visible {
-            background: linear-gradient(135deg, rgba(255, 99, 142, 0.3), rgba(240, 68, 112, 0.42)) !important;
-            border-color: rgba(255, 99, 142, 0.72) !important;
-            box-shadow: 0 0 14px rgba(255, 99, 142, 0.2), inset 0 0 14px rgba(255, 99, 142, 0.1) !important;
+            background: linear-gradient(135deg, rgba(192, 132, 252, 0.3), rgba(168, 85, 247, 0.42)) !important;
+            border-color: rgba(192, 132, 252, 0.72) !important;
+            box-shadow: 0 0 14px rgba(192, 132, 252, 0.2), inset 0 0 14px rgba(192, 132, 252, 0.1) !important;
         }
 
         body:not(.auth-locked) { background: #050607; }

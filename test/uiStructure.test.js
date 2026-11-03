@@ -76,6 +76,17 @@ test('documentation hub is searchable, structured, and linked from the main entr
 });
 
 test('trading terminal displays spot stats and puts account selection first in trade inputs', () => {
+  const tickerStart = appHtml.indexOf('<div class="market-price-ticker"');
+  const mainEnd = appHtml.indexOf('</main>');
+  const lastViewEnd = appHtml.lastIndexOf('</section>', mainEnd);
+  assert.ok(tickerStart > lastViewEnd && tickerStart < mainEnd);
+  assert.match(appHtml, /id="market-ticker-track" class="market-ticker-track"/);
+  assert.match(appJs, /function initializeMarketPriceTicker\(\)/);
+  assert.match(appJs, /market\.source === 'BINANCE_SPOT'/);
+  assert.match(appJs, /wss:\/\/stream\.binance\.com:9443\/stream\?streams=/);
+  assert.match(appJs, /ticker\.s/);
+  assert.match(appJs, /ticker\.c/);
+  assert.match(appJs, /ticker\.P/);
   const marketBarStart = appHtml.indexOf('<div class="chart-market-bar"');
   const accountSelect = appHtml.indexOf('id="active-account-select"');
   const chartFrame = appHtml.indexOf('id="tradingview-widget-container"');
@@ -100,6 +111,7 @@ test('trading terminal displays spot stats and puts account selection first in t
   assert.match(appJs, /document\.title = `\$\$\{price\.toLocaleString/);
   assert.doesNotMatch(appJs, /chart-index-price|chart-funding-rate|chart-open-interest/);
   assert.match(appCss, /\.chart-market-bar/);
+  assert.match(appCss, /\.market-price-ticker \{[^}]*position: fixed[^}]*bottom: 0/);
   assert.match(appCss, /\.order-metric > strong \{[^}]*font-size: clamp\(12px, 1vw, 15px\)[^}]*white-space: nowrap/);
 });
 
@@ -201,15 +213,15 @@ test('trade entry uses metric cards, defaults to spot leverage, and scales the c
   assert.match(appJs, /liquidation-price-label/);
 });
 
-test('TradingView chart uses homepage candle colors with a purple EMA overlay and matching order buttons', () => {
+test('TradingView chart and order buttons use matching candle and brand colors with subtle glows', () => {
   assert.match(appJs, /"studies":\s*\["MAExp@tv-basicstudies"\]/);
   assert.match(appJs, /"moving average exponential\.plot\.color":\s*"#b7bdc5"/);
   assert.match(appJs, /"mainSeriesProperties\.candleStyle\.upColor":\s*"#72f0c3"/);
   assert.match(appJs, /"mainSeriesProperties\.candleStyle\.downColor":\s*"#ff638e"/);
   assert.match(appCss, /\.order-actions \.btn-buy\s*\{[^}]*#72f0c3/);
-  assert.match(appCss, /\.order-actions \.btn-sell\s*\{[^}]*#ff638e/);
-  assert.match(appCss, /\.order-actions button\.btn-buy:not\(\.nav-tab\):not\(\.admin-section-tab\)\s*\{[^}]*rgba\(114, 240, 195, 0\.2\)[^}]*!important/);
-  assert.match(appCss, /\.order-actions button\.btn-sell:not\(\.nav-tab\):not\(\.admin-section-tab\)\s*\{[^}]*rgba\(255, 99, 142, 0\.2\)[^}]*!important/);
+  assert.match(appCss, /\.order-actions \.btn-sell\s*\{[^}]*#c084fc/);
+  assert.match(appCss, /\.order-actions button\.btn-buy:not\(\.nav-tab\):not\(\.admin-section-tab\)\s*\{[^}]*rgba\(114, 240, 195, 0\.2\)[^}]*color: #72f0c3[^}]*rgba\(114, 240, 195, 0\.08\)/);
+  assert.match(appCss, /\.order-actions button\.btn-sell:not\(\.nav-tab\):not\(\.admin-section-tab\)\s*\{[^}]*rgba\(192, 132, 252, 0\.2\)[^}]*rgba\(192, 132, 252, 0\.08\)/);
 });
 
 test('open positions show margin and notional separately and refresh PnL with live quotes', () => {

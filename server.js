@@ -2498,7 +2498,7 @@ app.post('/api/accounts/purchase', sensitiveLimiter, requireWalletSession, async
     const standardDiscountPct = Math.max(0, Math.min(100, Number(settings?.standard_discount_pct ?? 90)));
     let rewardCode = null;
     let referrerWallet = null;
-    let referralCommissionPct = 2;
+    let referralCommissionPct = 10;
     let bonusDiscountPct = 0;
     if (promoCode) {
       const [creator, coupon] = await Promise.all([
@@ -2511,7 +2511,7 @@ app.post('/api/accounts/purchase', sensitiveLimiter, requireWalletSession, async
       ]);
       if (creator) {
         referrerWallet = creator.wallet_address;
-        referralCommissionPct = Number(creator.referral_pct ?? 2);
+        referralCommissionPct = Number(creator.referral_pct ?? 10);
       } else if (coupon && coupon.wallet_address.toLowerCase() === wallet_address.toLowerCase()) {
         rewardCode = coupon;
         bonusDiscountPct = Number(coupon.discount_bonus_pct);

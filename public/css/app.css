@@ -1709,6 +1709,30 @@
         .maintenance-notice-card .app-page-heading { margin: 0; }
         .maintenance-notice-card { border-color: var(--home-card-line); background: linear-gradient(145deg, rgba(24, 19, 38, 0.94), rgba(11, 10, 19, 0.98)); }
         #open-trades-list .open-trade-value { white-space: nowrap; }
+        :root { --home-card-line: rgba(164, 119, 255, 0.022); }
+        .wallet-login-button { box-shadow: 0 0 1.6px rgba(168, 85, 247, 0.028); }
+        .wallet-login-button:hover:not(:disabled), .wallet-login-button:focus-visible { box-shadow: 0 0 2.2px rgba(168, 85, 247, 0.055); }
+        .nav-tab:hover, .nav-tab:focus-visible, .nav-tab.active, .nav-tab.admin-tab.active,
+        .nav-dropdown.has-active > .nav-dropdown-trigger {
+            box-shadow: 0 0 1px rgba(141, 77, 255, 0.02), inset 0 0 0.7px rgba(141, 77, 255, 0.006);
+        }
+        .wallet-select:hover, .wallet-select:focus-visible, .wallet-select[aria-expanded="true"] { box-shadow: 0 0 1.2px rgba(168, 85, 247, 0.035); }
+        .admin-section-tab:hover, .admin-section-tab:focus-visible, .admin-section-tab.active { box-shadow: 0 0 0.9px rgba(141, 77, 255, 0.016); }
+        .purchase-plan-card.dashboard-tile.is-featured {
+            border-color: rgba(167, 139, 250,  0.065);
+            box-shadow: 0 0 0 1px rgba(154, 85, 255, 0.013), 0 15px 50px rgba(100, 36, 198, 0.012);
+        }
+        .purchase-plan-card.dashboard-tile.is-featured::before { opacity: 0.1; }
+        .leaderboard-card.is-current-user { border-color: rgba(167, 139, 250, 0.052); }
+        #wallet-menu .wallet-menu-account:hover:not(:disabled),
+        #wallet-menu .wallet-menu-account:focus-visible,
+        #wallet-menu .wallet-menu-account:active,
+        #wallet-menu .wallet-menu-action:hover:not(:disabled),
+        #wallet-menu .wallet-menu-action:focus-visible,
+        #wallet-menu .wallet-menu-action:active {
+            border-color: rgba(192, 132, 252, 0.085) !important;
+            box-shadow: 0 0 1.2px rgba(168, 85, 247, 0.038), inset 0 0 0.8px rgba(168, 85, 247, 0.006) !important;
+        }
 
         @media (max-width: 1050px) {
             .plans-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }

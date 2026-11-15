@@ -164,7 +164,7 @@ test('admin can toggle maintenance for each public page and set an outage messag
 });
 
 test('trading terminal HTML loads its external stylesheet and application script', () => {
-  assert.match(appHtml, /href="\/css\/app\.css\?v=20261115-open-trade-format"/);
+  assert.match(appHtml, /href="\/css\/app\.css\?v=20261115-faint-box-glow"/);
   assert.match(appHtml, /src="\/js\/app\.js\?v=20261115-open-trade-format" defer/);
   assert.doesNotMatch(appHtml, /<style[\s>]/i);
   assert.doesNotMatch(appHtml, /<script>\s*[\s\S]*?\bfunction\s/m);
@@ -478,6 +478,14 @@ test('open trades use whole-dollar values and display submitted dollar SL/TP amo
   assert.match(appJs, /SL: \$\{formatProtectionValue\(stop\)\} \/ TP: \$\{formatProtectionValue\(target\)\}/);
   assert.match(appJs, /pnl\.toLocaleString\(undefined, \{ maximumFractionDigits: 0 \}\)/);
   assert.match(appCss, /#open-trades-list \.open-trade-value \{ white-space: nowrap; \}/);
+});
+
+test('purple glow around workspace boxes and buttons is reduced to a faint accent', () => {
+  assert.match(appCss, /:root \{ --home-card-line: rgba\(164, 119, 255, 0\.022\); \}/);
+  assert.match(appCss, /\.nav-tab:hover,[\s\S]*?box-shadow: 0 0 1px rgba\(141, 77, 255, 0\.02\), inset 0 0 0\.7px rgba\(141, 77, 255, 0\.006\)/);
+  assert.match(appCss, /\.wallet-login-button \{ box-shadow: 0 0 1\.6px rgba\(168, 85, 247, 0\.028\); \}/);
+  assert.match(appCss, /\.purchase-plan-card\.dashboard-tile\.is-featured::before \{ opacity: 0\.1; \}/);
+  assert.match(appCss, /box-shadow: 0 0 1\.2px rgba\(168, 85, 247, 0\.038\), inset 0 0 0\.8px rgba\(168, 85, 247, 0\.006\) !important/);
 });
 
 test('chart account selector excludes risk-locked accounts and clears when none are selectable', () => {

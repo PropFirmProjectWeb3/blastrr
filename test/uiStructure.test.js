@@ -164,7 +164,7 @@ test('admin can toggle maintenance for each public page and set an outage messag
 });
 
 test('trading terminal HTML loads its external stylesheet and application script', () => {
-  assert.match(appHtml, /href="\/css\/app\.css\?v=20261115-multi-account-checkout"/);
+  assert.match(appHtml, /href="\/css\/app\.css\?v=20261115-chart-toolbar-inline"/);
   assert.match(appHtml, /src="\/js\/app\.js\?v=20261115-multi-account-checkout" defer/);
   assert.doesNotMatch(appHtml, /<style[\s>]/i);
   assert.doesNotMatch(appHtml, /<script>\s*[\s\S]*?\bfunction\s/m);
@@ -178,13 +178,15 @@ test('trading terminal HTML loads its external stylesheet and application script
   assert.match(appHtml, /class="hamburger-glyph"/);
 });
 
-test('trading terminal displays a responsive 24/7 crypto market status card', () => {
-  assert.match(appHtml, /<div class="chart-heading-group">[\s\S]*?id="chart-title"[\s\S]*?class="market-hours-status" aria-label="Crypto markets trade 24\/7\/365"/);
+test('trading terminal keeps market status and chart controls on one line without a redundant title', () => {
+  assert.match(appHtml, /<div class="chart-heading-group">[\s\S]*?id="chart-pair-label"[\s\S]*?class="market-hours-status" aria-label="Crypto markets trade 24\/7\/365"/);
+  assert.doesNotMatch(appHtml, /id="chart-title"|Live Market Chart/);
   assert.match(appHtml, /24\/7 TRADING LIVE/);
   assert.match(appHtml, /id="chart-pair-label" class="chart-pair-label"/);
   assert.doesNotMatch(appHtml, /Open trades: entry, SL &amp; TP levels/);
   assert.match(appHtml, /class="chart-controls" aria-label="Chart controls"/);
   assert.match(appJs, /selectedMarketLabel\.split\(\/\\s\+\/\)\[0\]\.replace\(\/\\\/USDT\$\/i, '\/USD'\)/);
+  assert.match(appCss, /\.chart-card-heading\s*\{[^}]*display:\s*flex/);
   assert.match(appCss, /\.chart-heading-group\s*\{[^}]*display:\s*flex/);
   assert.match(appCss, /\.chart-controls\s*\{[^}]*flex-wrap:\s*nowrap[^}]*overflow-x:\s*auto/);
   assert.match(appCss, /#chart-indicator-select\s*\{[^}]*width:\s*148px/);

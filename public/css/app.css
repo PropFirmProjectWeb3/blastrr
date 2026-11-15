@@ -554,10 +554,10 @@
 
         .trade-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(300px, 380px); gap: 24px; align-items: start; }
         .trade-grid > div { min-width: 0; }
-        .chart-card-heading { display: grid; gap: 8px; margin-bottom: 12px; }
-        .chart-heading-group { display: flex; align-items: center; gap: 9px; min-width: 0; flex-wrap: wrap; }
+        .chart-card-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
+        .chart-heading-group { display: flex; align-items: center; gap: 9px; min-width: 0; flex: 0 0 auto; }
         .chart-pair-label { padding: 3px 7px; border: 1px solid rgba(167, 139, 250, 0.2); border-radius: 6px; background: rgba(139, 92, 246, 0.09); color: #c4b5fd; font-size: 11px; font-weight: 750; white-space: nowrap; }
-        .chart-controls { display: flex; align-items: center; gap: 5px; width: 100%; min-width: 0; flex-wrap: nowrap; overflow-x: auto; padding: 1px 1px 4px; scrollbar-width: thin; }
+        .chart-controls { display: flex; align-items: center; justify-content: flex-end; gap: 5px; flex: 1 1 auto; width: auto; min-width: 0; flex-wrap: nowrap; overflow-x: auto; padding: 1px 1px 4px; scrollbar-width: thin; }
         .chart-control-label { color: #9298a1; font-size: 10px; font-weight: 650; }
         .chart-controls > * { flex: 0 0 auto; }
         .chart-control-select, .chart-indicator-add { min-height: 26px; padding: 3px 7px; border: 1px solid rgba(180, 190, 200, 0.16); border-radius: 6px; background: #0a0c0e; color: #cbd5e1; font: inherit; font-size: 10px; }

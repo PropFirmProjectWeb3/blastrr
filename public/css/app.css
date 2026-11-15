@@ -516,8 +516,8 @@
         .admin-search-form > button { min-height: 42px; margin-bottom: 12px; }
         .admin-creator-card, .promo-code-card { padding: 14px; border: 1px solid var(--surface-border); border-radius: 12px; background: rgba(9, 6, 14, 0.88); backdrop-filter: blur(16px); }
         .admin-creator-card { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 14px; }
-        .admin-creator-rate { display: flex; align-items: end; gap: 8px; }
-        .admin-creator-rate .form-group { margin: 0; }
+        .admin-creator-rate { display: flex; align-items: end; flex-wrap: wrap; gap: 8px; }
+        .admin-creator-rate .form-group { flex: 1 1 140px; margin: 0; }
         .admin-creator-rate input { width: 120px; }
         .promo-code-card { overflow-wrap: anywhere; }
         .promo-code-card-header { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; }

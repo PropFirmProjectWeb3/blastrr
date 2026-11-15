@@ -1642,7 +1642,14 @@ app.get('/api/user/profile', requireWalletSession, (req, res) => {
     return res.status(403).json({ error: 'Wallet session does not match the requested profile.' });
   }
 
-  db.get("SELECT * FROM users WHERE LOWER(wallet_address) = LOWER(?)", [wallet], (err, user) => {
+  db.get(
+    `SELECT u.*,
+            COALESCE(u.level_one_pct_override, rs.level_one_pct, 2) AS effective_referral_pct,
+            COALESCE(u.level_two_pct_override, rs.level_two_pct, 2) AS effective_level_two_pct
+     FROM users u LEFT JOIN referral_settings rs ON rs.id = 1
+     WHERE LOWER(u.wallet_address) = LOWER(?)`,
+    [wallet],
+    (err, user) => {
     if (err) return res.status(500).json({ error: err.message });
     
     db.all(
@@ -1679,7 +1686,8 @@ app.get('/api/user/profile', requireWalletSession, (req, res) => {
         );
       }
     );
-  });
+    }
+  );
 });
 
 app.post('/api/user/profile', sensitiveLimiter, requireTradeSignature, (req, res) => {
@@ -1782,9 +1790,10 @@ app.post('/api/user/creator-application', sensitiveLimiter, requireTradeSignatur
 
 app.post('/api/admin/creator-applications/list', sensitiveLimiter, requireTradeSignature, requireAdminWallet, (req, res) => {
   db.all(
-    `SELECT ca.*, u.username, COALESCE(u.referral_pct, 2) AS referral_pct
+    `SELECT ca.*, u.username, COALESCE(u.level_one_pct_override, rs.level_one_pct, 2) AS referral_pct
      FROM creator_applications ca
      LEFT JOIN users u ON LOWER(u.wallet_address) = LOWER(ca.wallet_address)
+     LEFT JOIN referral_settings rs ON rs.id = 1
      ORDER BY CASE ca.status WHEN 'PENDING' THEN 0 WHEN 'APPROVED' THEN 1 ELSE 2 END,
               ca.updated_at DESC
      LIMIT 200`,
@@ -1831,7 +1840,7 @@ app.post('/api/admin/creator-applications/action', sensitiveLimiter, requireTrad
               const rate = action === 'APPROVE' ? normalizedPct : 2;
               if (action === 'REJECT') {
                 return db.run(
-                  'UPDATE users SET referral_pct = 2 WHERE LOWER(wallet_address) = LOWER(?)',
+                  'UPDATE users SET referral_pct = 2, level_one_pct_override = NULL WHERE LOWER(wallet_address) = LOWER(?)',
                   [application.wallet_address],
                   rateErr => rateErr
                     ? rollback(500, 'Unable to reset creator referral bonus.')
@@ -1839,16 +1848,16 @@ app.post('/api/admin/creator-applications/action', sensitiveLimiter, requireTrad
                 );
               }
               db.run(
-                `INSERT INTO users (wallet_address, referral_pct)
-                 SELECT ?, ? WHERE NOT EXISTS (
+                `INSERT INTO users (wallet_address, referral_pct, level_one_pct_override)
+                 SELECT ?, ?, ? WHERE NOT EXISTS (
                    SELECT 1 FROM users WHERE LOWER(wallet_address) = LOWER(?)
                  )`,
-                [application.wallet_address, rate, application.wallet_address],
+                [application.wallet_address, rate, rate, application.wallet_address],
                 insertErr => {
                   if (insertErr) return rollback(500, 'Unable to assign creator referral bonus.');
                   db.run(
-                    'UPDATE users SET referral_pct = ? WHERE LOWER(wallet_address) = LOWER(?)',
-                    [rate, application.wallet_address],
+                    'UPDATE users SET referral_pct = ?, level_one_pct_override = ? WHERE LOWER(wallet_address) = LOWER(?)',
+                    [rate, rate, application.wallet_address],
                     rateErr => rateErr
                       ? rollback(500, 'Unable to assign creator referral bonus.')
                       : finish()
@@ -2320,13 +2329,16 @@ app.post('/api/admin/referrals/search', sensitiveLimiter, requireTradeSignature,
     return res.status(400).json({ error: 'Enter at least 2 characters of a username to search.' });
   }
   db.all(
-    `SELECT wallet_address, username, referral_pct
-     FROM users
-     WHERE username IS NOT NULL AND username LIKE ? COLLATE NOCASE
-     ORDER BY username COLLATE NOCASE LIMIT 50`,
+    `SELECT u.wallet_address, u.username,
+            COALESCE(u.level_one_pct_override, s.level_one_pct, 2) AS referral_pct,
+            COALESCE(u.level_two_pct_override, s.level_two_pct, 2) AS level_two_pct
+     FROM users u
+     LEFT JOIN referral_settings s ON s.id = 1
+     WHERE u.username IS NOT NULL AND u.username LIKE ? COLLATE NOCASE
+     ORDER BY u.username COLLATE NOCASE LIMIT 50`,
     [`%${username}%`],
     (err, users) => {
-      if (err) return res.status(500).json({ error: 'Unable to search creator profiles.' });
+      if (err) return res.status(500).json({ error: 'Unable to search users.' });
       res.json({ users: users || [] });
     }
   );
@@ -2335,42 +2347,55 @@ app.post('/api/admin/referrals/search', sensitiveLimiter, requireTradeSignature,
 app.post('/api/admin/referrals/commission', sensitiveLimiter, requireTradeSignature, requireAdminWallet, (req, res) => {
   const wallet = req.body?.user_wallet;
   const referralPct = Number(req.body?.referral_pct);
+  const levelTwoPct = Number(req.body?.level_two_pct);
   if (typeof wallet !== 'string' || !ethers.isAddress(wallet) ||
-      !Number.isFinite(referralPct) || referralPct < 0 || referralPct > 100) {
-    return res.status(400).json({ error: 'Choose a valid user wallet and a commission rate from 0 to 100%.' });
+      !Number.isFinite(referralPct) || referralPct < 0 || referralPct > 100 ||
+      !Number.isFinite(levelTwoPct) || levelTwoPct < 0 || levelTwoPct > 100) {
+    return res.status(400).json({ error: 'Choose a valid user wallet and level-1 and level-2 rates from 0 to 100%.' });
   }
   const normalizedPct = Math.round(referralPct * 100) / 100;
+  const normalizedLevelTwoPct = Math.round(levelTwoPct * 100) / 100;
   db.run(
-    'UPDATE users SET referral_pct = ? WHERE LOWER(wallet_address) = LOWER(?) AND username IS NOT NULL',
-    [normalizedPct, wallet],
+    `UPDATE users
+     SET referral_pct = ?, level_one_pct_override = ?, level_two_pct_override = ?
+     WHERE LOWER(wallet_address) = LOWER(?) AND username IS NOT NULL`,
+    [normalizedPct, normalizedPct, normalizedLevelTwoPct, wallet],
     function(updateErr) {
       if (updateErr) return res.status(500).json({ error: 'Unable to update the creator commission rate.' });
-      if (this.changes !== 1) return res.status(404).json({ error: 'Creator profile not found.' });
-      res.json({ success: true, referral_pct: normalizedPct });
+      if (this.changes !== 1) return res.status(404).json({ error: 'User profile not found.' });
+      res.json({ success: true, referral_pct: normalizedPct, level_two_pct: normalizedLevelTwoPct });
     }
   );
 });
 
 app.post('/api/admin/referrals/settings/load', sensitiveLimiter, requireTradeSignature, requireAdminWallet, (req, res) => {
-  db.get('SELECT level_two_pct FROM referral_settings WHERE id = 1', [], (err, settings) => {
+  db.get('SELECT level_one_pct, level_two_pct FROM referral_settings WHERE id = 1', [], (err, settings) => {
     if (err) return res.status(500).json({ error: 'Unable to load referral commission settings.' });
-    res.json({ level_two_pct: Number(settings?.level_two_pct ?? 2) });
+    res.json({
+      level_one_pct: Number(settings?.level_one_pct ?? 2),
+      level_two_pct: Number(settings?.level_two_pct ?? 2)
+    });
   });
 });
 
 app.post('/api/admin/referrals/settings/save', sensitiveLimiter, requireTradeSignature, requireAdminWallet, (req, res) => {
-  const percentage = Number(req.body?.level_two_pct);
-  if (!Number.isFinite(percentage) || percentage < 0 || percentage > 100) {
-    return res.status(400).json({ error: 'Enter a level-2 commission rate from 0 to 100%.' });
+  const levelOnePct = Number(req.body?.level_one_pct);
+  const levelTwoPct = Number(req.body?.level_two_pct);
+  if (!Number.isFinite(levelOnePct) || levelOnePct < 0 || levelOnePct > 100 ||
+      !Number.isFinite(levelTwoPct) || levelTwoPct < 0 || levelTwoPct > 100) {
+    return res.status(400).json({ error: 'Enter level-1 and level-2 commission rates from 0 to 100%.' });
   }
-  const normalizedPercentage = Math.round(percentage * 100) / 100;
+  const normalizedLevelOnePct = Math.round(levelOnePct * 100) / 100;
+  const normalizedLevelTwoPct = Math.round(levelTwoPct * 100) / 100;
   db.run(
-    `INSERT INTO referral_settings (id, level_two_pct) VALUES (1, ?)
-     ON CONFLICT(id) DO UPDATE SET level_two_pct = excluded.level_two_pct`,
-    [normalizedPercentage],
+    `INSERT INTO referral_settings (id, level_one_pct, level_two_pct) VALUES (1, ?, ?)
+     ON CONFLICT(id) DO UPDATE SET
+       level_one_pct = excluded.level_one_pct,
+       level_two_pct = excluded.level_two_pct`,
+    [normalizedLevelOnePct, normalizedLevelTwoPct],
     err => {
-      if (err) return res.status(500).json({ error: 'Unable to save the level-2 commission rate.' });
-      res.json({ success: true, level_two_pct: normalizedPercentage });
+      if (err) return res.status(500).json({ error: 'Unable to save the referral commission rates.' });
+      res.json({ success: true, level_one_pct: normalizedLevelOnePct, level_two_pct: normalizedLevelTwoPct });
     }
   );
 });
@@ -2619,14 +2644,23 @@ app.get('/api/user/referrals', requireWalletSession, (req, res) => {
         [wallet],
         (refereesErr, referees) => {
           if (refereesErr) return res.status(500).json({ error: 'Unable to load your referees.' });
-          db.get('SELECT level_two_pct FROM referral_settings WHERE id = 1', [], (settingsErr, settings) => {
+          db.get(
+            `SELECT COALESCE(u.level_one_pct_override, s.level_one_pct, 2) AS level_one_pct,
+                    COALESCE(u.level_two_pct_override, s.level_two_pct, 2) AS level_two_pct
+             FROM referral_settings s
+             LEFT JOIN users u ON LOWER(u.wallet_address) = LOWER(?)
+             WHERE s.id = 1`,
+            [wallet],
+            (settingsErr, settings) => {
             if (settingsErr) return res.status(500).json({ error: 'Unable to load referral commission settings.' });
             res.json({
               referrals: rows || [],
               referees: referees || [],
+              level_one_pct: Number(settings?.level_one_pct ?? 2),
               level_two_pct: Number(settings?.level_two_pct ?? 2)
             });
-          });
+            }
+          );
         }
       );
     }
@@ -2916,10 +2950,11 @@ app.post('/api/accounts/purchase', sensitiveLimiter, requireWalletSession, requi
     const [plan, settings, referralSettings] = await Promise.all([
       dbGet('SELECT * FROM plans WHERE id = ? AND active = 1', [Number(plan_id)]),
       dbGet('SELECT standard_discount_pct FROM battlepass_settings WHERE id = 1'),
-      dbGet('SELECT level_two_pct FROM referral_settings WHERE id = 1')
+      dbGet('SELECT level_one_pct, level_two_pct FROM referral_settings WHERE id = 1')
     ]);
     if (!plan) return res.status(404).json({ error: 'Plan not found.' });
     const standardDiscountPct = Math.max(0, Math.min(100, Number(settings?.standard_discount_pct ?? 90)));
+    const levelOneCommissionPct = Math.max(0, Math.min(100, Number(referralSettings?.level_one_pct ?? 2)));
     const levelTwoCommissionPct = Math.max(0, Math.min(100, Number(referralSettings?.level_two_pct ?? 2)));
     let rewardCode = null;
     let referrerWallet = null;
@@ -2927,7 +2962,7 @@ app.post('/api/accounts/purchase', sensitiveLimiter, requireWalletSession, requi
     let bonusDiscountPct = 0;
     if (promoCode) {
       const [creator, coupon] = await Promise.all([
-        dbGet('SELECT wallet_address, referral_pct FROM users WHERE UPPER(discount_code) = ?', [promoCode]),
+        dbGet('SELECT wallet_address, level_one_pct_override FROM users WHERE UPPER(discount_code) = ?', [promoCode]),
         dbGet(
           `SELECT code, wallet_address, discount_bonus_pct FROM battlepass_reward_codes
            WHERE UPPER(code) = ? AND redeemed_at IS NULL`,
@@ -2936,7 +2971,7 @@ app.post('/api/accounts/purchase', sensitiveLimiter, requireWalletSession, requi
       ]);
       if (creator) {
         referrerWallet = creator.wallet_address;
-        referralCommissionPct = Number(creator.referral_pct ?? 10);
+        referralCommissionPct = Number(creator.level_one_pct_override ?? levelOneCommissionPct);
       } else if (coupon && coupon.wallet_address.toLowerCase() === wallet_address.toLowerCase()) {
         rewardCode = coupon;
         bonusDiscountPct = Number(coupon.discount_bonus_pct);
@@ -3041,11 +3076,12 @@ app.post('/api/accounts/purchase', sensitiveLimiter, requireWalletSession, requi
                               referralErr => {
                                 if (referralErr) return rollback(500, 'Unable to record the direct referral commission.');
                                 db.get(
-                                  'SELECT referred_by FROM users WHERE LOWER(wallet_address) = LOWER(?)',
+                                  'SELECT referred_by, level_two_pct_override FROM users WHERE LOWER(wallet_address) = LOWER(?)',
                                   [referrerWallet],
                                   (parentErr, parent) => {
                                     if (parentErr) return rollback(500, 'Unable to load level-2 referral attribution.');
                                     const secondLevelWallet = parent?.referred_by;
+                                    const secondLevelCommissionPct = Number(parent?.level_two_pct_override ?? levelTwoCommissionPct);
                                     if (!secondLevelWallet ||
                                         secondLevelWallet.toLowerCase() === wallet_address.toLowerCase() ||
                                         secondLevelWallet.toLowerCase() === referrerWallet.toLowerCase()) {
@@ -3060,8 +3096,8 @@ app.post('/api/accounts/purchase', sensitiveLimiter, requireWalletSession, requi
                                         wallet_address,
                                         Number(plan_id),
                                         finalPrice,
-                                        finalPrice * levelTwoCommissionPct / 100,
-                                        levelTwoCommissionPct
+                                        finalPrice * secondLevelCommissionPct / 100,
+                                        secondLevelCommissionPct
                                       ],
                                       levelTwoErr => levelTwoErr
                                         ? rollback(500, 'Unable to record the level-2 referral commission.')

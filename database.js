@@ -21,6 +21,8 @@ function initTables() {
       username TEXT UNIQUE,
       discount_code TEXT UNIQUE,
       referral_pct REAL NOT NULL DEFAULT 2,
+      level_one_pct_override REAL,
+      level_two_pct_override REAL,
       referred_by TEXT,
       admin_suspended INTEGER NOT NULL DEFAULT 0,
       admin_suspend_reason TEXT,
@@ -233,6 +235,7 @@ function initTables() {
 
     db.run(`CREATE TABLE IF NOT EXISTS referral_settings (
       id INTEGER PRIMARY KEY CHECK(id = 1),
+      level_one_pct REAL NOT NULL DEFAULT 2,
       level_two_pct REAL NOT NULL DEFAULT 2
     )`);
 
@@ -541,6 +544,8 @@ function initTables() {
       const existing = new Set(columns.map(column => column.name));
       const additions = [
         ['referral_pct', 'REAL NOT NULL DEFAULT 2'],
+        ['level_one_pct_override', 'REAL'],
+        ['level_two_pct_override', 'REAL'],
         ['referred_by', 'TEXT'],
         ['admin_suspended', 'INTEGER NOT NULL DEFAULT 0'],
         ['admin_suspend_reason', 'TEXT'],
@@ -567,6 +572,12 @@ function initTables() {
               if (backfillErr) console.error('Unable to backfill first-touch referral attribution', backfillErr.message);
             }
           );
+          db.run(
+            'UPDATE users SET level_one_pct_override = referral_pct WHERE level_one_pct_override IS NULL AND referral_pct != 2',
+            backfillErr => {
+              if (backfillErr) console.error('Unable to preserve custom level-1 referral rates', backfillErr.message);
+            }
+          );
           return;
         }
         const [name, type] = additions[index];
@@ -579,6 +590,20 @@ function initTables() {
         });
       };
       addNextColumn(0);
+    });
+
+    db.all("PRAGMA table_info(referral_settings)", (err, columns) => {
+      if (err) {
+        console.error('Unable to inspect referral_settings schema', err.message);
+        return;
+      }
+      if (columns.some(column => column.name === 'level_one_pct')) return;
+      db.run(
+        'ALTER TABLE referral_settings ADD COLUMN level_one_pct REAL NOT NULL DEFAULT 2',
+        alterErr => {
+          if (alterErr) console.error('Unable to add referral_settings.level_one_pct', alterErr.message);
+        }
+      );
     });
 
     db.all("PRAGMA table_info(referrals)", (err, columns) => {

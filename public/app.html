@@ -521,7 +521,7 @@
                             <div>
                             <p style="margin: 4px 0;"><strong>Username:</strong> <span id="disp-username" style="color: #c084fc; font-weight: 600;">-</span></p>
                             <p style="margin: 4px 0;"><strong>Your Promo Code:</strong> <code id="disp-code" style="background: rgba(5, 7, 11, 0.9); padding: 4px 10px; border-radius: 6px; color: #34d399; border: 1px solid rgba(52, 211, 153, 0.2);">-</code></p>
-                            <p class="profile-referral-rate-row"><span>Your referral commission</span><span id="disp-referral-pct" class="profile-referral-rate">10%</span></p>
+                            <p class="profile-referral-rate-row"><span>Your referral commission</span><span id="disp-referral-pct" class="profile-referral-rate">2%</span></p>
                             <p class="profile-referral-rate-row"><span>Level-2 commission</span><span id="disp-level-two-pct" class="profile-referral-rate">2%</span></p>
                             </div>
                         </div>
@@ -805,14 +805,18 @@
             </div>
             <div id="admin-creators-panel" class="admin-section-panel" role="tabpanel" hidden>
                 <div class="card">
-                    <div class="card-title">Level-2 referral commission</div>
-                    <p class="support-note">This global rate is paid to a referee's referrer on eligible purchases, in addition to the direct referral commission.</p>
+                    <div class="card-title">General referral commissions</div>
+                    <p class="support-note">These default rates apply to users without a user-specific rate. Personal rates below override the general rates for future purchases.</p>
                     <form id="admin-level-two-form" class="admin-search-form">
+                        <div class="form-group">
+                            <label for="admin-level-one-pct">Level-1 commission (%)</label>
+                            <input id="admin-level-one-pct" type="number" min="0" max="100" step="0.01" required>
+                        </div>
                         <div class="form-group">
                             <label for="admin-level-two-pct">Level-2 commission (%)</label>
                             <input id="admin-level-two-pct" type="number" min="0" max="100" step="0.01" required>
                         </div>
-                        <button class="btn-wallet" type="submit">Save level-2 rate</button>
+                        <button class="btn-wallet" type="submit">Save general rates</button>
                     </form>
                     <p id="admin-level-two-feedback" class="support-feedback" role="status" aria-live="polite"></p>
                 </div>
@@ -824,17 +828,17 @@
                     </div>
                 </div>
                 <div class="card">
-                    <div class="card-title">Creator referral commissions</div>
-                    <p class="support-note">Search creator profiles by username and set their commission rate from 0% to 100%. The new rate applies to future referrals only.</p>
+                    <div class="card-title">User-specific referral commissions</div>
+                    <p class="support-note">Search a username to view and set that user's level-1 and level-2 rates from 0% to 100%. These personal rates apply to future referrals only.</p>
                     <form id="admin-creator-search-form" class="admin-search-form">
                         <div class="form-group">
                             <label for="admin-creator-search">Username</label>
                             <input id="admin-creator-search" type="search" minlength="2" maxlength="24" placeholder="Search username">
                         </div>
-                        <button class="btn-wallet" type="submit">Search creators</button>
+                        <button class="btn-wallet" type="submit">Search users</button>
                     </form>
                     <div id="admin-creator-search-results" class="admin-account-list">
-                        <p class="account-chart-empty">Search for a username to manage its commission.</p>
+                        <p class="account-chart-empty">Search for a username to manage its commission rates.</p>
                     </div>
                 </div>
                 <div class="card admin-promo-management">

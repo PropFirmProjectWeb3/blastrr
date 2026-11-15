@@ -1332,6 +1332,9 @@ let connectedWallet = null;
                 tab?.setAttribute('aria-selected', String(selected));
             });
             if (panelId === 'profile-support-panel' && connectedWallet) loadUserTickets(connectedWallet);
+            if (['profile-referrals-panel', 'profile-promo-panel'].includes(panelId) && connectedWallet) {
+                loadReferralTransactions(connectedWallet);
+            }
         }
 
         function battlePassLevelForXp(xp) {
@@ -3653,8 +3656,9 @@ let connectedWallet = null;
         }
 
         async function loadAdminLevelTwoSettings() {
-            const input = document.getElementById('admin-level-two-pct');
-            if (!input) return;
+            const levelOneInput = document.getElementById('admin-level-one-pct');
+            const levelTwoInput = document.getElementById('admin-level-two-pct');
+            if (!levelOneInput || !levelTwoInput) return;
             try {
                 const authorization = await signedTradeAuthorization();
                 const response = await fetch('/api/admin/referrals/settings/load', {
@@ -3663,8 +3667,9 @@ let connectedWallet = null;
                     body: JSON.stringify(authorization)
                 });
                 const data = await readAdminApiResponse(response, '/api/admin/referrals/settings/load');
-                if (!response.ok) throw new Error(data.error || 'Unable to load the level-2 commission rate.');
-                input.value = Number(data.level_two_pct ?? 2);
+                if (!response.ok) throw new Error(data.error || 'Unable to load the general referral commission rates.');
+                levelOneInput.value = Number(data.level_one_pct ?? 2);
+                levelTwoInput.value = Number(data.level_two_pct ?? 2);
             } catch (err) {
                 console.error(err);
                 const feedback = document.getElementById('admin-level-two-feedback');
@@ -3682,11 +3687,15 @@ let connectedWallet = null;
                 const response = await fetch('/api/admin/referrals/settings/save', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ ...authorization, level_two_pct: Number(document.getElementById('admin-level-two-pct')?.value) })
+                    body: JSON.stringify({
+                        ...authorization,
+                        level_one_pct: Number(document.getElementById('admin-level-one-pct')?.value),
+                        level_two_pct: Number(document.getElementById('admin-level-two-pct')?.value)
+                    })
                 });
                 const data = await readAdminApiResponse(response, '/api/admin/referrals/settings/save');
-                if (!response.ok) throw new Error(data.error || 'Unable to save the level-2 commission rate.');
-                if (feedback) feedback.textContent = `Level-2 rate saved at ${Number(data.level_two_pct)}%.`;
+                if (!response.ok) throw new Error(data.error || 'Unable to save the general referral commission rates.');
+                if (feedback) feedback.textContent = `General rates saved: level 1 ${Number(data.level_one_pct)}%, level 2 ${Number(data.level_two_pct)}%.`;
             } catch (err) {
                 console.error(err);
                 if (feedback) feedback.textContent = err.message;
@@ -3815,7 +3824,7 @@ let connectedWallet = null;
         async function loadAdminCreatorSearch(username) {
             const container = document.getElementById('admin-creator-search-results');
             if (!container) return;
-            container.innerHTML = '<p class="account-chart-empty">Searching creator profiles...</p>';
+            container.innerHTML = '<p class="account-chart-empty">Searching users...</p>';
             try {
                 const authorization = await signedTradeAuthorization();
                 const response = await fetch('/api/admin/referrals/search', {
@@ -3824,9 +3833,9 @@ let connectedWallet = null;
                     body: JSON.stringify({ ...authorization, username })
                 });
                 const data = await readAdminApiResponse(response, '/api/admin/referrals/search');
-                if (!response.ok) throw new Error(data.error || 'Unable to search creator profiles.');
+                if (!response.ok) throw new Error(data.error || 'Unable to search users.');
                 if (!data.users?.length) {
-                    container.innerHTML = '<p class="account-chart-empty">No creator profiles matched that username.</p>';
+                    container.innerHTML = '<p class="account-chart-empty">No users matched that username.</p>';
                     return;
                 }
                 container.innerHTML = data.users.map((user, index) => `
@@ -3837,8 +3846,12 @@ let connectedWallet = null;
                         </div>
                         <div class="admin-creator-rate">
                             <div class="form-group">
-                                <label for="admin-referral-pct-${index}">Commission rate (%)</label>
+                                <label for="admin-referral-pct-${index}">Level-1 commission (%)</label>
                                 <input id="admin-referral-pct-${index}" type="number" min="0" max="100" step="0.01" value="${Number(user.referral_pct ?? 2)}">
+                            </div>
+                            <div class="form-group">
+                                <label for="admin-level-two-user-pct-${index}">Level-2 commission (%)</label>
+                                <input id="admin-level-two-user-pct-${index}" type="number" min="0" max="100" step="0.01" value="${Number(user.level_two_pct ?? 2)}">
                             </div>
                             <button class="btn-wallet" type="button" data-save-referral-rate>Save</button>
                         </div>
@@ -3847,8 +3860,10 @@ let connectedWallet = null;
                 container.onclick = event => {
                     const button = event.target.closest('[data-save-referral-rate]');
                     const card = button?.closest('[data-creator-wallet]');
-                    const input = card?.querySelector('input[type="number"]');
-                    if (card && input) saveAdminReferralRate(card.dataset.creatorWallet, input.value, button);
+                    const inputs = card?.querySelectorAll('input[type="number"]');
+                    if (card && inputs?.length === 2) {
+                        saveAdminReferralRate(card.dataset.creatorWallet, inputs[0].value, inputs[1].value, button);
+                    }
                 };
             } catch (err) {
                 console.error(err);
@@ -4004,14 +4019,19 @@ let connectedWallet = null;
             }
         }
 
-        async function saveAdminReferralRate(wallet, referralPct, button) {
+        async function saveAdminReferralRate(wallet, referralPct, levelTwoPct, button) {
             if (button) button.disabled = true;
             try {
                 const authorization = await signedTradeAuthorization();
                 const response = await fetch('/api/admin/referrals/commission', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ ...authorization, user_wallet: wallet, referral_pct: referralPct })
+                    body: JSON.stringify({
+                        ...authorization,
+                        user_wallet: wallet,
+                        referral_pct: Number(referralPct),
+                        level_two_pct: Number(levelTwoPct)
+                    })
                 });
                 const data = await readAdminApiResponse(response, '/api/admin/referrals/commission');
                 if (!response.ok) throw new Error(data.error || 'Unable to update the commission rate.');
@@ -4602,7 +4622,9 @@ let connectedWallet = null;
                     if (dUser) dUser.innerText = data.user.username;
                     if (dCode) dCode.innerText = data.user.discount_code;
                     if (dLink) dLink.value = `https://blastrr.com/?ref=${data.user.discount_code}`;
-                    if (dReferralPct) dReferralPct.innerText = `${Number(data.user.referral_pct ?? 2)}%`;
+                    if (dReferralPct) dReferralPct.innerText = `${Number(data.user.effective_referral_pct ?? data.user.referral_pct ?? 2)}%`;
+                    const dLevelTwoPct = document.getElementById('disp-level-two-pct');
+                    if (dLevelTwoPct) dLevelTwoPct.innerText = `${Number(data.user.effective_level_two_pct ?? 2)}%`;
 
                     const pUser = document.getElementById('prof-username');
                     const pCode = document.getElementById('prof-code');
@@ -5008,6 +5030,8 @@ let connectedWallet = null;
                     const list = document.getElementById(id);
                     if (list) list.innerHTML = refereesHtml;
                 });
+                const levelOneRate = document.getElementById('disp-referral-pct');
+                if (levelOneRate) levelOneRate.textContent = `${Number(data.level_one_pct ?? 2)}%`;
                 const levelTwoRate = document.getElementById('disp-level-two-pct');
                 if (levelTwoRate) levelTwoRate.textContent = `${Number(data.level_two_pct ?? 2)}%`;
             } catch (err) {

@@ -1,4 +1,12 @@
 const defaultPageTitle = document.title;
+const LIVE_CHART_THEME = Object.freeze({
+    background: '#090d13',
+    text: '#9ca3af',
+    grid: 'rgba(148, 163, 184, 0.08)',
+    border: 'rgba(148, 163, 184, 0.16)',
+    up: '#72f0c3',
+    down: '#ff638e'
+});
 let connectedWallet = null;
         let availableWallets = [];
         let userAccounts = [];
@@ -12,6 +20,9 @@ let connectedWallet = null;
         let liveMarketChartStatus = null;
         let liveMarketLastCandle = null;
         let liveMarketFirstCandleTime = null;
+        let liveMarketCandles = [];
+        let liveMarketIndicatorSeries = {};
+        let liveMarketTimeframeSeconds = 60;
         let liveMarketChartGeneration = 0;
         let liveMarketTradeLines = [];
         let liveMarketTradeMarkers = [];
@@ -198,6 +209,15 @@ let connectedWallet = null;
             document.getElementById('disclaimer-cancel-purchase')?.addEventListener('click', () => resolvePurchaseDisclaimer(false));
             document.getElementById('market-chat-form')?.addEventListener('submit', postMarketChatMessage);
             document.getElementById('market-chat-popout')?.addEventListener('click', openMarketChatInNewTab);
+            document.getElementById('chart-timeframe')?.addEventListener('change', reloadLiveMarketChart);
+            document.querySelectorAll('[data-chart-indicator]').forEach(button => {
+                button.addEventListener('click', () => {
+                    const indicator = button.dataset.chartIndicator;
+                    const enabled = button.getAttribute('aria-pressed') !== 'true';
+                    button.setAttribute('aria-pressed', String(enabled));
+                    if (indicator === 'sma20' || indicator === 'ema50') refreshChartIndicators();
+                });
+            });
             window.addEventListener('message', event => {
                 if (event.origin !== window.location.origin || event.data?.type !== 'BLASTRR_CHAT_READY') return;
                 const child = marketChatWindows.get(event.source);
@@ -304,6 +324,8 @@ let connectedWallet = null;
             liveMarketChartStatus = null;
             liveMarketLastCandle = null;
             liveMarketFirstCandleTime = null;
+            liveMarketCandles = [];
+            liveMarketIndicatorSeries = {};
             liveMarketTradeLines = [];
             liveMarketTradeMarkers = [];
         }
@@ -320,6 +342,16 @@ let connectedWallet = null;
             }
 
             const generation = liveMarketChartGeneration;
+            const timeframe = document.getElementById('chart-timeframe')?.value || '1m';
+            const timeframeConfig = {
+                '1m': { seconds: 60, binance: '1m', bitget: '1m' },
+                '5m': { seconds: 300, binance: '5m', bitget: '5m' },
+                '15m': { seconds: 900, binance: '15m', bitget: '15m' },
+                '1h': { seconds: 3600, binance: '1h', bitget: '1H' },
+                '4h': { seconds: 14400, binance: '4h', bitget: '4H' },
+                '1d': { seconds: 86400, binance: '1d', bitget: '1D' }
+            }[timeframe] || { seconds: 60, binance: '1m', bitget: '1m' };
+            liveMarketTimeframeSeconds = timeframeConfig.seconds;
             liveMarketChartPair = pair;
             const chartHost = document.createElement('div');
             chartHost.className = 'live-market-chart-host';
@@ -338,23 +370,23 @@ let connectedWallet = null;
                 width: chartHost.clientWidth,
                 height: chartHost.clientHeight,
                 layout: {
-                    background: { color: '#090d13' },
-                    textColor: '#9ca3af'
+                    background: { color: LIVE_CHART_THEME.background },
+                    textColor: LIVE_CHART_THEME.text
                 },
                 grid: {
-                    vertLines: { color: 'rgba(148, 163, 184, 0.08)' },
-                    horzLines: { color: 'rgba(148, 163, 184, 0.08)' }
+                    vertLines: { color: LIVE_CHART_THEME.grid },
+                    horzLines: { color: LIVE_CHART_THEME.grid }
                 },
-                rightPriceScale: { borderColor: 'rgba(148, 163, 184, 0.16)' },
-                timeScale: { borderColor: 'rgba(148, 163, 184, 0.16)', timeVisible: true },
+                rightPriceScale: { borderColor: LIVE_CHART_THEME.border },
+                timeScale: { borderColor: LIVE_CHART_THEME.border, timeVisible: true },
                 crosshair: { mode: LightweightCharts.CrosshairMode?.Normal ?? 0 }
             });
             liveMarketCandleSeries = liveMarketChart.addCandlestickSeries({
-                upColor: '#34d399',
-                downColor: '#f87171',
+                upColor: LIVE_CHART_THEME.up,
+                downColor: LIVE_CHART_THEME.down,
                 borderVisible: false,
-                wickUpColor: '#34d399',
-                wickDownColor: '#f87171'
+                wickUpColor: LIVE_CHART_THEME.up,
+                wickDownColor: LIVE_CHART_THEME.down
             });
             if (window.ResizeObserver) {
                 liveMarketResizeObserver = new ResizeObserver(entries => {
@@ -366,11 +398,11 @@ let connectedWallet = null;
 
             try {
                 const endpoint = source === 'BITGET_PERP'
-                    ? `https://api.bitget.com/api/v2/mix/market/candles?productType=USDT-FUTURES&symbol=${encodeURIComponent(pair)}&granularity=1m&limit=120`
+                    ? `https://api.bitget.com/api/v2/mix/market/candles?productType=USDT-FUTURES&symbol=${encodeURIComponent(pair)}&granularity=${timeframeConfig.bitget}&limit=200`
                     : source === 'BINANCE_SPOT'
-                        ? `https://api.binance.com/api/v3/klines?symbol=${encodeURIComponent(pair)}&interval=1m&limit=120`
+                        ? `https://api.binance.com/api/v3/klines?symbol=${encodeURIComponent(pair)}&interval=${timeframeConfig.binance}&limit=200`
                         : source === 'BINANCE_PERP'
-                            ? `https://fapi.binance.com/fapi/v1/klines?symbol=${encodeURIComponent(pair)}&interval=1m&limit=120`
+                            ? `https://fapi.binance.com/fapi/v1/klines?symbol=${encodeURIComponent(pair)}&interval=${timeframeConfig.binance}&limit=200`
                             : null;
                 if (!endpoint) throw new Error(`Candlestick charts are not configured for ${source}.`);
                 const response = await fetch(endpoint);
@@ -393,15 +425,17 @@ let connectedWallet = null;
                     .sort((a, b) => a.time - b.time);
                 if (candles.length === 0) throw new Error('Market provider returned no valid candles.');
                 liveMarketCandleSeries.setData(candles);
+                liveMarketCandles = candles;
                 liveMarketFirstCandleTime = candles[0].time;
                 liveMarketLastCandle = { ...candles[candles.length - 1] };
+                refreshChartIndicators();
                 liveMarketChart.timeScale().fitContent();
                 renderChartTradeOverlays(displayedOpenTrades);
                 liveMarketChartStatus.remove();
                 liveMarketChartStatus = null;
             } catch (error) {
                 if (generation !== liveMarketChartGeneration) return;
-                console.error(`Unable to load Bitget candles for ${pair}:`, error.message);
+                console.error(`Unable to load market candles for ${pair}:`, error.message);
                 liveMarketChartStatus.textContent = 'Unable to load live candles. Change market or refresh to retry.';
             }
         }
@@ -411,7 +445,8 @@ let connectedWallet = null;
             const price = Number(priceValue);
             const timestamp = Number(timestampValue);
             if (!Number.isFinite(price) || price <= 0) return;
-            const time = Math.floor((Number.isFinite(timestamp) ? timestamp : Date.now()) / 60000) * 60;
+            const time = Math.floor((Number.isFinite(timestamp) ? timestamp : Date.now()) /
+                (liveMarketTimeframeSeconds * 1000)) * liveMarketTimeframeSeconds;
             const latest = liveMarketLastCandle;
             if (!latest || time < latest.time) return;
             if (time === latest.time) {
@@ -419,6 +454,8 @@ let connectedWallet = null;
                 latest.low = Math.min(latest.low, price);
                 latest.close = price;
                 liveMarketCandleSeries.update({ ...latest });
+                liveMarketCandles[liveMarketCandles.length - 1] = { ...latest };
+                refreshChartIndicators();
                 return;
             }
             liveMarketLastCandle = {
@@ -429,6 +466,62 @@ let connectedWallet = null;
                 close: price
             };
             liveMarketCandleSeries.update({ ...liveMarketLastCandle });
+            liveMarketCandles.push({ ...liveMarketLastCandle });
+            if (liveMarketCandles.length > 500) liveMarketCandles.shift();
+            refreshChartIndicators();
+        }
+
+        function refreshChartIndicators() {
+            if (!liveMarketChart || liveMarketCandles.length === 0) return;
+            const controls = {
+                sma20: {
+                    period: 20,
+                    color: '#fbbf24',
+                    title: 'SMA 20',
+                    calculate: (values, index, sum) => index >= 19 ? sum / 20 : null
+                },
+                ema50: {
+                    period: 50,
+                    color: '#38bdf8',
+                    title: 'EMA 50'
+                }
+            };
+            for (const [key, config] of Object.entries(controls)) {
+                const enabled = document.querySelector(`[data-chart-indicator="${key}"]`)?.getAttribute('aria-pressed') === 'true';
+                if (!enabled) {
+                    if (liveMarketIndicatorSeries[key]) liveMarketChart.removeSeries(liveMarketIndicatorSeries[key]);
+                    delete liveMarketIndicatorSeries[key];
+                    continue;
+                }
+                if (!liveMarketIndicatorSeries[key]) {
+                    liveMarketIndicatorSeries[key] = liveMarketChart.addLineSeries({
+                        color: config.color,
+                        lineWidth: 2,
+                        title: config.title,
+                        priceLineVisible: false,
+                        lastValueVisible: true
+                    });
+                }
+                let sum = 0;
+                let ema = null;
+                const multiplier = 2 / (config.period + 1);
+                const points = [];
+                liveMarketCandles.forEach((candle, index) => {
+                    sum += candle.close;
+                    if (index >= config.period) sum -= liveMarketCandles[index - config.period].close;
+                    const value = key === 'sma20'
+                        ? config.calculate(liveMarketCandles, index, sum)
+                        : (ema === null ? (ema = candle.close) : (ema = (candle.close - ema) * multiplier + ema));
+                    if (value !== null && Number.isFinite(value)) points.push({ time: candle.time, value });
+                });
+                liveMarketIndicatorSeries[key].setData(points);
+            }
+        }
+
+        function reloadLiveMarketChart() {
+            const select = document.getElementById('order-symbol');
+            const option = select?.selectedOptions?.[0];
+            if (option) initLiveMarketChart(option.dataset.pair, option.dataset.source);
         }
 
         function renderChartTradeOverlays(trades) {
@@ -456,17 +549,17 @@ let connectedWallet = null;
                         title
                     }));
                 };
-                addPriceLine(trade.entry_price, `${tradeLabel} entry`, isLong ? '#34d399' : '#f87171', 2);
-                addPriceLine(trade.sl, `${tradeLabel} SL`, '#fb7185');
+                addPriceLine(trade.entry_price, `${tradeLabel} entry`, isLong ? LIVE_CHART_THEME.up : LIVE_CHART_THEME.down, 2);
+                addPriceLine(trade.sl, `${tradeLabel} SL`, LIVE_CHART_THEME.down);
                 addPriceLine(trade.tp, `${tradeLabel} TP`, '#22d3ee');
 
                 const entryTimestamp = new Date(trade.created_at).getTime();
-                const entryTime = Math.floor(entryTimestamp / 60000) * 60;
+                const entryTime = Math.floor(entryTimestamp / (liveMarketTimeframeSeconds * 1000)) * liveMarketTimeframeSeconds;
                 if (Number.isFinite(entryTimestamp) && entryTime >= liveMarketFirstCandleTime && entryTime <= liveMarketLastCandle?.time) {
                     liveMarketTradeMarkers.push({
                         time: entryTime,
                         position: isLong ? 'belowBar' : 'aboveBar',
-                        color: isLong ? '#34d399' : '#f87171',
+                        color: isLong ? LIVE_CHART_THEME.up : LIVE_CHART_THEME.down,
                         shape: isLong ? 'arrowUp' : 'arrowDown',
                         text: `${isLong ? 'Long' : 'Short'} entry`
                     });

@@ -246,12 +246,24 @@ test('trade entry uses metric cards, defaults to spot leverage, and scales the c
 
 test('TradingView Lightweight Chart and order buttons use matching candle and brand colors', () => {
   assert.match(appJs, /liveMarketChart\.addCandlestickSeries/);
-  assert.match(appJs, /upColor: '#34d399'/);
-  assert.match(appJs, /downColor: '#f87171'/);
+  assert.match(landingHtml, /\.c-up\{stroke:#72f0c3;fill:#72f0c3\}\.c-down\{stroke:#ff638e;fill:#ff638e\}/);
+  assert.match(appJs, /up: '#72f0c3'/);
+  assert.match(appJs, /down: '#ff638e'/);
+  assert.match(appJs, /background: \{ color: LIVE_CHART_THEME\.background \}/);
+  assert.match(appJs, /upColor: LIVE_CHART_THEME\.up/);
+  assert.match(appJs, /downColor: LIVE_CHART_THEME\.down/);
   assert.match(appCss, /\.order-actions \.btn-buy\s*\{[^}]*#72f0c3/);
-  assert.match(appCss, /\.order-actions \.btn-sell\s*\{[^}]*#c084fc/);
+  assert.match(appCss, /\.order-actions \.btn-sell\s*\{[^}]*#ff638e/);
   assert.match(appCss, /\.order-actions button\.btn-buy:not\(\.nav-tab\):not\(\.admin-section-tab\)\s*\{[^}]*rgba\(114, 240, 195, 0\.2\)[^}]*color: #72f0c3[^}]*rgba\(114, 240, 195, 0\.08\)/);
-  assert.match(appCss, /\.order-actions button\.btn-sell:not\(\.nav-tab\):not\(\.admin-section-tab\)\s*\{[^}]*rgba\(192, 132, 252, 0\.2\)[^}]*rgba\(192, 132, 252, 0\.08\)/);
+  assert.match(appCss, /\.order-actions button\.btn-sell:not\(\.nav-tab\):not\(\.admin-section-tab\)\s*\{[^}]*rgba\(255, 99, 142, 0\.2\)[^}]*rgba\(255, 99, 142, 0\.08\)/);
+  assert.match(appHtml, /id="chart-timeframe"[\s\S]*?<option value="1d">1d<\/option>/);
+  assert.match(appHtml, /data-chart-indicator="sma20"/);
+  assert.match(appHtml, /data-chart-indicator="ema50"/);
+  assert.match(appJs, /granularity=\$\{timeframeConfig\.bitget\}/);
+  assert.match(appJs, /interval=\$\{timeframeConfig\.binance\}/);
+  assert.match(appJs, /function refreshChartIndicators\(\)/);
+  assert.match(appJs, /liveMarketChart\.addLineSeries/);
+  assert.match(appJs, /liveMarketTimeframeSeconds/);
 });
 
 test('open positions show margin and notional separately and refresh PnL with live quotes', () => {

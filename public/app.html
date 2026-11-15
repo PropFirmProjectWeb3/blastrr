@@ -123,6 +123,18 @@
                                 </span>
                             </div>
                             <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                                <label class="chart-control-label" for="chart-timeframe">Interval</label>
+                                <select id="chart-timeframe" class="chart-control-select" aria-label="Chart timeframe">
+                                    <option value="1m">1m</option>
+                                    <option value="5m">5m</option>
+                                    <option value="15m">15m</option>
+                                    <option value="1h">1h</option>
+                                    <option value="4h">4h</option>
+                                    <option value="1d">1d</option>
+                                </select>
+                                <span class="chart-control-label">Indicators</span>
+                                <button class="chart-indicator-toggle" type="button" data-chart-indicator="sma20" aria-pressed="false">SMA 20</button>
+                                <button class="chart-indicator-toggle" type="button" data-chart-indicator="ema50" aria-pressed="false">EMA 50</button>
                                 <button class="btn-wallet" style="padding: 5px 10px; font-size: 11px;" onclick="manualRefreshData()">Refresh</button>
                             </div>
                         </div>

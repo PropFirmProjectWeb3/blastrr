@@ -7,6 +7,20 @@ const LIVE_CHART_THEME = Object.freeze({
     up: '#72f0c3',
     down: '#ff638e'
 });
+const CHART_INDICATOR_DEFINITIONS = Object.freeze({
+    VOLUME: { label: 'Volume', parameters: [] },
+    SMA: { label: 'Simple moving average', parameters: [['period', 'Period', 20, 2, 200, 1]] },
+    EMA: { label: 'Exponential moving average', parameters: [['period', 'Period', 50, 2, 200, 1]] },
+    BOLLINGER: { label: 'Bollinger Bands', parameters: [['period', 'Period', 20, 2, 200, 1], ['deviation', 'Std dev', 2, 0.5, 4, 0.1]] },
+    VWAP: { label: 'Session VWAP', parameters: [] },
+    RSI: { label: 'RSI', parameters: [['period', 'Period', 14, 2, 100, 1]] },
+    MACD: { label: 'MACD', parameters: [['fast', 'Fast', 12, 2, 100, 1], ['slow', 'Slow', 26, 3, 200, 1], ['signal', 'Signal', 9, 2, 100, 1]] },
+    STOCHASTIC: { label: 'Stochastic', parameters: [['k', '%K', 14, 2, 100, 1], ['d', '%D', 3, 2, 50, 1]] },
+    ATR: { label: 'ATR', parameters: [['period', 'Period', 14, 2, 100, 1]] },
+    ADX: { label: 'ADX', parameters: [['period', 'Period', 14, 2, 100, 1]] },
+    CCI: { label: 'CCI', parameters: [['period', 'Period', 20, 2, 100, 1]] },
+    OBV: { label: 'On-balance volume', parameters: [] }
+});
 let connectedWallet = null;
         let availableWallets = [];
         let userAccounts = [];
@@ -16,12 +30,18 @@ let connectedWallet = null;
                 let liveMarketChart = null;
                 let liveMarketCandleSeries = null;
         let liveMarketResizeObserver = null;
+        const liveMarketResizeTargets = new Map();
+        let liveMarketPaneCharts = [];
+        let liveMarketRangeSyncing = false;
+        let liveMarketSyncedCharts = new WeakSet();
         let liveMarketChartPair = null;
         let liveMarketChartStatus = null;
         let liveMarketLastCandle = null;
         let liveMarketFirstCandleTime = null;
         let liveMarketCandles = [];
         let liveMarketIndicatorSeries = {};
+        let activeChartIndicators = [];
+        let nextChartIndicatorId = 1;
         let liveMarketTimeframeSeconds = 60;
         let liveMarketChartGeneration = 0;
         let liveMarketTradeLines = [];
@@ -210,13 +230,29 @@ let connectedWallet = null;
             document.getElementById('market-chat-form')?.addEventListener('submit', postMarketChatMessage);
             document.getElementById('market-chat-popout')?.addEventListener('click', openMarketChatInNewTab);
             document.getElementById('chart-timeframe')?.addEventListener('change', reloadLiveMarketChart);
-            document.querySelectorAll('[data-chart-indicator]').forEach(button => {
-                button.addEventListener('click', () => {
-                    const indicator = button.dataset.chartIndicator;
-                    const enabled = button.getAttribute('aria-pressed') !== 'true';
-                    button.setAttribute('aria-pressed', String(enabled));
-                    if (indicator === 'sma20' || indicator === 'ema50') refreshChartIndicators();
-                });
+            document.getElementById('chart-indicator-add')?.addEventListener('click', addChartIndicator);
+            document.getElementById('chart-indicator-select')?.addEventListener('change', renderActiveChartIndicators);
+            document.getElementById('chart-active-indicators')?.addEventListener('click', event => {
+                const button = event.target.closest('[data-remove-chart-indicator]');
+                if (!button) return;
+                activeChartIndicators = activeChartIndicators.filter(indicator => indicator.id !== button.dataset.removeChartIndicator);
+                renderActiveChartIndicators();
+                refreshChartIndicators();
+            });
+            document.getElementById('chart-active-indicators')?.addEventListener('change', event => {
+                const input = event.target.closest('[data-indicator-param]');
+                if (!input) return;
+                const indicator = activeChartIndicators.find(item => item.id === input.dataset.indicatorId);
+                const definition = CHART_INDICATOR_DEFINITIONS[indicator?.type];
+                const parameter = definition?.parameters.find(item => item[0] === input.dataset.indicatorParam);
+                const value = Number(input.value);
+                if (!indicator || !parameter || !Number.isFinite(value)) return;
+                indicator.params[parameter[0]] = Math.min(parameter[4], Math.max(parameter[3], value));
+                if (indicator.type === 'MACD' && indicator.params.fast >= indicator.params.slow) {
+                    indicator.params.slow = Math.min(200, indicator.params.fast + 1);
+                }
+                renderActiveChartIndicators();
+                refreshChartIndicators();
             });
             window.addEventListener('message', event => {
                 if (event.origin !== window.location.origin || event.data?.type !== 'BLASTRR_CHAT_READY') return;
@@ -317,6 +353,11 @@ let connectedWallet = null;
             liveMarketChartGeneration += 1;
             liveMarketResizeObserver?.disconnect();
             liveMarketResizeObserver = null;
+            liveMarketResizeTargets.clear();
+            liveMarketPaneCharts.forEach(pane => pane.chart.remove());
+            liveMarketPaneCharts = [];
+            liveMarketSyncedCharts = new WeakSet();
+            liveMarketRangeSyncing = false;
             liveMarketChart?.remove();
             liveMarketChart = null;
             liveMarketCandleSeries = null;
@@ -328,6 +369,224 @@ let connectedWallet = null;
             liveMarketIndicatorSeries = {};
             liveMarketTradeLines = [];
             liveMarketTradeMarkers = [];
+        }
+
+        function defaultChartIndicatorParams(type) {
+            const params = {};
+            for (const [key, , value] of CHART_INDICATOR_DEFINITIONS[type]?.parameters || []) {
+                params[key] = value;
+            }
+            return params;
+        }
+
+        function addChartIndicator() {
+            const select = document.getElementById('chart-indicator-select');
+            const type = select?.value;
+            if (!type || !CHART_INDICATOR_DEFINITIONS[type]) return;
+            activeChartIndicators.push({
+                id: `${type}-${nextChartIndicatorId++}`,
+                type,
+                params: defaultChartIndicatorParams(type)
+            });
+            renderActiveChartIndicators();
+            refreshChartIndicators();
+        }
+
+        function renderActiveChartIndicators() {
+            const container = document.getElementById('chart-active-indicators');
+            const select = document.getElementById('chart-indicator-select');
+            const addButton = document.getElementById('chart-indicator-add');
+            if (!container || !select || !addButton) return;
+            const selectedType = select.value;
+            addButton.disabled = !selectedType || !CHART_INDICATOR_DEFINITIONS[selectedType];
+            container.replaceChildren();
+
+            for (const indicator of activeChartIndicators) {
+                const definition = CHART_INDICATOR_DEFINITIONS[indicator.type];
+                if (!definition) continue;
+                const item = document.createElement('div');
+                item.className = 'chart-indicator-item';
+                const name = document.createElement('strong');
+                name.textContent = definition.label;
+                item.append(name);
+
+                for (const [key, label, defaultValue, min, max, step] of definition.parameters) {
+                    const group = document.createElement('label');
+                    group.className = 'chart-indicator-param-group';
+                    group.textContent = label;
+                    const input = document.createElement('input');
+                    input.className = 'chart-indicator-param';
+                    input.type = 'number';
+                    input.min = String(min);
+                    input.max = String(max);
+                    input.step = String(step);
+                    input.value = String(indicator.params[key] ?? defaultValue);
+                    input.setAttribute('aria-label', `${definition.label} ${label}`);
+                    input.dataset.indicatorId = indicator.id;
+                    input.dataset.indicatorParam = key;
+                    group.append(input);
+                    item.append(group);
+                }
+
+                const remove = document.createElement('button');
+                remove.className = 'chart-indicator-remove';
+                remove.type = 'button';
+                remove.textContent = '×';
+                remove.title = `Remove ${definition.label}`;
+                remove.setAttribute('aria-label', `Remove ${definition.label}`);
+                remove.dataset.removeChartIndicator = indicator.id;
+                item.append(remove);
+                container.append(item);
+            }
+        }
+
+        function observeLiveMarketChart(chart, host) {
+            if (!window.ResizeObserver) return;
+            if (!liveMarketResizeObserver) {
+                liveMarketResizeObserver = new ResizeObserver(entries => {
+                    for (const entry of entries) {
+                        const targetChart = liveMarketResizeTargets.get(entry.target);
+                        const { width, height } = entry.contentRect;
+                        if (targetChart && width > 0 && height > 0) targetChart.resize(width, height);
+                    }
+                });
+            }
+            liveMarketResizeTargets.set(host, chart);
+            liveMarketResizeObserver.observe(host);
+        }
+
+        function chartOptionsForHost(host, { showTimeScale = false } = {}) {
+            return {
+                width: host.clientWidth,
+                height: host.clientHeight,
+                layout: {
+                    background: { color: LIVE_CHART_THEME.background },
+                    textColor: LIVE_CHART_THEME.text
+                },
+                grid: {
+                    vertLines: { color: LIVE_CHART_THEME.grid },
+                    horzLines: { color: LIVE_CHART_THEME.grid }
+                },
+                rightPriceScale: { borderColor: LIVE_CHART_THEME.border },
+                timeScale: {
+                    borderColor: LIVE_CHART_THEME.border,
+                    timeVisible: showTimeScale,
+                    visible: showTimeScale
+                },
+                crosshair: { mode: LightweightCharts.CrosshairMode?.Normal ?? 0 }
+            };
+        }
+
+        function createChartIndicatorSeries(chart, indicatorSeries) {
+            const options = {
+                title: indicatorSeries.name,
+                priceLineVisible: false,
+                lastValueVisible: true
+            };
+            if (indicatorSeries.color) options.color = indicatorSeries.color;
+            const series = indicatorSeries.type === 'histogram'
+                ? chart.addHistogramSeries(options)
+                : chart.addLineSeries({ ...options, lineWidth: 2 });
+            series.setData(indicatorSeries.data);
+            return series;
+        }
+
+        function syncLiveChartRanges(chart) {
+            if (liveMarketSyncedCharts.has(chart)) return;
+            liveMarketSyncedCharts.add(chart);
+            chart.timeScale().subscribeVisibleLogicalRangeChange(range => {
+                if (liveMarketRangeSyncing || !range) return;
+                liveMarketRangeSyncing = true;
+                try {
+                    [liveMarketChart, ...liveMarketPaneCharts.map(pane => pane.chart)]
+                        .filter(other => other && other !== chart)
+                        .forEach(other => other.timeScale().setVisibleLogicalRange(range));
+                } finally {
+                    liveMarketRangeSyncing = false;
+                }
+            });
+        }
+
+        function indicatorDataForPane(data) {
+            return data.map(item => item.type === 'histogram' ? {
+                ...item,
+                data: item.data.map(point => point.value === undefined ? point : {
+                    time: point.time,
+                    value: point.value,
+                    color: point.color
+                })
+            } : item);
+        }
+
+        function renderChartIndicatorPane(indicator, calculated, paneIndex, paneCount) {
+            const container = document.getElementById('tradingview-widget-container');
+            const paneElement = document.createElement('section');
+            paneElement.className = 'chart-indicator-pane';
+            const title = document.createElement('div');
+            title.className = 'chart-indicator-pane-title';
+            title.textContent = calculated.series.map(series => series.name).join(' · ');
+            const host = document.createElement('div');
+            host.className = 'chart-indicator-pane-host';
+            paneElement.append(title, host);
+            container.append(paneElement);
+
+            const chart = LightweightCharts.createChart(host, chartOptionsForHost(host, {
+                showTimeScale: paneIndex === paneCount - 1
+            }));
+            const series = indicatorDataForPane(calculated.series)
+                .map(item => createChartIndicatorSeries(chart, item));
+            const pane = { id: indicator.id, chart, series, host };
+            liveMarketPaneCharts.push(pane);
+            observeLiveMarketChart(chart, host);
+            syncLiveChartRanges(chart);
+            const range = liveMarketChart.timeScale().getVisibleLogicalRange();
+            if (range) chart.timeScale().setVisibleLogicalRange(range);
+            return pane;
+        }
+
+        function indicatorSeriesData(indicator) {
+            if (!window.ChartIndicatorCalculations) return { pane: false, series: [] };
+            return window.ChartIndicatorCalculations.compute(indicator.type, liveMarketCandles, indicator.params);
+        }
+
+        function refreshChartIndicators() {
+            if (!liveMarketChart || liveMarketCandles.length === 0) return;
+            Object.values(liveMarketIndicatorSeries).flat().forEach(series => liveMarketChart.removeSeries(series));
+            liveMarketIndicatorSeries = {};
+            liveMarketPaneCharts.forEach(pane => {
+                liveMarketResizeObserver?.unobserve(pane.host);
+                liveMarketResizeTargets.delete(pane.host);
+                pane.chart.remove();
+            });
+            liveMarketPaneCharts = [];
+            document.querySelectorAll('#tradingview-widget-container .chart-indicator-pane').forEach(pane => pane.remove());
+
+            const calculatedIndicators = activeChartIndicators.map(indicator => ({
+                indicator,
+                calculated: indicatorSeriesData(indicator)
+            }));
+            const paneIndicators = calculatedIndicators.filter(item => item.calculated.pane);
+            calculatedIndicators.filter(item => !item.calculated.pane).forEach(({ indicator, calculated }) => {
+                liveMarketIndicatorSeries[indicator.id] = calculated.series.map(series =>
+                    createChartIndicatorSeries(liveMarketChart, series)
+                );
+            });
+            paneIndicators.forEach(({ indicator, calculated }, index) =>
+                renderChartIndicatorPane(indicator, calculated, index, paneIndicators.length)
+            );
+            syncLiveChartRanges(liveMarketChart);
+        }
+
+        function updateChartIndicatorData() {
+            if (!liveMarketChart || liveMarketCandles.length === 0) return;
+            for (const indicator of activeChartIndicators) {
+                const calculated = indicatorSeriesData(indicator);
+                const existing = calculated.pane
+                    ? liveMarketPaneCharts.find(pane => pane.id === indicator.id)?.series
+                    : liveMarketIndicatorSeries[indicator.id];
+                if (!existing) continue;
+                calculated.series.forEach((series, index) => existing[index]?.setData(series.data));
+            }
         }
 
         async function initLiveMarketChart(pair, source) {
@@ -364,23 +623,10 @@ let connectedWallet = null;
             attribution.target = '_blank';
             attribution.rel = 'noopener noreferrer';
             attribution.textContent = 'Charts by TradingView';
-            container.replaceChildren(chartHost, liveMarketChartStatus, attribution);
+            chartHost.append(liveMarketChartStatus, attribution);
+            container.replaceChildren(chartHost);
 
-            liveMarketChart = LightweightCharts.createChart(chartHost, {
-                width: chartHost.clientWidth,
-                height: chartHost.clientHeight,
-                layout: {
-                    background: { color: LIVE_CHART_THEME.background },
-                    textColor: LIVE_CHART_THEME.text
-                },
-                grid: {
-                    vertLines: { color: LIVE_CHART_THEME.grid },
-                    horzLines: { color: LIVE_CHART_THEME.grid }
-                },
-                rightPriceScale: { borderColor: LIVE_CHART_THEME.border },
-                timeScale: { borderColor: LIVE_CHART_THEME.border, timeVisible: true },
-                crosshair: { mode: LightweightCharts.CrosshairMode?.Normal ?? 0 }
-            });
+            liveMarketChart = LightweightCharts.createChart(chartHost, chartOptionsForHost(chartHost, { showTimeScale: true }));
             liveMarketCandleSeries = liveMarketChart.addCandlestickSeries({
                 upColor: LIVE_CHART_THEME.up,
                 downColor: LIVE_CHART_THEME.down,
@@ -388,21 +634,16 @@ let connectedWallet = null;
                 wickUpColor: LIVE_CHART_THEME.up,
                 wickDownColor: LIVE_CHART_THEME.down
             });
-            if (window.ResizeObserver) {
-                liveMarketResizeObserver = new ResizeObserver(entries => {
-                    const { width, height } = entries[0].contentRect;
-                    if (width > 0 && height > 0) liveMarketChart?.applyOptions({ width, height });
-                });
-                liveMarketResizeObserver.observe(chartHost);
-            }
+            observeLiveMarketChart(liveMarketChart, chartHost);
+            syncLiveChartRanges(liveMarketChart);
 
             try {
                 const endpoint = source === 'BITGET_PERP'
-                    ? `https://api.bitget.com/api/v2/mix/market/candles?productType=USDT-FUTURES&symbol=${encodeURIComponent(pair)}&granularity=${timeframeConfig.bitget}&limit=200`
+                    ? `https://api.bitget.com/api/v2/mix/market/candles?productType=USDT-FUTURES&symbol=${encodeURIComponent(pair)}&granularity=${timeframeConfig.bitget}&limit=1000`
                     : source === 'BINANCE_SPOT'
-                        ? `https://api.binance.com/api/v3/klines?symbol=${encodeURIComponent(pair)}&interval=${timeframeConfig.binance}&limit=200`
+                        ? `https://api.binance.com/api/v3/klines?symbol=${encodeURIComponent(pair)}&interval=${timeframeConfig.binance}&limit=1000`
                         : source === 'BINANCE_PERP'
-                            ? `https://fapi.binance.com/fapi/v1/klines?symbol=${encodeURIComponent(pair)}&interval=${timeframeConfig.binance}&limit=200`
+                            ? `https://fapi.binance.com/fapi/v1/klines?symbol=${encodeURIComponent(pair)}&interval=${timeframeConfig.binance}&limit=1000`
                             : null;
                 if (!endpoint) throw new Error(`Candlestick charts are not configured for ${source}.`);
                 const response = await fetch(endpoint);
@@ -419,7 +660,8 @@ let connectedWallet = null;
                     open: Number(candle[1]),
                     high: Number(candle[2]),
                     low: Number(candle[3]),
-                    close: Number(candle[4])
+                    close: Number(candle[4]),
+                    volume: Number(candle[5]) || 0
                 })).filter(candle => Number.isFinite(candle.time) &&
                     [candle.open, candle.high, candle.low, candle.close].every(value => Number.isFinite(value) && value > 0))
                     .sort((a, b) => a.time - b.time);
@@ -455,7 +697,7 @@ let connectedWallet = null;
                 latest.close = price;
                 liveMarketCandleSeries.update({ ...latest });
                 liveMarketCandles[liveMarketCandles.length - 1] = { ...latest };
-                refreshChartIndicators();
+                updateChartIndicatorData();
                 return;
             }
             liveMarketLastCandle = {
@@ -463,59 +705,13 @@ let connectedWallet = null;
                 open: latest.close,
                 high: Math.max(latest.close, price),
                 low: Math.min(latest.close, price),
-                close: price
+                close: price,
+                volume: 0
             };
             liveMarketCandleSeries.update({ ...liveMarketLastCandle });
             liveMarketCandles.push({ ...liveMarketLastCandle });
             if (liveMarketCandles.length > 500) liveMarketCandles.shift();
-            refreshChartIndicators();
-        }
-
-        function refreshChartIndicators() {
-            if (!liveMarketChart || liveMarketCandles.length === 0) return;
-            const controls = {
-                sma20: {
-                    period: 20,
-                    color: '#fbbf24',
-                    title: 'SMA 20',
-                    calculate: (values, index, sum) => index >= 19 ? sum / 20 : null
-                },
-                ema50: {
-                    period: 50,
-                    color: '#38bdf8',
-                    title: 'EMA 50'
-                }
-            };
-            for (const [key, config] of Object.entries(controls)) {
-                const enabled = document.querySelector(`[data-chart-indicator="${key}"]`)?.getAttribute('aria-pressed') === 'true';
-                if (!enabled) {
-                    if (liveMarketIndicatorSeries[key]) liveMarketChart.removeSeries(liveMarketIndicatorSeries[key]);
-                    delete liveMarketIndicatorSeries[key];
-                    continue;
-                }
-                if (!liveMarketIndicatorSeries[key]) {
-                    liveMarketIndicatorSeries[key] = liveMarketChart.addLineSeries({
-                        color: config.color,
-                        lineWidth: 2,
-                        title: config.title,
-                        priceLineVisible: false,
-                        lastValueVisible: true
-                    });
-                }
-                let sum = 0;
-                let ema = null;
-                const multiplier = 2 / (config.period + 1);
-                const points = [];
-                liveMarketCandles.forEach((candle, index) => {
-                    sum += candle.close;
-                    if (index >= config.period) sum -= liveMarketCandles[index - config.period].close;
-                    const value = key === 'sma20'
-                        ? config.calculate(liveMarketCandles, index, sum)
-                        : (ema === null ? (ema = candle.close) : (ema = (candle.close - ema) * multiplier + ema));
-                    if (value !== null && Number.isFinite(value)) points.push({ time: candle.time, value });
-                });
-                liveMarketIndicatorSeries[key].setData(points);
-            }
+            updateChartIndicatorData();
         }
 
         function reloadLiveMarketChart() {

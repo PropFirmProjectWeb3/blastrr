@@ -557,11 +557,19 @@
         .chart-heading-group { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
         .chart-trade-overlay-note { color: #9ca3af; font-size: 11px; font-weight: 500; }
         .chart-control-label { color: #9298a1; font-size: 10px; font-weight: 650; }
-        .chart-control-select, .chart-indicator-toggle { min-height: 28px; padding: 4px 8px; border: 1px solid rgba(180, 190, 200, 0.16); border-radius: 6px; background: #0a0c0e; color: #cbd5e1; font: inherit; font-size: 10px; }
+        .chart-control-select, .chart-indicator-add { min-height: 28px; padding: 4px 8px; border: 1px solid rgba(180, 190, 200, 0.16); border-radius: 6px; background: #0a0c0e; color: #cbd5e1; font: inherit; font-size: 10px; }
         .chart-control-select { cursor: pointer; }
-        .chart-indicator-toggle { cursor: pointer; }
-        .chart-indicator-toggle[aria-pressed="true"] { border-color: rgba(167, 139, 250, 0.44); background: rgba(139, 92, 246, 0.12); color: #ddd6fe; }
-        .chart-control-select:focus-visible, .chart-indicator-toggle:focus-visible { outline: 2px solid rgba(167, 139, 250, 0.65); outline-offset: 2px; }
+        .chart-indicator-add { cursor: pointer; color: #ddd6fe; }
+        .chart-indicator-add:hover:not(:disabled) { border-color: rgba(167, 139, 250, 0.5); background: rgba(139, 92, 246, 0.12); }
+        .chart-control-select:focus-visible, .chart-indicator-add:focus-visible, .chart-indicator-param:focus-visible, .chart-indicator-remove:focus-visible { outline: 2px solid rgba(167, 139, 250, 0.65); outline-offset: 2px; }
+        .chart-active-indicators { display: flex; flex-wrap: wrap; gap: 7px; margin: -4px 0 10px; }
+        .chart-active-indicators:empty { display: none; }
+        .chart-indicator-item { display: flex; align-items: center; gap: 7px; padding: 5px 7px; border: 1px solid rgba(180, 190, 200, 0.13); border-radius: 7px; background: rgba(7, 9, 10, 0.78); }
+        .chart-indicator-item > strong { color: #cbd5e1; font-size: 10px; white-space: nowrap; }
+        .chart-indicator-param-group { display: inline-flex; align-items: center; gap: 4px; color: #9298a1; font-size: 9px; }
+        .chart-indicator-param { width: 52px; min-height: 24px; padding: 3px 5px; border: 1px solid rgba(180, 190, 200, 0.14); border-radius: 5px; background: #080a0b; color: #e5e7eb; font: inherit; font-size: 10px; }
+        .chart-indicator-remove { width: 22px; height: 22px; padding: 0; border: 0; border-radius: 5px; background: transparent; color: #9ca3af; cursor: pointer; font-size: 15px; line-height: 1; }
+        .chart-indicator-remove:hover { background: rgba(248, 113, 113, 0.12); color: #fca5a5; }
         .market-hours-status { display: inline-flex; align-items: center; gap: 7px; padding: 6px 9px; border: 1px solid rgba(104, 240, 192, 0.2); border-radius: 999px; background: rgba(16, 90, 72, 0.2); color: #6ee7b7; font-size: 10px; font-weight: 800; letter-spacing: 0.045em; white-space: nowrap; }
         .market-hours-status-dot { width: 7px; height: 7px; border-radius: 50%; background: #68f0c0; box-shadow: 0 0 10px rgba(104, 240, 192, 0.75); }
         .chart-market-bar { display: flex; align-items: stretch; gap: 22px; margin: 0 0 10px; padding: 12px 14px; overflow-x: auto; border: 1px solid rgba(180, 190, 200, 0.11); border-radius: 10px; background: rgba(7, 9, 10, 0.94); scrollbar-width: thin; }
@@ -597,11 +605,14 @@
         .maintenance-message-field label { display: block; margin-bottom: 7px; color: #c4c9d0; font-size: 12px; }
         .maintenance-message-field textarea { width: 100%; min-height: 104px; padding: 11px 12px; border: 1px solid rgba(180, 190, 200, 0.14); border-radius: 8px; background: #080a0b; color: #e5e7eb; font: inherit; font-size: 13px; resize: vertical; }
         .maintenance-message-field textarea::placeholder { color: #737b85; }
-        #tradingview-widget-container { position: relative; width: 100%; height: clamp(500px, 65vh, 960px); border-radius: 8px; overflow: hidden; }
-        .live-market-chart-host { width: 100%; height: 100%; }
+        #tradingview-widget-container { position: relative; display: grid; width: 100%; gap: 6px; overflow: visible; }
+        .live-market-chart-host { position: relative; width: 100%; height: clamp(360px, 56vh, 760px); overflow: hidden; border-radius: 8px; }
         .live-market-chart-status { position: absolute; top: 12px; left: 12px; z-index: 1; color: #9ca3af; font-size: 12px; pointer-events: none; }
         .live-market-chart-attribution { position: absolute; bottom: 6px; left: 8px; z-index: 1; color: #9ca3af; font-size: 10px; opacity: 0.72; text-decoration: none; }
         .live-market-chart-attribution:hover { opacity: 1; }
+        .chart-indicator-pane { min-width: 0; overflow: hidden; border: 1px solid rgba(148, 163, 184, 0.12); border-radius: 7px; background: #090d13; }
+        .chart-indicator-pane-title { height: 22px; padding: 4px 9px 0; color: #a5aab3; font-size: 9px; font-weight: 700; letter-spacing: 0.04em; }
+        .chart-indicator-pane-host { width: 100%; height: 112px; }
         .market-chat-card { display: grid; gap: 12px; }
         .market-chat-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
         .market-chat-heading .card-title { margin: 0; }
@@ -760,7 +771,7 @@
             header #nav-menu { z-index: 1001; padding: 12px; background: rgba(6, 4, 10, 0.99); }
             header #nav-menu .nav-tab { min-height: 54px; padding: 14px 16px; font-size: 16px; }
             header #nav-menu .nav-tab:not(.active) { color: #e2e8f0; background: transparent; }
-            #tradingview-widget-container { height: clamp(420px, 62svh, 680px); }
+            #tradingview-widget-container { height: auto; }
             .order-metrics.is-leveraged { grid-template-columns: repeat(2, minmax(0, 1fr)); }
             .account-card-header, .account-card-actions { align-items: flex-start; flex-direction: column; }
             .account-card-actions { width: 100%; }

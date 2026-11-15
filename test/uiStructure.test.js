@@ -164,8 +164,8 @@ test('admin can toggle maintenance for each public page and set an outage messag
 });
 
 test('trading terminal HTML loads its external stylesheet and application script', () => {
-  assert.match(appHtml, /href="\/css\/app\.css"/);
-  assert.match(appHtml, /src="\/js\/app\.js" defer/);
+  assert.match(appHtml, /href="\/css\/app\.css\?v=20261115-chart-indicators"/);
+  assert.match(appHtml, /src="\/js\/app\.js\?v=20261115-chart-indicators" defer/);
   assert.doesNotMatch(appHtml, /<style[\s>]/i);
   assert.doesNotMatch(appHtml, /<script>\s*[\s\S]*?\bfunction\s/m);
   assert.match(appHtml, /id="nav-menu"/);
@@ -239,7 +239,7 @@ test('trade entry uses metric cards, defaults to spot leverage, and scales the c
   assert.match(appJs, /liquidationMetric\.hidden = Number\(val\) <= 1/);
   assert.match(appJs, /orderMetrics\.classList\.toggle\('is-leveraged', Number\(val\) > 1\)/);
   assert.doesNotMatch(appHtml, /id="tradingview-widget-container"[^>]*style=/);
-  assert.match(appCss, /#tradingview-widget-container \{[^}]*height: clamp\(/);
+  assert.match(appCss, /\.live-market-chart-host \{[^}]*height: clamp\(/);
   assert.match(appCss, /main \{[^}]*max-width: 1920px/);
   assert.match(appJs, /liquidation-price-label/);
 });
@@ -257,13 +257,18 @@ test('TradingView Lightweight Chart and order buttons use matching candle and br
   assert.match(appCss, /\.order-actions button\.btn-buy:not\(\.nav-tab\):not\(\.admin-section-tab\)\s*\{[^}]*rgba\(114, 240, 195, 0\.2\)[^}]*color: #72f0c3[^}]*rgba\(114, 240, 195, 0\.08\)/);
   assert.match(appCss, /\.order-actions button\.btn-sell:not\(\.nav-tab\):not\(\.admin-section-tab\)\s*\{[^}]*rgba\(255, 99, 142, 0\.2\)[^}]*rgba\(255, 99, 142, 0\.08\)/);
   assert.match(appHtml, /id="chart-timeframe"[\s\S]*?<option value="1d">1d<\/option>/);
-  assert.match(appHtml, /data-chart-indicator="sma20"/);
-  assert.match(appHtml, /data-chart-indicator="ema50"/);
+  assert.match(appHtml, /id="chart-indicator-select"/);
+  assert.match(appHtml, /<option value="MACD">MACD<\/option>/);
+  assert.match(appHtml, /<option value="VOLUME">Volume<\/option>/);
+  assert.match(appHtml, /id="chart-active-indicators"/);
+  assert.match(appHtml, /src="\/js\/chartIndicators\.js\?v=20261115-chart-indicators" defer/);
   assert.match(appJs, /granularity=\$\{timeframeConfig\.bitget\}/);
   assert.match(appJs, /interval=\$\{timeframeConfig\.binance\}/);
   assert.match(appJs, /function refreshChartIndicators\(\)/);
-  assert.match(appJs, /liveMarketChart\.addLineSeries/);
+  assert.match(appJs, /chart\.addLineSeries/);
   assert.match(appJs, /liveMarketTimeframeSeconds/);
+  assert.match(appJs, /function renderChartIndicatorPane/);
+  assert.match(appJs, /function renderActiveChartIndicators/);
 });
 
 test('open positions show margin and notional separately and refresh PnL with live quotes', () => {

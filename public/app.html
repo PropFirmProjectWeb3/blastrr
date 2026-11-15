@@ -7,7 +7,7 @@
     <link rel="icon" type="image/png" href="/favicon.png">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link rel="stylesheet" href="/css/app.css">
+    <link rel="stylesheet" href="/css/app.css?v=20261115-chart-indicators">
 </head>
 <body class="auth-locked">
     <section id="wallet-login-gate" class="wallet-login-gate" aria-labelledby="wallet-login-title">
@@ -132,12 +132,27 @@
                                     <option value="4h">4h</option>
                                     <option value="1d">1d</option>
                                 </select>
-                                <span class="chart-control-label">Indicators</span>
-                                <button class="chart-indicator-toggle" type="button" data-chart-indicator="sma20" aria-pressed="false">SMA 20</button>
-                                <button class="chart-indicator-toggle" type="button" data-chart-indicator="ema50" aria-pressed="false">EMA 50</button>
+                                <label class="chart-control-label" for="chart-indicator-select">Indicators</label>
+                                <select id="chart-indicator-select" class="chart-control-select" aria-label="Select chart indicator">
+                                    <option value="">Choose an indicator</option>
+                                    <option value="VOLUME">Volume</option>
+                                    <option value="SMA">Simple moving average</option>
+                                    <option value="EMA">Exponential moving average</option>
+                                    <option value="BOLLINGER">Bollinger Bands</option>
+                                    <option value="VWAP">Session VWAP</option>
+                                    <option value="RSI">RSI</option>
+                                    <option value="MACD">MACD</option>
+                                    <option value="STOCHASTIC">Stochastic</option>
+                                    <option value="ATR">ATR</option>
+                                    <option value="ADX">ADX</option>
+                                    <option value="CCI">CCI</option>
+                                    <option value="OBV">On-balance volume</option>
+                                </select>
+                                <button id="chart-indicator-add" class="chart-indicator-add" type="button">Add</button>
                                 <button class="btn-wallet" style="padding: 5px 10px; font-size: 11px;" onclick="manualRefreshData()">Refresh</button>
                             </div>
                         </div>
+                        <div id="chart-active-indicators" class="chart-active-indicators" aria-label="Active chart indicators"></div>
                         <div class="chart-market-bar" aria-label="Selected market information">
                             <div class="chart-market-stat"><span>Mid Price</span><strong id="chart-mid-price">—</strong></div>
                             <div class="chart-market-stat"><span>Bid / Ask</span><strong id="chart-bid-ask">—</strong></div>
@@ -946,6 +961,7 @@
     </main>
 
     <script src="https://unpkg.com/lightweight-charts@4.2.3/dist/lightweight-charts.standalone.production.js"></script>
-    <script src="/js/app.js" defer></script>
+    <script src="/js/chartIndicators.js?v=20261115-chart-indicators" defer></script>
+    <script src="/js/app.js?v=20261115-chart-indicators" defer></script>
 </body>
 </html>

@@ -1012,6 +1012,10 @@
         .battlepass-admin-task-fields { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 10px; }
         .battlepass-active-toggle { display: inline-flex; align-items: center; gap: 8px; color: #a5b0c0; font-size: 12px; }
         .admin-task-form { grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); }
+        .battlepass-admin-level-grid { grid-template-columns: minmax(0, 1fr); }
+        .battlepass-admin-level-grid .battlepass-admin-row {
+            grid-template-columns: minmax(180px, 1.5fr) repeat(2, minmax(150px, 1fr)) auto;
+        }
         @media (min-width: 701px) and (max-width: 1100px) {
             .leaderboard-card { grid-template-columns: minmax(0, 1fr) auto; gap: 9px 14px; }
             .leaderboard-card-stats, .leaderboard-card-actions { grid-column: 1 / -1; }
@@ -1356,6 +1360,10 @@
             .admin-task-form > button { width: 100%; }
             .battlepass-admin-row { grid-template-columns: repeat(2, minmax(0, 1fr)); }
             .battlepass-admin-task-fields { grid-template-columns: minmax(0, 1fr); }
+            .battlepass-admin-level-grid .battlepass-admin-row { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+            .battlepass-admin-level-grid .battlepass-admin-row > strong,
+            .battlepass-admin-level-grid .battlepass-admin-row > button { grid-column: 1 / -1; }
+            .battlepass-admin-level-grid .battlepass-admin-row > button { width: 100%; }
         }
 
         button:not(.nav-tab):not(.admin-section-tab), input[type="button"], input[type="submit"], input[type="reset"], .btn {

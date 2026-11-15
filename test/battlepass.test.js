@@ -70,6 +70,14 @@ test('admin can configure standard discounts, level costs, plan awards, and cust
   assert.match(serverJs, /WHERE id = \? AND is_builtin = 1/);
 });
 
+test('admin level reward editors use full-width rows with usable responsive controls', () => {
+  assert.match(appCss, /\.battlepass-admin-level-grid \{ grid-template-columns: minmax\(0, 1fr\); \}/);
+  assert.match(appCss, /\.battlepass-admin-level-grid \.battlepass-admin-row \{[\s\S]*?grid-template-columns: minmax\(180px, 1\.5fr\) repeat\(2, minmax\(150px, 1fr\)\) auto/);
+  assert.match(appCss, /\.battlepass-admin-level-grid \.battlepass-admin-row \{ grid-template-columns: repeat\(2, minmax\(0, 1fr\)\); \}/);
+  assert.match(appCss, /\.battlepass-admin-level-grid \.battlepass-admin-row > strong,[\s\S]*?\.battlepass-admin-level-grid \.battlepass-admin-row > button \{ grid-column: 1 \/ -1; \}/);
+  assert.match(appJs, /data-save-level-reward/);
+});
+
 test('profile rewards and level discounts are wallet-bound and checkout applies the configured discount', () => {
   assert.match(serverJs, /WHERE code = \? AND LOWER\(wallet_address\) = LOWER\(\?\) AND redeemed_at IS NULL/);
   assert.match(serverJs, /app\.post\('\/api\/accounts\/purchase', sensitiveLimiter, requireWalletSession/);

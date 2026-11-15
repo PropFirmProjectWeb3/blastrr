@@ -7,7 +7,7 @@
     <link rel="icon" type="image/png" href="/favicon.png">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link rel="stylesheet" href="/css/app.css?v=20261115-buy-plans-mobile-grid">
+    <link rel="stylesheet" href="/css/app.css?v=20261115-hedge-account-alerts">
 </head>
 <body class="auth-locked">
     <section id="wallet-login-gate" class="wallet-login-gate" aria-labelledby="wallet-login-title">
@@ -761,6 +761,13 @@
                 <button id="admin-maintenance-tab" class="admin-section-tab" role="tab" aria-selected="false" onclick="switchAdminSection('admin-maintenance-panel')">Maintenance</button>
             </div>
             <div id="admin-operations-panel" class="admin-section-panel">
+            <div class="card admin-hedging-review">
+                <div class="card-title">Hedging alerts</div>
+                <p class="support-note">Opposite positions on the same market across a user’s accounts are prohibited. Review the user’s support ticket and resolve the issue before unfreezing the involved accounts from their user card.</p>
+                <div id="admin-hedging-alert-list" class="admin-hedging-alert-list" aria-live="polite">
+                    <p class="account-chart-empty">Loading hedging alerts...</p>
+                </div>
+            </div>
             <div class="card" style="border-color: rgba(220, 38, 38, 0.3);">
                 <div class="card-title admin-payout-title">Admin Withdrawal &amp; Payout Queue</div>
                 <div class="table-responsive">
@@ -993,6 +1000,6 @@
 
     <script src="https://unpkg.com/lightweight-charts@4.2.3/dist/lightweight-charts.standalone.production.js"></script>
     <script src="/js/chartIndicators.js?v=20261115-multi-account-checkout" defer></script>
-    <script src="/js/app.js?v=20261115-open-trade-format" defer></script>
+    <script src="/js/app.js?v=20261115-hedge-account-alerts" defer></script>
 </body>
 </html>

@@ -3324,6 +3324,27 @@ app.post('/api/admin/withdrawals', sensitiveLimiter, requireTradeSignature, requ
   );
 });
 
+app.post('/api/admin/hedging-alerts', sensitiveLimiter, requireTradeSignature, requireAdminWallet, (req, res) => {
+  db.all(
+    `SELECT h.id, h.wallet_address, COALESCE(u.username, '') AS username, h.symbol,
+     h.attempted_account_id, h.attempted_side, h.conflicting_side, h.created_at,
+     GROUP_CONCAT(DISTINCT CASE WHEN ha.account_id != h.attempted_account_id THEN ha.account_id END) AS conflicting_account_ids,
+     COUNT(DISTINCT CASE WHEN a.admin_frozen = 1 THEN a.id END) AS frozen_account_count
+     FROM hedging_alerts h
+     LEFT JOIN users u ON LOWER(u.wallet_address) = LOWER(h.wallet_address)
+     JOIN hedging_alert_accounts ha ON ha.alert_id = h.id
+     JOIN accounts a ON a.id = ha.account_id
+     GROUP BY h.id
+     HAVING COUNT(DISTINCT CASE WHEN a.admin_frozen = 1 THEN a.id END) > 0
+     ORDER BY h.created_at DESC LIMIT 100`,
+    [],
+    (err, alerts) => {
+      if (err) return res.status(500).json({ error: 'Unable to load hedging alerts.' });
+      res.json({ alerts: alerts || [] });
+    }
+  );
+});
+
 app.post('/api/admin/users/search', sensitiveLimiter, requireTradeSignature, requireAdminWallet, (req, res) => {
   const query = typeof req.body?.query === 'string' ? req.body.query.trim() : '';
   if (query.length < 2 || query.length > 100 || !/^[a-z0-9_]+$/i.test(query)) {
@@ -3871,44 +3892,119 @@ function executeTradeForAccount(accountId, order, walletAddress, callback) {
             db.serialize(() => {
               db.run('BEGIN IMMEDIATE', beginErr => {
                 if (beginErr) return callback({ status: 500, error: 'Unable to reserve account balance.' });
-                db.run(
-                  `UPDATE accounts SET current_balance = current_balance - ?
-                   WHERE id = ? AND current_balance >= ? AND status = 'ACTIVE' AND admin_frozen = 0
-                   AND NOT EXISTS (SELECT 1 FROM withdrawals WHERE account_id = ? AND status = 'PENDING')
-                   AND NOT EXISTS (SELECT 1 FROM users u WHERE LOWER(u.wallet_address) = LOWER(accounts.wallet_address)
-                                   AND COALESCE(u.admin_suspended, 0) = 1)`,
-                  [margin, accountId, margin, accountId],
-                  function(updateErr) {
-                    if (updateErr) {
-                      return db.run('ROLLBACK', () => callback({ status: 500, error: 'Unable to reserve account balance.' }));
-                    }
-                    if (this.changes !== 1) {
-                      return db.get(
-                        'SELECT admin_suspend_reason FROM users WHERE LOWER(wallet_address) = LOWER(?) AND admin_suspended = 1',
-                        [account.wallet_address],
-                        (suspensionErr, suspendedUser) => db.run('ROLLBACK', () => {
-                          if (suspensionErr) return callback({ status: 500, error: 'Unable to verify user account access.' });
-                          if (suspendedUser) {
-                            return callback({
-                              status: 403,
-                              error: `This user account is suspended by an administrator${suspendedUser.admin_suspend_reason ? `: ${suspendedUser.admin_suspend_reason}` : '.'}`,
-                              user_suspended: true
-                            });
-                          }
-                          callback({ status: 409, error: 'Account balance or status changed. Refresh and retry.' });
-                        })
+                const rollback = (status, error) => db.run('ROLLBACK', () => callback({ status, error }));
+                const freezeHedgingAccounts = conflictingTrades => {
+                  const conflictingSide = side === 'BUY' ? 'SELL' : 'BUY';
+                  const accountIds = [...new Set([accountId, ...conflictingTrades.map(trade => trade.account_id)])];
+                  const reason = `Hedging detected on ${symbol}; review the admin alert and support ticket before unfreezing.`;
+                  const freezeNext = index => {
+                    if (index >= accountIds.length) {
+                      return db.run(
+                        `INSERT INTO hedging_alerts
+                         (wallet_address, symbol, attempted_account_id, attempted_side, conflicting_side)
+                         VALUES (?, ?, ?, ?, ?)`,
+                        [walletAddress, symbol, accountId, side, conflictingSide],
+                        function(alertErr) {
+                          if (alertErr) return rollback(500, 'Unable to record the hedging alert.');
+                          const alertId = this.lastID;
+                          const alertAccounts = [
+                            { account_id: accountId, trade_id: null, position_side: side },
+                            ...conflictingTrades.map(trade => ({
+                              account_id: trade.account_id,
+                              trade_id: trade.trade_id,
+                              position_side: trade.side
+                            }))
+                          ];
+                          const insertNext = index => {
+                            if (index >= alertAccounts.length) {
+                              return db.run('COMMIT', commitErr => {
+                                if (commitErr) return callback({ status: 500, error: 'Unable to commit hedging alert.' });
+                                callback({
+                                  status: 409,
+                                  error: `Hedging is not allowed. An opposite ${conflictingSide} position in ${symbol} was found on another account. The involved accounts have been frozen and an admin alert was created.`,
+                                  hedging_violation: true
+                                });
+                              });
+                            }
+                            const item = alertAccounts[index];
+                            db.run(
+                              `INSERT INTO hedging_alert_accounts (alert_id, account_id, trade_id, position_side)
+                               VALUES (?, ?, ?, ?)`,
+                              [alertId, item.account_id, item.trade_id, item.position_side],
+                              insertErr => {
+                                if (insertErr) return rollback(500, 'Unable to record hedging alert account details.');
+                                insertNext(index + 1);
+                              }
+                            );
+                          };
+                          insertNext(0);
+                        }
                       );
                     }
                     db.run(
-                      `INSERT INTO trades (id, account_id, symbol, side, entry_price, size_usd, units, sl, tp, status, leverage)
-                       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'OPEN', ?)`,
-                      [tradeId, accountId, symbol, side, executionPrice, margin, units, stopLoss, takeProfit, leverage],
-                      insertErr => {
-                        if (insertErr) return db.run('ROLLBACK', () => callback({ status: 500, error: 'Unable to create trade.' }));
-                        db.run('COMMIT', commitErr => {
-                          if (commitErr) return callback({ status: 500, error: 'Unable to commit trade.' });
-                          callback(null, { success: true, trade_id: tradeId, execution_price: executionPrice, sl: stopLoss, tp: takeProfit });
-                        });
+                      `UPDATE accounts SET admin_frozen = 1,
+                       admin_freeze_reason = CASE WHEN admin_frozen = 1 THEN admin_freeze_reason ELSE ? END
+                       WHERE id = ? AND LOWER(wallet_address) = LOWER(?)`,
+                      [reason, accountIds[index], walletAddress],
+                      function(freezeErr) {
+                        if (freezeErr) return rollback(500, 'Unable to freeze accounts involved in the hedge.');
+                        if (this.changes !== 1) return rollback(409, 'An involved account changed during hedging review.');
+                        freezeNext(index + 1);
+                      }
+                    );
+                  };
+                  freezeNext(0);
+                };
+                db.all(
+                  `SELECT t.id AS trade_id, t.account_id, t.side
+                   FROM trades t
+                   JOIN accounts a ON a.id = t.account_id
+                   WHERE LOWER(a.wallet_address) = LOWER(?) AND t.account_id != ?
+                     AND t.symbol = ? AND t.side = ? AND t.status = 'OPEN'`,
+                  [walletAddress, accountId, symbol, side === 'BUY' ? 'SELL' : 'BUY'],
+                  (hedgeErr, conflictingTrades) => {
+                    if (hedgeErr) return rollback(500, 'Unable to verify opposite open positions.');
+                    if (conflictingTrades?.length) return freezeHedgingAccounts(conflictingTrades);
+                    db.run(
+                      `UPDATE accounts SET current_balance = current_balance - ?
+                       WHERE id = ? AND current_balance >= ? AND status = 'ACTIVE' AND admin_frozen = 0
+                       AND NOT EXISTS (SELECT 1 FROM withdrawals WHERE account_id = ? AND status = 'PENDING')
+                       AND NOT EXISTS (SELECT 1 FROM users u WHERE LOWER(u.wallet_address) = LOWER(accounts.wallet_address)
+                                       AND COALESCE(u.admin_suspended, 0) = 1)`,
+                      [margin, accountId, margin, accountId],
+                      function(updateErr) {
+                        if (updateErr) {
+                          return db.run('ROLLBACK', () => callback({ status: 500, error: 'Unable to reserve account balance.' }));
+                        }
+                        if (this.changes !== 1) {
+                          return db.get(
+                            'SELECT admin_suspend_reason FROM users WHERE LOWER(wallet_address) = LOWER(?) AND admin_suspended = 1',
+                            [account.wallet_address],
+                            (suspensionErr, suspendedUser) => db.run('ROLLBACK', () => {
+                              if (suspensionErr) return callback({ status: 500, error: 'Unable to verify user account access.' });
+                              if (suspendedUser) {
+                                return callback({
+                                  status: 403,
+                                  error: `This user account is suspended by an administrator${suspendedUser.admin_suspend_reason ? `: ${suspendedUser.admin_suspend_reason}` : '.'}`,
+                                  user_suspended: true
+                                });
+                              }
+                              callback({ status: 409, error: 'Account balance or status changed. Refresh and retry.' });
+                            })
+                          );
+                        }
+                        db.run(
+                          `INSERT INTO trades (id, account_id, symbol, side, entry_price, size_usd, units, sl, tp, status, leverage)
+                           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'OPEN', ?)`,
+                          [tradeId, accountId, symbol, side, executionPrice, margin, units, stopLoss, takeProfit, leverage],
+                          insertErr => {
+                            if (insertErr) return db.run('ROLLBACK', () => callback({ status: 500, error: 'Unable to create trade.' }));
+                            db.run('COMMIT', commitErr => {
+                              if (commitErr) return callback({ status: 500, error: 'Unable to commit trade.' });
+                              callback(null, { success: true, trade_id: tradeId, execution_price: executionPrice, sl: stopLoss, tp: takeProfit });
+                            });
+                          }
+                        );
                       }
                     );
                   }
@@ -3966,7 +4062,12 @@ app.post('/api/trades/execute', sensitiveLimiter, requireWalletSession, requireU
     (groupErr, activeGroup) => {
       if (groupErr) return respond(500, { error: 'Unable to check active copy-trading group.' });
       executeTradeForAccount(accountId, order, req.walletAddress, (leaderErr, leaderTrade) => {
-        if (leaderErr) return respond(leaderErr.status, { error: leaderErr.error, lock: leaderErr.lock, user_suspended: leaderErr.user_suspended });
+        if (leaderErr) return respond(leaderErr.status, {
+          error: leaderErr.error,
+          lock: leaderErr.lock,
+          user_suspended: leaderErr.user_suspended,
+          hedging_violation: leaderErr.hedging_violation
+        });
         if (!activeGroup) return respond(200, leaderTrade);
         db.run(
           'INSERT INTO trade_copy_leader_trades (leader_trade_id, group_id) VALUES (?, ?)',
@@ -4009,7 +4110,12 @@ app.post('/api/trades/execute', sensitiveLimiter, requireWalletSession, requireU
                   }
                   executeTradeForAccount(follower.account_id, followerOrder, req.walletAddress, (followerErr, followerTrade) => {
                     if (followerErr) {
-                      results.push({ account_id: follower.account_id, success: false, error: followerErr.error });
+                      results.push({
+                        account_id: follower.account_id,
+                        success: false,
+                        error: followerErr.error,
+                        hedging_violation: followerErr.hedging_violation
+                      });
                       return copyNext(index + 1);
                     }
                     db.run(

@@ -1733,6 +1733,13 @@
             border-color: rgba(192, 132, 252, 0.085) !important;
             box-shadow: 0 0 1.2px rgba(168, 85, 247, 0.038), inset 0 0 0.8px rgba(168, 85, 247, 0.006) !important;
         }
+        .admin-hedging-alert-list { display: grid; gap: 10px; }
+        .admin-hedging-alert { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; padding: 14px; border: 1px solid rgba(248, 113, 113, 0.2); border-left: 3px solid rgba(248, 113, 113, 0.7); border-radius: 10px; background: rgba(50, 17, 22, 0.16); }
+        .admin-hedging-alert > div { display: grid; gap: 5px; min-width: 0; }
+        .admin-hedging-alert strong { color: #fca5a5; }
+        .admin-hedging-alert p, .admin-hedging-alert small { margin: 0; color: #b7bdc5; font-size: 12px; line-height: 1.5; overflow-wrap: anywhere; }
+        .admin-hedging-alert code { color: #e5e7eb; overflow-wrap: anywhere; }
+        .admin-hedging-alert button { flex: 0 0 auto; }
 
         @media (max-width: 1050px) {
             .plans-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
@@ -1750,4 +1757,6 @@
             .admin-section-tabs { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }
             .admin-section-tabs .admin-section-tab { min-width: 0; padding: 10px 7px; font-size: 12px; }
             .dashboard-tile, .account-preview-stat.dashboard-tile, .battlepass-task.dashboard-tile { border-radius: 14px; }
+            .admin-hedging-alert { flex-direction: column; }
+            .admin-hedging-alert button { width: 100%; }
         }

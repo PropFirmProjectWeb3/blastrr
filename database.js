@@ -50,6 +50,26 @@ function initTables() {
     )`);
     db.run('CREATE INDEX IF NOT EXISTS idx_user_admin_actions_wallet_created ON user_admin_actions(wallet_address, created_at DESC)');
 
+    db.run(`CREATE TABLE IF NOT EXISTS hedging_alerts (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      wallet_address TEXT NOT NULL,
+      symbol TEXT NOT NULL,
+      attempted_account_id TEXT NOT NULL,
+      attempted_side TEXT NOT NULL CHECK(attempted_side IN ('BUY', 'SELL')),
+      conflicting_side TEXT NOT NULL CHECK(conflicting_side IN ('BUY', 'SELL')),
+      created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+    )`);
+    db.run('CREATE INDEX IF NOT EXISTS idx_hedging_alerts_wallet_created ON hedging_alerts(wallet_address, created_at DESC)');
+    db.run(`CREATE TABLE IF NOT EXISTS hedging_alert_accounts (
+      alert_id INTEGER NOT NULL,
+      account_id TEXT NOT NULL,
+      trade_id TEXT,
+      position_side TEXT NOT NULL CHECK(position_side IN ('BUY', 'SELL')),
+      FOREIGN KEY(alert_id) REFERENCES hedging_alerts(id) ON DELETE CASCADE
+    )`);
+    db.run('CREATE INDEX IF NOT EXISTS idx_hedging_alert_accounts_alert ON hedging_alert_accounts(alert_id)');
+    db.run('CREATE INDEX IF NOT EXISTS idx_hedging_alert_accounts_account ON hedging_alert_accounts(account_id)');
+
     db.run(`CREATE TABLE IF NOT EXISTS public_chat_messages (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       market_symbol TEXT NOT NULL,

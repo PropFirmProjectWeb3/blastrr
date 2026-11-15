@@ -1251,6 +1251,7 @@ let connectedWallet = null;
 
             if (viewId === 'adminView') {
                 loadAdminWithdrawals();
+                loadAdminHedgingAlerts();
                 loadAdminPlans();
                 loadAdminTickets();
                 loadAdminReviews();
@@ -3405,7 +3406,7 @@ let connectedWallet = null;
                         ${w.type === 'ACCOUNT' ? `<button class="btn-sell" style="padding: 4px 10px; font-size: 11px;" data-admin-account-id="${escapeHTML(w.account_id)}" data-admin-account-action="FREEZE">Freeze account</button>` : ''}
                     ` : `<span style="color: #9ca3af;">Processed</span>`;
                     const accountDetails = w.type === 'ACCOUNT'
-                        ? `<strong>${escapeHTML(w.plan_name)}</strong><br>Balance: $${Number(w.account_balance).toFixed(2)}<br>${Number(w.admin_frozen) ? 'Manual freeze: ' + escapeHTML(w.admin_freeze_reason || 'active') : (w.trades?.some(trade => trade.status === 'OPEN') ? 'Open trades: ' + w.trades.filter(trade => trade.status === 'OPEN').length : 'No open trades')}<details><summary>Review ${w.trades?.length || 0} trades</summary>${renderAdminTradeTable(w.trades || [])}</details>`
+                        ? `<strong>${escapeHTML(w.plan_name)}</strong><br>Balance: $${Number(w.account_balance).toFixed(2)}<br>${Number(w.admin_frozen) ? 'Admin freeze: ' + escapeHTML(w.admin_freeze_reason || 'active') : (w.trades?.some(trade => trade.status === 'OPEN') ? 'Open trades: ' + w.trades.filter(trade => trade.status === 'OPEN').length : 'No open trades')}<details><summary>Review ${w.trades?.length || 0} trades</summary>${renderAdminTradeTable(w.trades || [])}</details>`
                         : escapeHTML(w.plan_name);
                     const amountDetails = w.type === 'ACCOUNT'
                         ? `<strong>$${Number(w.amount).toFixed(2)} gross</strong><br>User: $${Number(w.user_amount).toFixed(2)}<br>Admin: $${Number(w.admin_share).toFixed(2)}`
@@ -3440,6 +3441,52 @@ let connectedWallet = null;
                 console.error(err);
                 const tbody = document.getElementById('admin-payout-queue');
                 if (tbody) tbody.innerHTML = `<tr><td colspan="7" style="color:#f87171;padding:18px;">${escapeHTML(err.message)}</td></tr>`;
+            }
+        }
+
+        async function loadAdminHedgingAlerts() {
+            const container = document.getElementById('admin-hedging-alert-list');
+            if (!container) return;
+            container.innerHTML = '<p class="account-chart-empty">Loading hedging alerts...</p>';
+            try {
+                const authorization = await signedTradeAuthorization();
+                const response = await fetch('/api/admin/hedging-alerts', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(authorization)
+                });
+                const data = await readAdminApiResponse(response, '/api/admin/hedging-alerts');
+                if (!response.ok) throw new Error(data.error || 'Unable to load hedging alerts.');
+                const alerts = data.alerts || [];
+                if (!alerts.length) {
+                    container.innerHTML = '<p class="account-chart-empty">No active hedging alerts.</p>';
+                    return;
+                }
+                container.innerHTML = alerts.map(alert => {
+                    const conflictingAccounts = (alert.conflicting_account_ids || '').split(',').filter(Boolean);
+                    return `
+                        <article class="admin-hedging-alert">
+                            <div>
+                                <strong>Prohibited hedge · ${escapeHTML(alert.symbol)}</strong>
+                                <p>${escapeHTML(alert.username ? `@${alert.username}` : 'User')} · <code>${escapeHTML(alert.wallet_address)}</code></p>
+                                <p>${escapeHTML(alert.attempted_side)} attempted on <code>${escapeHTML(alert.attempted_account_id)}</code> against open ${escapeHTML(alert.conflicting_side)} position${conflictingAccounts.length === 1 ? '' : 's'} on ${conflictingAccounts.map(id => `<code>${escapeHTML(id)}</code>`).join(', ') || 'another account'}.</p>
+                                <small>${escapeHTML(new Date(alert.created_at).toLocaleString())} · ${Number(alert.frozen_account_count)} involved account${Number(alert.frozen_account_count) === 1 ? '' : 's'} currently frozen</small>
+                            </div>
+                            <button class="btn-wallet" type="button" data-hedging-review-wallet="${escapeHTML(alert.wallet_address)}">Review user</button>
+                        </article>
+                    `;
+                }).join('');
+                container.onclick = event => {
+                    const button = event.target.closest('[data-hedging-review-wallet]');
+                    if (!button) return;
+                    const wallet = button.dataset.hedgingReviewWallet;
+                    const search = document.getElementById('admin-user-search');
+                    if (search) search.value = wallet;
+                    loadAdminUserSearch(wallet);
+                };
+            } catch (err) {
+                console.error(err);
+                container.innerHTML = `<p class="support-feedback">${escapeHTML(err.message)}</p>`;
             }
         }
 
@@ -3478,7 +3525,7 @@ let connectedWallet = null;
                         <span>Risk balance: <strong>$${Number(account.risk_balance).toFixed(2)}</strong></span>
                         <span>Equity: <strong>$${Number(account.current_equity).toFixed(2)}</strong></span>
                         <span>Protected floor: <strong>$${mllCap.toFixed(2)}</strong></span>
-                        ${adminFreeze ? `<span class="admin-account-flag">Manual freeze: ${escapeHTML(account.admin_freeze_reason || '')}</span>` : ''}
+                        ${adminFreeze ? `<span class="admin-account-flag">Admin freeze: ${escapeHTML(account.admin_freeze_reason || '')}</span>` : ''}
                         ${automaticPause ? '<span class="admin-account-flag">Withdrawal review pause active</span>' : ''}
                         ${riskLock ? `<span class="admin-account-flag">${riskLock}</span>` : ''}
                     </div>
@@ -4196,6 +4243,7 @@ let connectedWallet = null;
                 alert(data.message);
                 if (adminUserSearchQuery) loadAdminUserSearch();
                 loadAdminWithdrawals();
+                loadAdminHedgingAlerts();
             } catch (err) {
                 console.error(err);
                 alert(err.message);

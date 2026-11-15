@@ -1228,6 +1228,7 @@ let connectedWallet = null;
                 lockDashboard();
                 return;
             }
+            const requestedViewId = viewId;
             const pageId = maintenanceViewPages[viewId];
             if (pageId && maintenanceStatuses[pageId] && !currentWalletIsAdmin) {
                 renderMaintenanceView(pageId);
@@ -1239,8 +1240,12 @@ let connectedWallet = null;
             const targetPanel = document.getElementById(viewId);
             if (targetPanel) targetPanel.classList.add('active');
 
-            const activeTab = Array.from(document.querySelectorAll('.nav-tab')).find(t => t.getAttribute('onclick')?.includes(viewId));
+            const activeTab = Array.from(document.querySelectorAll('#nav-menu .nav-tab')).find(t => t.getAttribute('onclick')?.includes(requestedViewId));
             if (activeTab) activeTab.classList.add('active');
+            document.querySelectorAll('#nav-menu .nav-dropdown').forEach(dropdown => {
+                dropdown.classList.toggle('has-active', Boolean(dropdown.querySelector('.nav-tab.active')));
+                dropdown.removeAttribute('open');
+            });
 
             toggleMobileMenu(true);
 
@@ -1521,7 +1526,7 @@ let connectedWallet = null;
                     const journalProgress = isJournalTask
                         ? `<div class="battlepass-journal-progress" role="progressbar" aria-label="Journal task progress" aria-valuemin="0" aria-valuemax="${Number(task.progress_target || (task.task_type === 'JOURNAL_DAY' ? 1 : 5))}" aria-valuenow="${Number(task.progress || 0)}"><i style="width:${Math.min(100, Number(task.progress || 0) / Number(task.progress_target || 1) * 100)}%"></i></div>`
                         : '';
-                    return `<article class="battlepass-task" data-battlepass-task="${Number(task.id)}">
+                    return `<article class="battlepass-task dashboard-tile" data-battlepass-task="${Number(task.id)}">
                         <div class="battlepass-task-copy"><div class="battlepass-task-heading"><strong>${escapeHTML(task.title)}</strong>
                         <span class="battlepass-task-awards"><span><i class="battlepass-gem" aria-hidden="true">◆</i> +${Number(task.points_reward)}</span><span class="battlepass-award-divider"></span><span><i class="battlepass-xp-mark" aria-hidden="true">XP</i> +${Number(task.xp_reward).toLocaleString()}</span></span></div>
                         <p>${escapeHTML(task.description)}</p>${journalProgress}<div class="battlepass-task-action-row"><span class="battlepass-task-status ${task.claimed ? 'is-claimed' : task.eligible ? 'is-ready' : ''}">${state}</span>${embed}${action}${reviewButton}${claimButton}</div></div></article>`;
@@ -1586,7 +1591,7 @@ let connectedWallet = null;
                 const status = code
                     ? level.reward_redeemed ? 'Discount used' : 'Discount claimed · ready to use'
                     : unlocked ? 'Reward unlocked · ready to claim' : `Unlock at ${Number(level.xp_required).toLocaleString()} XP`;
-                return `<article class="battlepass-task battlepass-reward-item">
+                return `<article class="battlepass-task dashboard-tile battlepass-reward-item">
                     <div class="battlepass-task-copy">
                         <div class="battlepass-task-heading">
                             <strong>Level ${Number(level.level)} · +${Number(level.discount_bonus_pct)}% discount</strong>
@@ -2928,10 +2933,10 @@ let connectedWallet = null;
                                 </div>
                             </div>
                             <div class="account-preview-grid">
-                                <div class="account-preview-stat"><span>Initial capital</span><strong>$${acc.initial_balance.toLocaleString()}</strong></div>
-                                <div class="account-preview-stat"><span>Current balance</span><strong id="bal-val-${acc.id}">$${acc.current_balance.toLocaleString()}</strong></div>
-                                <div class="account-preview-stat"><span>Total profit</span><strong id="profit-val-${acc.id}">$${m.currentProfit.toLocaleString()}</strong></div>
-                                <div class="account-preview-stat"><span>Account status</span><strong id="status-val-${acc.id}">${acc.status}</strong></div>
+                                <div class="account-preview-stat dashboard-tile"><span>Initial capital</span><strong>$${acc.initial_balance.toLocaleString()}</strong></div>
+                                <div class="account-preview-stat dashboard-tile"><span>Current balance</span><strong id="bal-val-${acc.id}">$${acc.current_balance.toLocaleString()}</strong></div>
+                                <div class="account-preview-stat dashboard-tile"><span>Total profit</span><strong id="profit-val-${acc.id}">$${m.currentProfit.toLocaleString()}</strong></div>
+                                <div class="account-preview-stat dashboard-tile"><span>Account status</span><strong id="status-val-${acc.id}">${acc.status}</strong></div>
                             </div>
                             <div class="account-risk-preview">
                                 <div class="account-risk-item">
@@ -4579,7 +4584,7 @@ let connectedWallet = null;
                 const initialTotal = `$${displayPrice.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} USDT`;
 
                 container.innerHTML += `
-                    <article class="card purchase-plan-card${isFeatured ? ' is-featured' : ''}">
+                    <article class="card dashboard-tile purchase-plan-card${isFeatured ? ' is-featured' : ''}">
                         <div class="purchase-plan-header">
                             <div>
                                 <h3 class="purchase-plan-name">${escapeHTML(plan.name)}</h3>
@@ -4589,6 +4594,7 @@ let connectedWallet = null;
                             ${isFeatured ? '<span class="battlepass-period-tag">POPULAR</span>' : ''}
                         </div>
                         <span class="purchase-plan-status" title="Straight-to-funded plan model. Account capital is simulated; eligibility and current terms apply."><span class="purchase-plan-status-icon" aria-hidden="true">↗</span>STRAIGHT TO FUNDED</span>
+                        <div class="purchase-plan-market-hours"><span aria-hidden="true"></span>Crypto markets · 24/7/365</div>
                         <section class="purchase-plan-reward" aria-label="Purchase discount reward">
                             <span class="purchase-plan-reward-label">Purchase reward · discount applied</span>
                             <div class="purchase-plan-price">${price}<small>${discountPct}% off · <span class="purchase-plan-old-price">${oldPrice}</span></small></div>

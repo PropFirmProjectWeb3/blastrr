@@ -187,6 +187,15 @@
         .nav-tab.active { color: #ffffff; background: transparent; border-color: rgba(168, 85, 247, 0.85); box-shadow: 0 0 12px rgba(168, 85, 247, 0.5), inset 0 0 8px rgba(168, 85, 247, 0.08); }
         .nav-tab.admin-tab { display: none; background: transparent; color: #d8b4fe; border-color: transparent; }
         .nav-tab.admin-tab.active { background: transparent; color: #fff; border-color: rgba(168, 85, 247, 0.85); box-shadow: 0 0 12px rgba(168, 85, 247, 0.5), inset 0 0 8px rgba(168, 85, 247, 0.08); }
+        .nav-dropdown { position: relative; flex: 0 0 auto; }
+        .nav-dropdown-trigger { gap: 7px; list-style: none; }
+        .nav-dropdown-trigger::-webkit-details-marker { display: none; }
+        .nav-dropdown-trigger > span { color: #aaa5c3; font-size: 11px; transition: transform 0.18s ease; }
+        .nav-dropdown[open] .nav-dropdown-trigger > span { transform: rotate(180deg); }
+        .nav-dropdown.has-active > .nav-dropdown-trigger { color: #fff; border-color: rgba(168, 85, 247, 0.52); }
+        .nav-dropdown-menu { position: absolute; z-index: 1100; top: calc(100% + 8px); left: 0; display: grid; min-width: 190px; gap: 4px; padding: 7px; border: 1px solid rgba(164, 119, 255, 0.22); border-radius: 12px; background: rgba(9, 8, 17, 0.98); box-shadow: 0 18px 38px rgba(0, 0, 0, 0.52); }
+        .nav-dropdown-menu .nav-tab { width: 100%; text-align: left; }
+        .nav-dropdown-menu .nav-tab.active { background: rgba(141, 77, 255, 0.12); }
 
         .hamburger-btn {
             display: none;
@@ -754,6 +763,11 @@
             }
             header #nav-menu.mobile-open { display: flex; }
             header #nav-menu .nav-tab { width: 100%; min-height: 50px; text-align: left; justify-content: flex-start; padding: 13px 16px; font-size: 16px; }
+            header #nav-menu .nav-dropdown { width: 100%; }
+            header #nav-menu .nav-dropdown-trigger { justify-content: space-between; }
+            header #nav-menu .nav-dropdown-menu { position: static; min-width: 0; padding: 4px 0 4px 12px; border: 0; border-radius: 0; background: transparent; box-shadow: none; }
+            header #nav-menu .nav-dropdown:not([open]) .nav-dropdown-menu { display: none; }
+            header #nav-menu .nav-dropdown-menu .nav-tab { min-height: 46px; }
             .trade-grid { grid-template-columns: 1fr; }
             header { padding: 14px 18px; }
         }
@@ -1602,3 +1616,112 @@
         .leaderboard-card.is-current-user { border-color: rgba(180, 190, 200, 0.2); }
         .support-message-admin { border-left-color: #9ca3af; }
         .support-stars { color: #d1d5db; }
+
+        :root {
+            --text-muted: #aaa5c3;
+            --accent: #8d4dff;
+            --home-purple: #8d4dff;
+            --home-purple-light: #b78aff;
+            --home-card-line: rgba(164, 119, 255, 0.22);
+        }
+        body:not(.auth-locked) { background: radial-gradient(ellipse at 72% 8%, rgba(105, 35, 210, 0.13), transparent 32%), #07070d; }
+        header { background: rgba(7, 7, 13, 0.94); border-bottom-color: rgba(180, 145, 255, 0.13); }
+        .app-page-heading {
+            display: flex;
+            align-items: flex-start;
+            flex-direction: column;
+            gap: 8px;
+            margin: 3px 0 20px;
+        }
+        .app-page-heading > div { display: grid; gap: 3px; }
+        .app-page-heading h1 {
+            margin: 0;
+            color: #f6f3ff;
+            font-size: clamp(26px, 3.2vw, 38px);
+            font-weight: 850;
+            line-height: 1.12;
+            letter-spacing: -0.055em;
+        }
+        .app-page-heading .support-note { max-width: 760px; margin: 0; color: #aaa5c3; text-align: left; line-height: 1.55; }
+        .battlepass-eyebrow { color: #b78aff; }
+        .app-page-heading + .workspace-toolbar { margin-top: 0; }
+        .nav-tab:hover, .nav-tab:focus-visible, .nav-tab.active, .nav-tab.admin-tab.active,
+        .nav-dropdown.has-active > .nav-dropdown-trigger {
+            border-color: rgba(168, 85, 247, 0.72);
+            box-shadow: 0 0 10px rgba(141, 77, 255, 0.2), inset 0 0 7px rgba(141, 77, 255, 0.06);
+        }
+        .admin-section-tab:hover, .admin-section-tab:focus-visible, .admin-section-tab.active {
+            border-color: rgba(168, 85, 247, 0.58);
+            background: rgba(141, 77, 255, 0.1);
+            box-shadow: 0 0 9px rgba(141, 77, 255, 0.16);
+        }
+        .dashboard-tile,
+        .account-preview-stat.dashboard-tile,
+        .battlepass-task.dashboard-tile,
+        .purchase-plan-card.dashboard-tile {
+            border: 1px solid var(--home-card-line);
+            border-radius: 16px;
+            background: linear-gradient(145deg, rgba(24, 19, 38, 0.94), rgba(11, 10, 19, 0.98));
+            box-shadow: 0 14px 36px rgba(0, 0, 0, 0.2), inset 0 1px rgba(255, 255, 255, 0.035);
+        }
+        .battlepass-task.dashboard-tile { padding: 16px; }
+        .account-preview-stat.dashboard-tile { padding: 14px; }
+        .purchase-plan-card.dashboard-tile { padding: 20px; }
+        .purchase-plan-card.dashboard-tile.is-featured {
+            position: relative;
+            border-color: rgba(167, 139, 250, 0.65);
+            box-shadow: 0 0 0 1px rgba(154, 85, 255, 0.13), 0 15px 50px rgba(100, 36, 198, 0.12);
+        }
+        .purchase-plan-card.dashboard-tile.is-featured::before {
+            position: absolute;
+            inset: 0 0 auto;
+            height: 2px;
+            background: linear-gradient(90deg, transparent, #b993ff, transparent);
+            content: "";
+        }
+        .plans-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
+        .plans-purchase-tools { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: end; gap: 16px; margin-bottom: 20px; padding: 16px; border-color: var(--home-card-line); border-radius: 16px; background: linear-gradient(115deg, rgba(29, 19, 48, 0.78), rgba(10, 10, 17, 0.9)); }
+        .plans-purchase-tools .form-group { min-width: 0; margin: 0; }
+        .plans-purchase-tools .form-group label { color: #c6c0d9; }
+        .plans-purchase-tools select { width: 100%; }
+        .plans-promo-entry { display: flex; gap: 8px; }
+        .plans-promo-entry input { flex: 1 1 auto; min-width: 0; }
+        .plans-promo-entry button { min-width: 82px; }
+        .plans-promo-feedback { display: block; min-height: 17px; margin-top: 6px; color: #8df2cc; font-weight: 650; }
+        .purchase-plan-market-hours { display: flex; align-items: center; gap: 7px; color: #c5bddc; font-size: 10px; }
+        .purchase-plan-market-hours > span { width: 7px; height: 7px; border-radius: 50%; background: #68f0c0; box-shadow: 0 0 10px rgba(104, 240, 192, 0.6); }
+        .purchase-plan-status { border-color: rgba(171, 126, 255, 0.34); background: rgba(116, 55, 223, 0.13); color: #d8c6ff; }
+        .purchase-plan-status-icon { border-color: rgba(183, 138, 255, 0.48); }
+        .purchase-plan-reward { border-color: rgba(104, 240, 192, 0.22); background: rgba(60, 212, 160, 0.055); }
+        .purchase-plan-price { color: #d7c0ff; }
+        .purchase-plan-rule { border-color: rgba(203, 213, 225, 0.08); background: rgba(7, 11, 16, 0.55); }
+        .purchase-plan-rule strong { color: #f0ecff; }
+        .purchase-plan-buy { margin-top: auto; }
+        .account-preview-stat.dashboard-tile:nth-child(2) strong,
+        .account-preview-stat.dashboard-tile:nth-child(3) strong { color: #68f0c0; }
+        .battlepass-level-segment i, .battlepass-mission-steps span.is-complete,
+        .battlepass-progress { background: linear-gradient(90deg, #8d4dff, #b78aff); }
+        .battlepass-tab.active { border-color: rgba(171, 126, 255, 0.3); background: rgba(141, 77, 255, 0.14); }
+        .battlepass-task-status.is-ready, .battlepass-xp-mark,
+        .battlepass-xp-total strong, .battlepass-gem { color: #b78aff; }
+        .leaderboard-card.is-current-user { border-color: rgba(167, 139, 250, 0.52); }
+        .support-message-admin { border-left-color: #8d4dff; }
+        .maintenance-notice-card .app-page-heading { margin: 0; }
+        .maintenance-notice-card { border-color: var(--home-card-line); background: linear-gradient(145deg, rgba(24, 19, 38, 0.94), rgba(11, 10, 19, 0.98)); }
+
+        @media (max-width: 1050px) {
+            .plans-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+        }
+        @media (max-width: 700px) {
+            .app-page-heading { margin-bottom: 16px; }
+            .app-page-heading h1 { font-size: clamp(25px, 8vw, 32px); }
+            .app-page-heading .support-note { font-size: 12px; }
+            .plans-grid, .plans-purchase-tools { grid-template-columns: minmax(0, 1fr); }
+            .plans-purchase-tools { gap: 10px; padding: 13px; }
+            .purchase-plan-card.dashboard-tile { padding: 17px; }
+            .purchase-plan-rule { align-items: flex-start; }
+            .purchase-plan-rule strong { max-width: 52%; }
+            .admin-section-tabs { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }
+            .admin-section-tabs .admin-section-tab { min-width: 0; padding: 10px 7px; font-size: 12px; }
+            .dashboard-tile, .account-preview-stat.dashboard-tile, .battlepass-task.dashboard-tile { border-radius: 14px; }
+        }

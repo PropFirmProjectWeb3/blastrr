@@ -110,7 +110,7 @@ test('BlastrrPass dashboard presents missions, rewards, leaderboard, and profile
   assert.match(appHtml, /id="battlepass-level-segments"/);
   assert.match(appJs, /function claimAllBattlePassRewards/);
   assert.match(appJs, /function selectBattlePassTab/);
-  assert.match(appJs, /class="battlepass-task battlepass-reward-item"/);
+  assert.match(appJs, /class="battlepass-task dashboard-tile battlepass-reward-item"/);
   assert.match(appJs, /class="battlepass-reward-code"/);
   assert.match(appJs, /const defaultImageUrl = '\/favicon\.png'/);
 });
@@ -141,8 +141,9 @@ test('homepage plan cards use Battle Pass task and reward styling with all confi
 });
 
 test('terminal buy-plan cards show funded status, purchase reward styling, and all account rules', () => {
-  assert.match(appJs, /class="card purchase-plan-card/);
+  assert.match(appJs, /class="card dashboard-tile purchase-plan-card/);
   assert.match(appJs, /purchase-plan-status/);
+  assert.match(appJs, /purchase-plan-market-hours/);
   assert.match(appJs, /STRAIGHT TO FUNDED/);
   assert.match(appJs, /purchase-plan-reward/);
   assert.match(appJs, /Profit consistency<\/span><strong>\$\{Number\(plan\.max_single_day_profit_pct\)\}% max single-day profit/);

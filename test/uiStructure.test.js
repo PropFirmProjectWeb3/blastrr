@@ -164,8 +164,8 @@ test('admin can toggle maintenance for each public page and set an outage messag
 });
 
 test('trading terminal HTML loads its external stylesheet and application script', () => {
-  assert.match(appHtml, /href="\/css\/app\.css\?v=20261115-copy-lock-filter"/);
-  assert.match(appHtml, /src="\/js\/app\.js\?v=20261115-copy-lock-filter" defer/);
+  assert.match(appHtml, /href="\/css\/app\.css\?v=20261115-unified-ui"/);
+  assert.match(appHtml, /src="\/js\/app\.js\?v=20261115-unified-ui" defer/);
   assert.doesNotMatch(appHtml, /<style[\s>]/i);
   assert.doesNotMatch(appHtml, /<script>\s*[\s\S]*?\bfunction\s/m);
   assert.match(appHtml, /id="nav-menu"/);
@@ -192,6 +192,20 @@ test('trading terminal keeps market status and chart controls on one line withou
   assert.match(appCss, /#chart-indicator-select\s*\{[^}]*width:\s*148px/);
   assert.match(appCss, /\.market-hours-status\s*\{[^}]*border-radius:\s*999px/);
   assert.doesNotMatch(appHtml, /<aside class="market-hours-status"/);
+});
+
+test('workspace uses grouped navigation and shared homepage-inspired view and tile styling', () => {
+  assert.match(appHtml, /<details class="nav-dropdown">[\s\S]*?Trading[\s\S]*?data-maintenance-page="accounts"[\s\S]*?data-maintenance-page="copytrading"/);
+  assert.match(appHtml, /<summary class="nav-tab nav-dropdown-trigger">Community/);
+  assert.match(appHtml, /<summary class="nav-tab nav-dropdown-trigger">Help/);
+  assert.match(appJs, /dropdown\.classList\.toggle\('has-active', Boolean\(dropdown\.querySelector\('\.nav-tab\.active'\)\)\)/);
+  assert.match(appHtml, /class="battlepass-page-heading app-page-heading"/);
+  assert.match(appCss, /\.app-page-heading\s*\{[^}]*flex-direction:\s*column/);
+  assert.match(appCss, /\.dashboard-tile,[\s\S]*?\.account-preview-stat\.dashboard-tile,[\s\S]*?\.battlepass-task\.dashboard-tile,[\s\S]*?\.purchase-plan-card\.dashboard-tile/);
+  assert.match(appJs, /class="battlepass-task dashboard-tile"/);
+  assert.match(appJs, /class="account-preview-stat dashboard-tile"/);
+  assert.match(appJs, /class="card dashboard-tile purchase-plan-card/);
+  assert.match(appCss, /@media \(max-width: 700px\)[\s\S]*?\.plans-grid, \.plans-purchase-tools \{ grid-template-columns: minmax\(0, 1fr\)/);
 });
 
 test('trading terminal and homepage use the Blastrr logo image', () => {

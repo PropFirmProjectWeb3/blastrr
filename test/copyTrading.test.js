@@ -54,7 +54,7 @@ test('copy-trading emergency flatten closes tracked trades across paused or dele
 
 test('copy-trading page includes the group wizard and can be put under maintenance', () => {
   assert.match(appHtml, /id="copyTradingView"/);
-  assert.match(appHtml, /class="battlepass-page-heading copy-trading-page-heading"/);
+  assert.match(appHtml, /class="battlepass-page-heading app-page-heading copy-trading-page-heading"/);
   assert.match(appHtml, /id="copy-group-wizard"/);
   assert.match(appHtml, /id="copy-account-overview"/);
   assert.match(appHtml, /data-maintenance-page="copytrading"/);

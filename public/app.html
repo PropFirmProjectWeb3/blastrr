@@ -7,7 +7,7 @@
     <link rel="icon" type="image/png" href="/favicon.png">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link rel="stylesheet" href="/css/app.css?v=20261115-copy-lock-filter">
+    <link rel="stylesheet" href="/css/app.css?v=20261115-unified-ui">
 </head>
 <body class="auth-locked">
     <section id="wallet-login-gate" class="wallet-login-gate" aria-labelledby="wallet-login-title">
@@ -72,16 +72,31 @@
         </a>
 
         <!-- UNIFIED IN-PAGE NAVIGATION -->
-        <nav id="nav-menu">
+        <nav id="nav-menu" aria-label="Main navigation">
             <button class="nav-tab active" data-maintenance-page="trade" onclick="switchView('tradeView')">Trade Terminal</button>
-            <button class="nav-tab" data-maintenance-page="accounts" onclick="switchView('accountsView')">My Accounts</button>
-            <button class="nav-tab" data-maintenance-page="copytrading" onclick="switchView('copyTradingView')">Copy Trading</button>
-            <button class="nav-tab" data-maintenance-page="leaderboard" onclick="switchView('leaderboardView')">Leaderboard</button>
-            <button class="nav-tab" data-maintenance-page="blastrrpass" onclick="switchView('blastrrPassView')">BlastrrPass</button>
+            <details class="nav-dropdown">
+                <summary class="nav-tab nav-dropdown-trigger">Trading <span aria-hidden="true">⌄</span></summary>
+                <div class="nav-dropdown-menu">
+                    <button class="nav-tab" data-maintenance-page="accounts" onclick="switchView('accountsView')">My Accounts</button>
+                    <button class="nav-tab" data-maintenance-page="copytrading" onclick="switchView('copyTradingView')">Copy Trading</button>
+                </div>
+            </details>
+            <details class="nav-dropdown">
+                <summary class="nav-tab nav-dropdown-trigger">Community <span aria-hidden="true">⌄</span></summary>
+                <div class="nav-dropdown-menu">
+                    <button class="nav-tab" data-maintenance-page="leaderboard" onclick="switchView('leaderboardView')">Leaderboard</button>
+                    <button class="nav-tab" data-maintenance-page="blastrrpass" onclick="switchView('blastrrPassView')">BlastrrPass</button>
+                </div>
+            </details>
             <button class="nav-tab" data-maintenance-page="profile" onclick="switchView('profileView')">Profile &amp; Promos</button>
             <button class="nav-tab" data-maintenance-page="plans" onclick="switchView('buyView')">Buy Plans</button>
-            <a class="nav-tab" data-maintenance-page="faq" href="faq.html">FAQ</a>
-            <a class="nav-tab" data-maintenance-page="docs" href="docs.html">Docs</a>
+            <details class="nav-dropdown">
+                <summary class="nav-tab nav-dropdown-trigger">Help <span aria-hidden="true">⌄</span></summary>
+                <div class="nav-dropdown-menu">
+                    <a class="nav-tab" data-maintenance-page="faq" href="faq.html">FAQ</a>
+                    <a class="nav-tab" data-maintenance-page="docs" href="docs.html">Docs</a>
+                </div>
+            </details>
             <button id="admin-nav-item" class="nav-tab admin-tab" onclick="switchView('adminView')">Admin Control</button>
         </nav>
 
@@ -299,7 +314,7 @@
 
         <!-- 2. ACCOUNTS VIEW -->
         <section id="accountsView" class="view-panel workspace-view">
-            <div class="battlepass-page-heading">
+            <div class="battlepass-page-heading app-page-heading">
                 <div><span class="battlepass-eyebrow">YOUR ACCOUNTS</span><h1>Account portfolio</h1></div>
                 <p class="support-note">Review account performance, limits, and status. Expand an account for trade history and daily results.</p>
             </div>
@@ -316,7 +331,7 @@
         </section>
 
         <section id="copyTradingView" class="view-panel workspace-view">
-            <div class="battlepass-page-heading copy-trading-page-heading">
+            <div class="battlepass-page-heading app-page-heading copy-trading-page-heading">
                 <div><span class="battlepass-eyebrow">TRADE AS A GROUP</span><h1>Copy trading</h1></div>
                 <p class="support-note">Choose a leader account and assign follower accounts. Each follower copies the leader’s submitted size at its own execution price.</p>
             </div>
@@ -360,7 +375,7 @@
 
         <!-- 3. LEADERBOARD VIEW -->
         <section id="leaderboardView" class="view-panel workspace-view">
-            <div class="battlepass-page-heading">
+            <div class="battlepass-page-heading app-page-heading">
                 <div><span class="battlepass-eyebrow">COMMUNITY STANDINGS</span><h1>Trader leaderboard</h1></div>
                 <p class="support-note">Compare trader standings and share your current rank.</p>
             </div>
@@ -386,7 +401,7 @@
         <section id="blastrrPassView" class="view-panel">
             <div id="battlepass-shared-profile" class="card battlepass-shared-profile" hidden></div>
             <div id="battlepass-user-content">
-                <div class="battlepass-page-heading">
+                <div class="battlepass-page-heading app-page-heading">
                     <div>
                         <span class="battlepass-eyebrow">BLASTRR REWARDS</span>
                         <h1>Rewards Center</h1>
@@ -486,7 +501,7 @@
 
         <!-- 4. PROFILE VIEW -->
         <section id="profileView" class="view-panel workspace-view">
-            <div class="battlepass-page-heading">
+            <div class="battlepass-page-heading app-page-heading">
                 <div><span class="battlepass-eyebrow">YOUR BLASTRR PROFILE</span><h1>Profile &amp; promos</h1></div>
                 <p class="support-note">Choose a tool to manage referrals, claim an account, apply as a creator, or get support.</p>
             </div>
@@ -692,13 +707,15 @@
         </section>
 
         <!-- 5. BUY PLANS VIEW -->
-        <section id="buyView" class="view-panel">
-            <div class="card">
-                <div class="card-title">Evaluation Plans Marketplace</div>
-                
-                <div class="form-group" style="max-width: 420px; margin-bottom: 24px;">
-                    <label>Select Payment Network (USDT / Token Chain)</label>
-                    <select id="payment-chain-select" style="background: rgba(5,7,11,0.9); border: 1px solid rgba(255,255,255,0.1); color: white; padding: 10px; border-radius: 8px; width: 100%;">
+        <section id="buyView" class="view-panel workspace-view">
+            <div class="app-page-heading">
+                <div><span class="battlepass-eyebrow">PICK YOUR ACCOUNT</span><h1>Choose your account</h1></div>
+                <p class="support-note">Compare simulated capital, account rules, and checkout totals. Choose a size that suits your strategy.</p>
+            </div>
+            <div class="plans-purchase-tools card">
+                <div class="form-group">
+                    <label for="payment-chain-select">Payment network · USDT</label>
+                    <select id="payment-chain-select">
                         <option value="1">Ethereum Mainnet</option>
                         <option value="8453">Base</option>
                         <option value="137">Polygon PoS</option>
@@ -708,30 +725,35 @@
                     </select>
                 </div>
 
-                <div class="form-group" style="max-width: 420px; margin-bottom: 24px;">
-                    <label>Have a Creator Promo Code? (Applied at Checkout)</label>
-                    <div style="display: flex; gap: 10px; flex-wrap: wrap;">
-                        <input type="text" id="applied-promo" placeholder="Enter Code (e.g. VIP90)" style="flex: 1;">
-                        <button class="btn-wallet" style="padding: 0 20px;" onclick="applyPromo()">Apply</button>
+                <div class="form-group">
+                    <label for="applied-promo">Creator promo code</label>
+                    <div class="plans-promo-entry">
+                        <input type="text" id="applied-promo" placeholder="Enter code (e.g. VIP90)">
+                        <button class="btn-wallet" onclick="applyPromo()">Apply</button>
                     </div>
-                    <small id="promo-feedback" style="color: #34d399; display: block; margin-top: 6px; font-weight: 600;"></small>
+                    <small id="promo-feedback" class="plans-promo-feedback"></small>
                 </div>
-                <div id="plans-container" class="plans-grid">
-                    <p style="color: #6b7280;">Loading plans...</p>
-                </div>
+            </div>
+            <div id="plans-container" class="plans-grid">
+                <p class="workspace-empty-state">Loading plans...</p>
             </div>
         </section>
 
-        <section id="maintenanceView" class="view-panel">
+        <section id="maintenanceView" class="view-panel workspace-view">
             <div class="card maintenance-notice-card">
-                <span class="maintenance-eyebrow">SERVICE UPDATE</span>
-                <h1 id="maintenance-view-title">Temporarily unavailable</h1>
-                <p id="maintenance-view-message">This service is temporarily unavailable while we make updates.</p>
+                <div class="app-page-heading">
+                    <div><span class="battlepass-eyebrow">SERVICE UPDATE</span><h1 id="maintenance-view-title">Temporarily unavailable</h1></div>
+                    <p id="maintenance-view-message" class="support-note">This service is temporarily unavailable while we make updates.</p>
+                </div>
             </div>
         </section>
 
         <!-- 6. ADMIN CONTROL VIEW -->
-        <section id="adminView" class="view-panel">
+        <section id="adminView" class="view-panel workspace-view">
+            <div class="app-page-heading">
+                <div><span class="battlepass-eyebrow">WORKSPACE MANAGEMENT</span><h1>Admin control</h1></div>
+                <p class="support-note">Manage operations, users, plans, promotions, rewards, and service availability.</p>
+            </div>
             <div class="admin-section-tabs" role="tablist" aria-label="Admin sections">
                 <button id="admin-operations-tab" class="admin-section-tab active" role="tab" aria-selected="true" onclick="switchAdminSection('admin-operations-panel')">Operations</button>
                 <button id="admin-creators-tab" class="admin-section-tab" role="tab" aria-selected="false" onclick="switchAdminSection('admin-creators-panel')">Creators &amp; Promos</button>
@@ -971,6 +993,6 @@
 
     <script src="https://unpkg.com/lightweight-charts@4.2.3/dist/lightweight-charts.standalone.production.js"></script>
     <script src="/js/chartIndicators.js?v=20261115-multi-account-checkout" defer></script>
-    <script src="/js/app.js?v=20261115-copy-lock-filter" defer></script>
+    <script src="/js/app.js?v=20261115-unified-ui" defer></script>
 </body>
 </html>

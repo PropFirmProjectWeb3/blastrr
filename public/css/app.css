@@ -455,9 +455,6 @@
         .admin-user-security h4, .admin-user-security p { margin: 0; }
         .admin-user-security ul { display: grid; gap: 10px; margin: 8px 0 0; padding-left: 20px; overflow-wrap: anywhere; }
         .admin-user-security small { color: #9ca3af; }
-        .order-protection-toggle { display: flex; align-items: center; gap: 9px; cursor: pointer; }
-        .order-protection-toggle input { width: auto; margin: 0; accent-color: #a855f7; }
-        .order-protection-help { margin: 6px 0 0; color: #9ca3af; font-size: 12px; }
         .admin-plan-form { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 8px 14px; align-items: end; }
         .admin-plan-form .form-group { margin-bottom: 8px; min-width: 0; }
         .admin-plan-form .form-group label { display: block; min-height: 34px; }
@@ -561,17 +558,21 @@
         .live-market-chart-attribution:hover { opacity: 1; }
         .order-card { border-color: rgba(167, 139, 250, 0.24); }
         .order-card-title { color: #ddd6fe; }
-        .order-card .form-group { margin-bottom: 18px; }
-        .order-card .form-group input, .order-card .form-group select { min-height: 44px; }
+        .order-card .form-group { margin-bottom: 12px; }
+        .order-card .form-group input, .order-card .form-group select { min-height: 40px; padding: 9px 12px; }
         .order-card .form-group label span { color: #c084fc; font-weight: 700; }
-        .order-metrics { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 12px; }
-        .order-metric { display: flex; flex-direction: column; justify-content: space-between; gap: 8px; min-width: 0; min-height: 108px; padding: 12px; border: 1px solid rgba(190, 153, 255, 0.12); border-radius: 10px; background: rgba(15, 9, 23, 0.78); }
-        .order-metric > span { color: #b7c2d1; font-size: 10px; line-height: 1.4; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; }
-        .order-metric > strong { display: block; min-width: 0; overflow: hidden; color: #f1f5f9; font-size: clamp(12px, 1vw, 15px); line-height: 1.2; text-overflow: ellipsis; white-space: nowrap; }
-        .order-metric > small { color: #9ca3af; font-size: 10px; line-height: 1.4; }
+        .order-metrics { display: grid; grid-template-columns: minmax(0, 1fr); gap: 8px; margin-top: 8px; }
+        .order-metrics.is-leveraged { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+        .order-metric { display: flex; min-width: 0; min-height: 64px; flex-direction: column; justify-content: center; gap: 4px; padding: 9px 10px; border: 1px solid rgba(190, 153, 255, 0.12); border-radius: 9px; background: rgba(15, 9, 23, 0.58); }
+        .order-metric > span { color: #b7c2d1; font-size: 9px; line-height: 1.3; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; }
+        .order-metric > strong { display: block; min-width: 0; overflow: hidden; color: #f1f5f9; font-size: 14px; line-height: 1.2; text-overflow: ellipsis; white-space: nowrap; }
+        .order-metric > small { color: #9ca3af; font-size: 10px; line-height: 1.3; }
         .order-metric-risk { border-color: rgba(248, 113, 113, 0.16); background: rgba(127, 29, 29, 0.16); }
         .order-metric-risk > span { color: #fca5a5; }
         .order-metric-risk > strong { color: #fee2e2; }
+        .order-card .form-group .order-protection-toggle { display: flex; align-items: center; gap: 8px; margin: 0; color: #cbd5e1; font-size: 12px; font-weight: 600; letter-spacing: 0; line-height: 1.3; text-transform: none; cursor: pointer; }
+        .order-card .form-group .order-protection-toggle input { flex: 0 0 16px; width: 16px; height: 16px; min-height: 16px; margin: 0; padding: 0; accent-color: #a855f7; }
+        .order-protection-help { margin: 4px 0 0; color: #8792a0; font-size: 10px; line-height: 1.3; }
         .selected-account-balance { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 2px 0 16px; padding: 13px 14px; border: 1px solid rgba(52, 211, 153, 0.2); border-radius: 10px; background: linear-gradient(110deg, rgba(6, 78, 59, 0.2), rgba(15, 9, 23, 0.76)); }
         .selected-account-balance > span { min-width: 0; overflow-wrap: anywhere; color: #a7b2c0; font-size: 11px; font-weight: 650; }
         .selected-account-balance > strong { flex: 0 0 auto; color: #72f0c3; font-size: 18px; font-variant-numeric: tabular-nums; }
@@ -686,8 +687,7 @@
             header #nav-menu .nav-tab { min-height: 54px; padding: 14px 16px; font-size: 16px; }
             header #nav-menu .nav-tab:not(.active) { color: #e2e8f0; background: transparent; }
             #tradingview-widget-container { height: clamp(420px, 62svh, 680px); }
-            .order-metrics { grid-template-columns: 1fr; }
-            .order-metric { min-height: 96px; }
+            .order-metrics.is-leveraged { grid-template-columns: repeat(2, minmax(0, 1fr)); }
             .account-card-header, .account-card-actions { align-items: flex-start; flex-direction: column; }
             .account-card-actions { width: 100%; }
             .account-profit-chart { grid-template-columns: 1fr; }

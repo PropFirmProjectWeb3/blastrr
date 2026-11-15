@@ -5,6 +5,7 @@ const { resolveStopTargetPrices } = require('../tradeRules');
 const serverJs = fs.readFileSync('server.js', 'utf8');
 const appHtml = fs.readFileSync('public/app.html', 'utf8');
 const appJs = fs.readFileSync('public/js/app.js', 'utf8');
+const appCss = fs.readFileSync('public/css/app.css', 'utf8');
 
 test('dollar SL/TP amounts resolve to execution-price triggers for long positions', () => {
   const levels = resolveStopTargetPrices({
@@ -72,10 +73,17 @@ test('a dollar stop that implies a non-positive trigger price is rejected', () =
 
 test('order terminal exposes and submits the dollar amount mode', () => {
   assert.match(appHtml, /id="order-sl-tp-amount-mode"/);
-  assert.match(appHtml, /Enter SL\/TP as dollar P&amp;L amounts/);
+  assert.match(appHtml, /Use dollar P&amp;L for SL\/TP/);
   assert.match(appJs, /sl_tp_mode: amountMode \? 'amount' : 'price'/);
   assert.match(appJs, /sl_amount: amountMode \? sl : null/);
   assert.match(appJs, /tp_amount: amountMode \? tp : null/);
   assert.match(serverJs, /resolveStopTargetPrices\(\{/);
   assert.match(serverJs, /mode: slTpMode/);
+});
+
+test('order entry keeps the protection toggle compact and hides liquidation details at spot leverage', () => {
+  assert.match(appCss, /\.order-card \.form-group \.order-protection-toggle input \{[^}]*width: 16px[^}]*height: 16px/);
+  assert.match(appHtml, /id="order-liquidation-metric" class="order-metric order-metric-risk" hidden/);
+  assert.match(appJs, /liquidationMetric\.hidden = Number\(val\) <= 1/);
+  assert.match(appJs, /orderMetrics\.classList\.toggle\('is-leveraged', Number\(val\) > 1\)/);
 });

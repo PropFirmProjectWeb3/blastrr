@@ -141,7 +141,7 @@ test('trading terminal displays spot stats and puts account selection first in t
   assert.doesNotMatch(appJs, /chart-index-price|chart-funding-rate|chart-open-interest/);
   assert.match(appCss, /\.chart-market-bar/);
   assert.match(appCss, /\.market-price-ticker \{[^}]*position: fixed[^}]*bottom: 0/);
-  assert.match(appCss, /\.order-metric > strong \{[^}]*font-size: clamp\(12px, 1vw, 15px\)[^}]*white-space: nowrap/);
+  assert.match(appCss, /\.order-metric > strong \{[^}]*font-size: 14px[^}]*white-space: nowrap/);
 });
 
 test('admin can toggle maintenance for each public page and set an outage message', () => {
@@ -234,8 +234,10 @@ test('terminal surfaces use a black glass theme with restrained neutral borders'
 test('trade entry uses metric cards, defaults to spot leverage, and scales the chart for screen size', () => {
   assert.match(appHtml, /id="order-leverage"[^>]*>[\s\S]*?<option value="1" selected>/);
   assert.match(appHtml, /class="order-metrics"/);
-  assert.match(appHtml, /<span>Total Position Notional<\/span>/);
-  assert.match(appHtml, /<span>Est\. Liquidation Price<\/span>/);
+  assert.match(appHtml, /<span>Position notional<\/span>/);
+  assert.match(appHtml, /id="order-liquidation-metric"[^>]*hidden/);
+  assert.match(appJs, /liquidationMetric\.hidden = Number\(val\) <= 1/);
+  assert.match(appJs, /orderMetrics\.classList\.toggle\('is-leveraged', Number\(val\) > 1\)/);
   assert.doesNotMatch(appHtml, /id="tradingview-widget-container"[^>]*style=/);
   assert.match(appCss, /#tradingview-widget-container \{[^}]*height: clamp\(/);
   assert.match(appCss, /main \{[^}]*max-width: 1920px/);

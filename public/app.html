@@ -209,16 +209,16 @@
                                 <button type="button" class="balance-shortcut" onclick="setOrderSizeFromBalance(50)" disabled>50%</button>
                                 <button type="button" class="balance-shortcut" onclick="setOrderSizeFromBalance(100)" disabled>100%</button>
                             </div>
-                            <div class="order-metrics" aria-live="polite">
-                                <section class="order-metric">
-                                    <span>Total Position Notional</span>
+                            <div id="order-metrics" class="order-metrics" aria-live="polite">
+                                <section class="order-metric order-metric-notional">
+                                    <span>Position notional</span>
                                     <strong id="notional-exposure-label">$0.00</strong>
                                     <small id="position-margin-label">Margin: $0.00</small>
                                 </section>
-                                <section class="order-metric order-metric-risk">
-                                    <span>Est. Liquidation Price</span>
+                                <section id="order-liquidation-metric" class="order-metric order-metric-risk" hidden>
+                                    <span>Est. liquidation</span>
                                     <strong id="liquidation-price-label">Not applicable (1x spot)</strong>
-                                    <small>Estimate only; actual liquidation may vary.</small>
+                                    <small>Estimate only</small>
                                 </section>
                             </div>
                         </div>
@@ -226,9 +226,9 @@
                         <div class="form-group order-protection-group">
                             <label class="order-protection-toggle" for="order-sl-tp-amount-mode">
                                 <input type="checkbox" id="order-sl-tp-amount-mode" onchange="toggleStopAmountMode(this.checked)">
-                                Enter SL/TP as dollar P&amp;L amounts
+                                <span>Use dollar P&amp;L for SL/TP</span>
                             </label>
-                            <p id="order-sl-tp-mode-help" class="order-protection-help">Unchecked: enter the stop-loss and take-profit trigger prices.</p>
+                            <p id="order-sl-tp-mode-help" class="order-protection-help">Off: enter trigger prices</p>
                         </div>
                         <div class="form-group">
                             <label id="order-sl-label" for="order-sl">Stop Loss trigger price (SL)</label>

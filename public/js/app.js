@@ -712,6 +712,10 @@ let connectedWallet = null;
         function updateLeverageDisplay(val) {
             const lbl = document.getElementById('leverage-label');
             if (lbl) lbl.innerText = val == "1" ? "1x Spot Mode" : `${val}x Leverage Mode`;
+            const liquidationMetric = document.getElementById('order-liquidation-metric');
+            const orderMetrics = document.getElementById('order-metrics');
+            if (liquidationMetric) liquidationMetric.hidden = Number(val) <= 1;
+            if (orderMetrics) orderMetrics.classList.toggle('is-leveraged', Number(val) > 1);
             calculateMetrics();
         }
 
@@ -725,11 +729,11 @@ let connectedWallet = null;
             if (targetLabel) targetLabel.textContent = enabled ? 'Take Profit amount ($ P&L)' : 'Take Profit trigger price (TP)';
             if (help) {
                 help.textContent = enabled
-                    ? 'Dollar amounts are converted to trigger prices from the filled position size and execution price.'
-                    : 'Unchecked: enter the stop-loss and take-profit trigger prices.';
+                    ? 'Enter loss and profit amounts'
+                    : 'Off: enter trigger prices';
             }
-            if (stopInput) stopInput.placeholder = enabled ? 'e.g. 500 loss' : 'Optional';
-            if (targetInput) targetInput.placeholder = enabled ? 'e.g. 1000 profit' : 'Optional';
+            if (stopInput) stopInput.placeholder = enabled ? 'Loss amount ($)' : 'Trigger price';
+            if (targetInput) targetInput.placeholder = enabled ? 'Profit amount ($)' : 'Trigger price';
         }
 
         function calculateMetrics() {
@@ -749,7 +753,7 @@ let connectedWallet = null;
                     const estLiqPriceLong = priceInputVal * (1 - (1 / leverage) * 0.9);
                     liqLabel.innerText = `$${estLiqPriceLong.toFixed(2)}`;
                 } else {
-                    liqLabel.innerText = 'Not applicable (1x spot)';
+                    liqLabel.innerText = '—';
                 }
             }
         }

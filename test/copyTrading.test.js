@@ -16,9 +16,17 @@ test('copy-trading groups persist unique account assignments and linked position
   assert.match(databaseJs, /CREATE TABLE IF NOT EXISTS trade_copy_links/);
   assert.match(serverJs, /app\.get\('\/api\/trade-copy\/groups', requireWalletSession/);
   assert.match(serverJs, /app\.post\('\/api\/trade-copy\/groups', sensitiveLimiter, requireWalletSession, requireUserNotSuspended/);
+  assert.match(serverJs, /Permanently locked accounts cannot be added to copy-trading groups/);
   assert.match(serverJs, /An account is already assigned to another copy-trading group/);
   assert.match(serverJs, /app\.post\('\/api\/trade-copy\/groups\/:groupId\/active'/);
   assert.match(serverJs, /app\.delete\('\/api\/trade-copy\/groups\/:groupId'/);
+});
+
+test('permanent account locks remove the account from copy groups and pause leader groups', () => {
+  assert.match(serverJs, /function lockAccount\(accountId, breach, callback\)[\s\S]*?if \(!lock\.permanent\) return callback\(null, lock\)[\s\S]*?UPDATE trade_copy_groups SET active = 0[\s\S]*?DELETE FROM trade_copy_group_members WHERE account_id = \?/);
+  assert.match(serverJs, /Choose an available leader before activating this group/);
+  assert.match(appJs, /LEADER LOCKED · GROUP PAUSED/);
+  assert.match(appJs, /permanently locked leader was removed/);
 });
 
 test('leader trades copy independently sized orders and linked exits', () => {
@@ -46,6 +54,7 @@ test('copy-trading emergency flatten closes tracked trades across paused or dele
 
 test('copy-trading page includes the group wizard and can be put under maintenance', () => {
   assert.match(appHtml, /id="copyTradingView"/);
+  assert.match(appHtml, /class="battlepass-page-heading copy-trading-page-heading"/);
   assert.match(appHtml, /id="copy-group-wizard"/);
   assert.match(appHtml, /id="copy-account-overview"/);
   assert.match(appHtml, /data-maintenance-page="copytrading"/);
@@ -55,4 +64,13 @@ test('copy-trading page includes the group wizard and can be put under maintenan
   assert.match(appJs, /copyTradingView: 'copytrading'/);
   assert.match(appJs, /data-copy-size/);
   assert.match(appCss, /\.copy-trading-flatten/);
+  assert.match(appCss, /\.copy-trading-page-heading\s*\{[^}]*flex-direction:\s*column/);
+  assert.match(appCss, /\.copy-overview-account\.is-permanently-locked[^}]*border-color:\s*rgba\(248, 113, 113/);
+  assert.match(appJs, /function isPermanentlyLockedCopyAccount\(account\)/);
+  assert.match(appJs, /!isPermanentlyLockedCopyAccount\(account\)/);
+  assert.match(appHtml, /id="copy-hide-permanent" type="checkbox" checked onchange="togglePermanentlyLockedCopyAccounts\(this\.checked\)"/);
+  assert.match(appHtml, /Hide permanently locked accounts/);
+  assert.match(appJs, /function togglePermanentlyLockedCopyAccounts\(checked\)/);
+  assert.match(appJs, /visibleAccounts = userAccounts\.filter\(account =>[\s\S]*?hidePermanentlyLockedCopyAccounts/);
+  assert.match(appJs, /No accounts to show\. Turn off “Hide permanently locked accounts”/);
 });

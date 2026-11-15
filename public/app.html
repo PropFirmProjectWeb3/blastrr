@@ -7,7 +7,7 @@
     <link rel="icon" type="image/png" href="/favicon.png">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link rel="stylesheet" href="/css/app.css?v=20261115-chart-toolbar-inline">
+    <link rel="stylesheet" href="/css/app.css?v=20261115-copy-lock-filter">
 </head>
 <body class="auth-locked">
     <section id="wallet-login-gate" class="wallet-login-gate" aria-labelledby="wallet-login-title">
@@ -316,7 +316,7 @@
         </section>
 
         <section id="copyTradingView" class="view-panel workspace-view">
-            <div class="battlepass-page-heading">
+            <div class="battlepass-page-heading copy-trading-page-heading">
                 <div><span class="battlepass-eyebrow">TRADE AS A GROUP</span><h1>Copy trading</h1></div>
                 <p class="support-note">Choose a leader account and assign follower accounts. Each follower copies the leader’s submitted size at its own execution price.</p>
             </div>
@@ -329,7 +329,13 @@
             </div>
             <p id="copy-trading-status" class="support-feedback" role="status" aria-live="polite"></p>
             <section class="copy-accounts-overview" aria-labelledby="copy-accounts-heading">
-                <h2 id="copy-accounts-heading">Your accounts</h2>
+                <div class="copy-accounts-overview-heading">
+                    <h2 id="copy-accounts-heading">Your accounts</h2>
+                    <label class="account-filter-toggle">
+                        <input id="copy-hide-permanent" type="checkbox" checked onchange="togglePermanentlyLockedCopyAccounts(this.checked)">
+                        <span>Hide permanently locked accounts</span>
+                    </label>
+                </div>
                 <div id="copy-account-overview" class="copy-account-overview-grid">
                     <p class="workspace-empty-state">Loading your accounts…</p>
                 </div>
@@ -965,6 +971,6 @@
 
     <script src="https://unpkg.com/lightweight-charts@4.2.3/dist/lightweight-charts.standalone.production.js"></script>
     <script src="/js/chartIndicators.js?v=20261115-multi-account-checkout" defer></script>
-    <script src="/js/app.js?v=20261115-multi-account-checkout" defer></script>
+    <script src="/js/app.js?v=20261115-copy-lock-filter" defer></script>
 </body>
 </html>

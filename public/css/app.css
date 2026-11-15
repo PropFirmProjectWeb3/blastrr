@@ -1058,6 +1058,8 @@
         .battlepass-eyebrow { color: #a78bfa; font-size: 10px; font-weight: 800; letter-spacing: 0.18em; }
         .battlepass-page-heading h1 { margin: 5px 0 0; color: #f8fafc; font-family: "Orbitron", ui-sans-serif, sans-serif; font-size: clamp(26px, 3vw, 36px); font-style: italic; font-weight: 800; letter-spacing: -0.055em; }
         .battlepass-page-heading .support-note { margin: 0; text-align: right; }
+        .copy-trading-page-heading { align-items: flex-start; flex-direction: column; gap: 8px; }
+        .copy-trading-page-heading .support-note { text-align: left; }
         .battlepass-player-bar {
             display: flex;
             align-items: center;
@@ -1220,9 +1222,13 @@
         .copy-trading-warning { max-width: 580px; }
         .copy-trading-toolbar-actions { justify-content: flex-end; }
         .copy-accounts-overview { display: grid; gap: 10px; margin-bottom: 18px; }
+        .copy-accounts-overview-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
         .copy-accounts-overview h2 { margin: 0; color: #e5e7eb; font-size: 15px; }
+        .copy-accounts-overview-heading .account-filter-toggle { margin: 0; font-size: 11px; }
         .copy-account-overview-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 9px; }
         .copy-overview-account { display: grid; gap: 8px; min-width: 0; padding: 12px; border: 1px solid var(--surface-border); border-radius: 10px; background: rgba(5, 7, 11, 0.38); }
+        .copy-overview-account.is-permanently-locked, .copy-account-card.is-permanently-locked { border-color: rgba(248, 113, 113, 0.72); background: rgba(127, 29, 29, 0.2); }
+        .copy-overview-account.is-permanently-locked .copy-overview-status, .copy-account-card.is-permanently-locked .copy-account-role, .copy-account-card.is-permanently-locked small { color: #fca5a5; }
         .copy-overview-account > div { display: grid; gap: 4px; min-width: 0; }
         .copy-overview-account strong { color: #e5e7eb; font-size: 12px; }
         .copy-overview-account code { color: #9ca3af; font-size: 10px; overflow-wrap: anywhere; }

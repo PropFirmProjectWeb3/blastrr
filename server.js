@@ -479,20 +479,39 @@ function cleanupExpiredLoginIpEvents() {
 
 function lockAccount(accountId, breach, callback) {
   const status = breach.permanent ? 'PERMANENTLY_LOCKED' : 'LOCKED';
+  const finish = lock => {
+    if (!lock.permanent) return callback(null, lock);
+    db.run(
+      `UPDATE trade_copy_groups SET active = 0, updated_at = CURRENT_TIMESTAMP
+       WHERE id IN (
+         SELECT group_id FROM trade_copy_group_members
+         WHERE account_id = ? AND role = 'LEADER'
+       )`,
+      [accountId],
+      deactivateErr => {
+        if (deactivateErr) return callback(deactivateErr);
+        db.run(
+          'DELETE FROM trade_copy_group_members WHERE account_id = ?',
+          [accountId],
+          removeErr => removeErr ? callback(removeErr) : callback(null, lock)
+        );
+      }
+    );
+  };
   db.run(
     `UPDATE accounts SET status = ?, lock_reason = ?, locked_until = ?, permanent_lock = ?
      WHERE id = ? AND NOT (COALESCE(permanent_lock, 0) = 1 AND ? = 0)`,
     [status, breach.reason, breach.lockedUntil, breach.permanent ? 1 : 0, accountId, breach.permanent ? 1 : 0],
     function(updateErr) {
       if (updateErr) return callback(updateErr);
-      if (this.changes > 0) return callback(null, breach);
+      if (this.changes > 0) return finish(breach);
       db.get(
         `SELECT lock_reason, locked_until, permanent_lock FROM accounts WHERE id = ?`,
         [accountId],
         (selectErr, row) => {
           if (selectErr) return callback(selectErr);
           if (!row) return callback(new Error('Account not found while applying risk lock.'));
-          callback(null, getActiveLock(row) || breach);
+          finish(getActiveLock(row) || breach);
         }
       );
     }
@@ -3551,7 +3570,7 @@ app.get('/api/trade-copy/groups', requireWalletSession, (req, res) => {
   db.all(
     `SELECT g.id, g.name, g.active, g.created_at, g.updated_at,
             m.account_id, m.role, m.size_pct, a.plan_id, a.initial_balance,
-            a.current_balance, a.status, a.lock_reason, a.admin_frozen,
+            a.current_balance, a.status, a.lock_reason, a.permanent_lock, a.admin_frozen,
             p.name AS plan_name
      FROM trade_copy_groups g
      JOIN trade_copy_group_members m ON m.group_id = g.id
@@ -3585,6 +3604,7 @@ app.get('/api/trade-copy/groups', requireWalletSession, (req, res) => {
           current_balance: Number(row.current_balance || 0),
           status: row.status,
           lock_reason: row.lock_reason,
+          permanent_lock: Number(row.permanent_lock) === 1,
           admin_frozen: Number(row.admin_frozen) === 1,
           size_pct: Number(row.size_pct)
         };
@@ -3618,13 +3638,20 @@ app.post('/api/trade-copy/groups', sensitiveLimiter, requireWalletSession, requi
   const accountIds = [leaderAccountId, ...followerIds];
   const placeholders = accountIds.map(() => '?').join(', ');
   db.all(
-    `SELECT id FROM accounts
+    `SELECT id, status, lock_reason, permanent_lock FROM accounts
      WHERE LOWER(wallet_address) = LOWER(?) AND id IN (${placeholders})`,
     [req.walletAddress, ...accountIds],
     (accountsErr, accounts) => {
       if (accountsErr) return res.status(500).json({ error: 'Unable to verify selected accounts.' });
       if ((accounts || []).length !== accountIds.length) {
         return res.status(403).json({ error: 'Every selected account must belong to your connected wallet.' });
+      }
+      if (accounts.some(account =>
+        account.status === 'PERMANENTLY_LOCKED' ||
+        account.lock_reason === 'MLL' ||
+        Number(account.permanent_lock) === 1
+      )) {
+        return res.status(403).json({ error: 'Permanently locked accounts cannot be added to copy-trading groups.' });
       }
       const persistGroup = (existingGroup) => {
         if (groupId && !existingGroup) return res.status(404).json({ error: 'Copy-trading group not found.' });
@@ -3707,6 +3734,29 @@ app.post('/api/trade-copy/groups/:groupId/active', sensitiveLimiter, requireWall
   }
   const active = req.body?.active;
   if (typeof active !== 'boolean') return res.status(400).json({ error: 'Choose whether this copy-trading group is active.' });
+  if (active) {
+    return db.get(
+      `SELECT a.status, a.lock_reason, a.permanent_lock, a.admin_frozen
+       FROM trade_copy_group_members m
+       JOIN trade_copy_groups g ON g.id = m.group_id
+       JOIN accounts a ON a.id = m.account_id
+       WHERE m.group_id = ? AND m.role = 'LEADER'
+         AND LOWER(g.wallet_address) = LOWER(?)`,
+      [req.params.groupId, req.walletAddress],
+      (leaderErr, leader) => {
+        if (leaderErr) return res.status(500).json({ error: 'Unable to verify the copy-trading leader.' });
+        if (!leader || leader.status !== 'ACTIVE' || leader.lock_reason === 'MLL' ||
+            Number(leader.permanent_lock) === 1 || Number(leader.admin_frozen) === 1) {
+          return res.status(409).json({ error: 'Choose an available leader before activating this group.' });
+        }
+        updateCopyGroupActive(req, res, active);
+      }
+    );
+  }
+  updateCopyGroupActive(req, res, active);
+});
+
+function updateCopyGroupActive(req, res, active) {
   db.run(
     `UPDATE trade_copy_groups SET active = ?, updated_at = CURRENT_TIMESTAMP
      WHERE id = ? AND LOWER(wallet_address) = LOWER(?)`,
@@ -3717,7 +3767,7 @@ app.post('/api/trade-copy/groups/:groupId/active', sensitiveLimiter, requireWall
       res.json({ success: true, active });
     }
   );
-});
+}
 
 app.delete('/api/trade-copy/groups/:groupId', sensitiveLimiter, requireWalletSession, requireUserNotSuspended, (req, res) => {
   db.get(

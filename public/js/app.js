@@ -78,6 +78,7 @@ let connectedWallet = null;
         let tradeCopyGroups = [];
         let tradeCopyWizard = null;
         let hidePermanentlyLockedAccounts = true;
+        let hidePermanentlyLockedCopyAccounts = true;
         let walletSessionToken = null;
         let walletSessionOwner = null;
         let walletSessionExpiresAt = 0;
@@ -2439,6 +2440,12 @@ let connectedWallet = null;
                 Number(account?.permanent_lock) === 1;
         }
 
+        function isPermanentlyLockedCopyAccount(account) {
+            return account?.status === 'PERMANENTLY_LOCKED' ||
+                account?.lock_reason === 'MLL' ||
+                Number(account?.permanent_lock) === 1;
+        }
+
         function isSelectableTradingAccount(account) {
             return account?.status === 'ACTIVE' &&
                 !isRiskLockedAccount(account) &&
@@ -2619,20 +2626,33 @@ let connectedWallet = null;
                 container.innerHTML = '<p class="workspace-empty-state">No trading accounts are attached to this wallet.</p>';
                 return;
             }
+            const visibleAccounts = userAccounts.filter(account =>
+                !hidePermanentlyLockedCopyAccounts || !isPermanentlyLockedCopyAccount(account)
+            );
+            if (!visibleAccounts.length) {
+                container.innerHTML = '<p class="workspace-empty-state">No accounts to show. Turn off “Hide permanently locked accounts” to review permanently locked accounts.</p>';
+                return;
+            }
             const assignments = new Map();
             for (const group of tradeCopyGroups) {
                 assignments.set(group.leader?.id, { name: group.name, role: 'Leader' });
                 for (const follower of group.followers) assignments.set(follower.id, { name: group.name, role: 'Follower' });
             }
-            container.innerHTML = userAccounts.map(account => {
+            container.innerHTML = visibleAccounts.map(account => {
                 const assignment = assignments.get(account.id);
-                return `<article class="copy-overview-account">
+                const permanentlyLocked = isPermanentlyLockedCopyAccount(account);
+                return `<article class="copy-overview-account${permanentlyLocked ? ' is-permanently-locked' : ''}">
                     <div><strong>${escapeHTML(account.plan_name || 'Trading account')}</strong><code>${escapeHTML(account.id)}</code></div>
                     <span class="copy-overview-balance">Balance <strong>$${Number(account.current_balance || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong></span>
-                    <span class="copy-overview-status">${escapeHTML(account.status || 'Unknown')}${Number(account.admin_frozen) === 1 ? ' · Admin frozen' : ''}</span>
-                    <span class="copy-overview-assignment">${assignment ? `${assignment.role} · ${escapeHTML(assignment.name)}` : 'Available'}</span>
+                    <span class="copy-overview-status">${escapeHTML(account.status || 'Unknown')}${Number(account.admin_frozen) === 1 ? ' · Admin frozen' : ''}${permanentlyLocked ? ' · Unavailable for copy trading' : ''}</span>
+                    <span class="copy-overview-assignment">${permanentlyLocked ? 'Cannot join a copy group' : assignment ? `${assignment.role} · ${escapeHTML(assignment.name)}` : 'Available'}</span>
                 </article>`;
             }).join('');
+        }
+
+        function togglePermanentlyLockedCopyAccounts(checked) {
+            hidePermanentlyLockedCopyAccounts = checked;
+            renderCopyAccountOverview();
         }
 
         function renderCopyTradingGroups() {
@@ -2644,9 +2664,9 @@ let connectedWallet = null;
             }
             container.innerHTML = tradeCopyGroups.map(group => {
                 const accountsMarkup = [group.leader, ...group.followers].filter(Boolean).map(account => `
-                    <article class="copy-account-card ${account === group.leader ? 'is-leader' : ''}">
+                    <article class="copy-account-card ${account === group.leader ? 'is-leader' : ''}${isPermanentlyLockedCopyAccount(account) ? ' is-permanently-locked' : ''}">
                         <div>
-                            <span class="copy-account-role">${account === group.leader ? 'LEADER' : 'FOLLOWER'}</span>
+                            <span class="copy-account-role">${isPermanentlyLockedCopyAccount(account) ? 'PERMANENTLY LOCKED · REMOVE FROM GROUP' : account === group.leader ? 'LEADER' : 'FOLLOWER'}</span>
                             <strong>${escapeHTML(account.plan_name)} · ${escapeHTML(account.id)}</strong>
                             <small>${escapeHTML(account.status)}${account.admin_frozen ? ' · Admin frozen' : ''}</small>
                         </div>
@@ -2656,14 +2676,16 @@ let connectedWallet = null;
                         </div>
                     </article>
                 `).join('');
+                const hasLeader = Boolean(group.leader);
                 return `<article class="card copy-group-card" data-copy-group="${escapeHTML(group.id)}">
                     <div class="copy-group-heading">
-                        <div><span class="battlepass-eyebrow">${group.active ? 'ACTIVE GROUP' : 'PAUSED GROUP'}</span><h2>${escapeHTML(group.name)}</h2></div>
+                        <div><span class="battlepass-eyebrow">${!hasLeader ? 'LEADER LOCKED · GROUP PAUSED' : group.active ? 'ACTIVE GROUP' : 'PAUSED GROUP'}</span><h2>${escapeHTML(group.name)}</h2></div>
                         <label class="copy-group-toggle"><input type="checkbox" data-copy-action="toggle" ${group.active ? 'checked' : ''}><span>Active</span></label>
                     </div>
+                    ${!hasLeader ? '<p class="copy-wizard-help">The permanently locked leader was removed. Edit this group to choose a replacement before resuming it.</p>' : ''}
                     <div class="copy-group-members">${accountsMarkup}</div>
                     <div class="copy-group-actions">
-                        <button class="battlepass-secondary-button" type="button" data-copy-action="trade">Trade with leader</button>
+                        <button class="battlepass-secondary-button" type="button" data-copy-action="trade" ${hasLeader ? '' : 'disabled'}>Trade with leader</button>
                         <button class="battlepass-secondary-button" type="button" data-copy-action="edit">Edit</button>
                         <button class="copy-group-delete" type="button" data-copy-action="delete">Delete group</button>
                     </div>
@@ -2676,8 +2698,10 @@ let connectedWallet = null;
             tradeCopyWizard = group ? {
                 groupId: group.id,
                 name: group.name,
-                leaderId: group.leader?.id || '',
-                followers: Object.fromEntries(group.followers.map(account => [account.id, Number(account.size_pct)])),
+                leaderId: isPermanentlyLockedCopyAccount(group.leader) ? '' : group.leader?.id || '',
+                followers: Object.fromEntries(group.followers
+                    .filter(account => !isPermanentlyLockedCopyAccount(account))
+                    .map(account => [account.id, Number(account.size_pct)])),
                 active: group.active,
                 step: 1
             } : { groupId: null, name: '', leaderId: '', followers: {}, active: false, step: 1 };
@@ -2702,6 +2726,7 @@ let connectedWallet = null;
                 .filter(group => group.id !== tradeCopyWizard.groupId)
                 .flatMap(group => [group.leader?.id, ...group.followers.map(account => account.id)]));
             const eligibleAccounts = userAccounts.filter(account =>
+                !isPermanentlyLockedCopyAccount(account) &&
                 (isSelectableTradingAccount(account) || [tradeCopyWizard.leaderId, ...Object.keys(tradeCopyWizard.followers)].includes(account.id)) &&
                 (!assignedAccountIds.has(account.id) || account.id === tradeCopyWizard.leaderId || tradeCopyWizard.followers[account.id] != null)
             );
@@ -2760,6 +2785,11 @@ let connectedWallet = null;
             const active = document.getElementById('copy-group-active')?.checked === true;
             const saveButton = document.getElementById('copy-wizard-save');
             const error = document.getElementById('copy-wizard-error');
+            const selectedIds = [tradeCopyWizard.leaderId, ...Object.keys(tradeCopyWizard.followers)];
+            if (selectedIds.some(id => isPermanentlyLockedCopyAccount(userAccounts.find(account => account.id === id)))) {
+                error.textContent = 'Permanently locked accounts cannot be added to copy-trading groups.';
+                return;
+            }
             if (!name) {
                 error.textContent = 'Enter a name for this group.';
                 return;
@@ -2800,6 +2830,7 @@ let connectedWallet = null;
                 if (action === 'toggle' && event.type !== 'change') return;
                 if (action === 'edit') return startCopyGroupWizard(group.id);
                 if (action === 'trade') {
+                    if (!group.leader) throw new Error('Choose a replacement leader before trading with this group.');
                     switchActiveAccount(group.leader.id);
                     switchView('tradeView');
                     return;
@@ -5268,13 +5299,18 @@ let connectedWallet = null;
             if (!tradeCopyWizard) return;
             const error = document.getElementById('copy-wizard-error');
             if (tradeCopyWizard.step === 1) {
-                if (!tradeCopyWizard.leaderId) {
-                    if (error) error.textContent = 'Choose a leader account.';
+                const leader = userAccounts.find(account => account.id === tradeCopyWizard.leaderId);
+                if (!tradeCopyWizard.leaderId || isPermanentlyLockedCopyAccount(leader)) {
+                    if (error) error.textContent = 'Choose an available, non-permanently locked leader account.';
                     return;
                 }
                 tradeCopyWizard.step = 2;
             } else if (tradeCopyWizard.step === 2) {
                 const followers = Object.entries(tradeCopyWizard.followers);
+                if (followers.some(([id]) => isPermanentlyLockedCopyAccount(userAccounts.find(account => account.id === id)))) {
+                    if (error) error.textContent = 'Permanently locked accounts cannot be added as followers.';
+                    return;
+                }
                 if (!followers.length || followers.some(([, pct]) => !Number.isFinite(Number(pct)) || Number(pct) <= 0)) {
                     if (error) error.textContent = 'Choose at least one follower and give each a positive size percentage.';
                     return;

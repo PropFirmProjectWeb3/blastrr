@@ -6,6 +6,7 @@ const { ethers } = require('ethers');
 const db = require('./database');
 const defaultPlans = require('./config/plans.json');
 const markets = require('./public/config/markets.json');
+const { CHAT_COOLDOWN_MS, moderateChatMessage } = require('./chatRules');
 const {
   advanceRiskBaselines,
   calculateUnrealizedPnl,
@@ -24,7 +25,7 @@ const PORT = process.env.PORT || 4480;
 
 const TREASURY_WALLET = '0xFBD3B9bA404f590b9A7b35B72104bEff9DEa5503';
 const DISCLAIMER_VERSION = '2026-11-02-v1';
-const MAINTENANCE_PAGE_IDS = ['home', 'trade', 'accounts', 'leaderboard', 'blastrrpass', 'profile', 'plans', 'faq', 'docs'];
+const MAINTENANCE_PAGE_IDS = ['home', 'trade', 'accounts', 'copytrading', 'leaderboard', 'blastrrpass', 'profile', 'plans', 'faq', 'docs'];
 
 // --- SUPPORTED EVM CHAINS CONFIGURATION ---
 const SUPPORTED_EVM_CHAINS = {
@@ -80,6 +81,36 @@ app.use(express.static(path.join(__dirname, 'public')));
 
 // --- 2. IP-BASED RATE LIMITER & BINANCE CACHE ---
 const requestMap = new Map();
+const copyFlatteningWallets = new Set();
+const inFlightTradeExecutions = new Map();
+const tradeExecutionWaiters = new Map();
+
+function trackTradeExecution(walletAddress, response) {
+  inFlightTradeExecutions.set(walletAddress, (inFlightTradeExecutions.get(walletAddress) || 0) + 1);
+  let completed = false;
+  const release = () => {
+    if (completed) return;
+    completed = true;
+    const remaining = Math.max(0, (inFlightTradeExecutions.get(walletAddress) || 1) - 1);
+    if (remaining > 0) {
+      inFlightTradeExecutions.set(walletAddress, remaining);
+      return;
+    }
+    inFlightTradeExecutions.delete(walletAddress);
+    const waiters = tradeExecutionWaiters.get(walletAddress) || [];
+    tradeExecutionWaiters.delete(walletAddress);
+    waiters.forEach(resolve => resolve());
+  };
+  response.once('finish', release);
+  return release;
+}
+
+function waitForTradeExecutions(walletAddress, callback) {
+  if (!inFlightTradeExecutions.has(walletAddress)) return callback();
+  const waiters = tradeExecutionWaiters.get(walletAddress) || [];
+  waiters.push(callback);
+  tradeExecutionWaiters.set(walletAddress, waiters);
+}
 
 function createRateLimiter(maxRequests = 40, windowMs = 60000) {
     return (req, res, next) => {
@@ -521,9 +552,17 @@ function applyRiskBreach(account, breach, callback) {
         if (settleErr) return db.run('ROLLBACK', () => callback(settleErr));
         db.run('COMMIT', (commitErr) => {
           if (commitErr) return db.run('ROLLBACK', () => callback(commitErr));
-          callback(null, account.lock_reason === 'MLL'
+          const appliedLock = account.lock_reason === 'MLL'
             ? { reason: 'MLL', permanent: true, lockedUntil: null }
-            : breach);
+            : breach;
+          closeOutstandingCopyTrades(account.wallet_address, (copyErr, copyResults) => {
+            if (copyErr) console.error('Unable to close copied positions after a risk lock:', copyErr.message);
+            else {
+              const failures = copyResults.filter(result => !result.success);
+              if (failures.length) console.error('Some copied positions remained open after a leader risk lock:', failures);
+            }
+            callback(null, appliedLock);
+          });
         });
       });
     });
@@ -560,7 +599,15 @@ function refreshRiskBaselines(accountId, callback) {
               const breach = getRiskBreach(account, account);
               const commit = () => db.run('COMMIT', (commitErr) => {
                 if (commitErr) return callback(commitErr);
-                callback(null, account);
+                if (!breach) return callback(null, account);
+                closeOutstandingCopyTrades(account.wallet_address, (copyErr, copyResults) => {
+                  if (copyErr) console.error('Unable to close copied positions after risk rollover:', copyErr.message);
+                  else {
+                    const failures = copyResults.filter(result => !result.success);
+                    if (failures.length) console.error('Some copied positions remained open after risk rollover:', failures);
+                  }
+                  callback(null, account);
+                });
               });
               if (!breach) return commit();
               settleBreachWithinTransaction(account, breach, (lockErr) => {
@@ -844,6 +891,28 @@ function getBattlePassTaskPeriod(task, date = new Date()) {
 function getBattlePassTaskEligibility(task, wallet, periodKey, callback) {
   if (task.task_type === 'SOCIAL_CLICK') return callback(null, true);
   const periodEnd = getBattlePassPeriodEnd(task.cadence, periodKey);
+  if (task.task_type === 'JOURNAL_DAY' || task.task_type === 'JOURNAL_WEEK') {
+    if ((task.task_type === 'JOURNAL_DAY' && task.cadence !== 'DAILY') ||
+        (task.task_type === 'JOURNAL_WEEK' && task.cadence !== 'WEEKLY')) {
+      return callback(new Error('This journal task has an invalid completion schedule.'));
+    }
+    const target = task.task_type === 'JOURNAL_DAY' ? 1 : 5;
+    return db.get(
+      `SELECT COUNT(DISTINCT j.day) AS completed
+       FROM account_trade_journals j
+       JOIN accounts a ON a.id = j.account_id
+       WHERE LOWER(a.wallet_address) = LOWER(?)
+         AND j.day >= ? AND j.day < ?`,
+      [wallet, periodKey, periodEnd],
+      (err, row) => {
+        if (err) return callback(new Error('Unable to verify journal activity for this task.'));
+        const completed = Math.min(target, Number(row?.completed || 0));
+        task.progress = completed;
+        task.progress_target = target;
+        callback(null, completed >= target);
+      }
+    );
+  }
   if (task.task_type === 'GREEN_DAY' || task.task_type === 'GREEN_WEEK') {
     const startComparison = task.task_type === 'GREEN_DAY' ? '= ?' : '>= ? AND d.day < ?';
     const params = task.task_type === 'GREEN_DAY'
@@ -1221,6 +1290,13 @@ app.get('/api/battlepass', requireWalletSession, (req, res) => {
                     const period = getBattlePassTaskPeriod(task);
                     if (task.claimed) {
                       task.eligible = false;
+                      if (task.task_type === 'JOURNAL_DAY' || task.task_type === 'JOURNAL_WEEK') {
+                        const period = getBattlePassTaskPeriod(task);
+                        return getBattlePassTaskEligibility(task, req.walletAddress, period.activityPeriodKey, (eligibilityErr) => {
+                          if (eligibilityErr) return res.status(500).json({ error: eligibilityErr.message });
+                          checkTaskEligibility();
+                        });
+                      }
                       return checkTaskEligibility();
                     }
                     if (task.task_type === 'PLATFORM_REVIEW') {
@@ -1301,7 +1377,9 @@ app.post('/api/battlepass/tasks/claim', sensitiveLimiter, requireWalletSession, 
     if (taskErr) return res.status(500).json({ error: 'Unable to load this battle pass task.' });
     if (!task) return res.status(404).json({ error: 'This battle pass task is no longer available.' });
     if ((task.task_type === 'GREEN_DAY' && task.cadence !== 'DAILY') ||
-        (task.task_type === 'GREEN_WEEK' && task.cadence !== 'WEEKLY')) {
+        (task.task_type === 'GREEN_WEEK' && task.cadence !== 'WEEKLY') ||
+        (task.task_type === 'JOURNAL_DAY' && task.cadence !== 'DAILY') ||
+        (task.task_type === 'JOURNAL_WEEK' && task.cadence !== 'WEEKLY')) {
       return res.status(409).json({ error: 'This task has an invalid completion schedule.' });
     }
     const taskPeriod = getBattlePassTaskPeriod(task);
@@ -1428,6 +1506,11 @@ app.get('/api/auth/role', (req, res) => {
 
 app.get('/api/leaderboard', (req, res) => {
   const mode = req.query.mode || 'DAILY';
+  const requestedLimit = req.query.limit == null ? 100 : Number(req.query.limit);
+  if (!Number.isInteger(requestedLimit) || requestedLimit < 1 || requestedLimit > 100) {
+    return res.status(400).json({ error: 'Leaderboard limit must be an integer from 1 to 100.' });
+  }
+  const limit = requestedLimit;
   let query = '';
 
   if (mode === 'DAILY') {
@@ -1440,7 +1523,7 @@ app.get('/api/leaderboard', (req, res) => {
       WHERE t.status = 'CLOSED' AND u.username IS NOT NULL AND strftime('%Y-%m-%d', t.closed_at) = strftime('%Y-%m-%d', 'now')
       GROUP BY u.wallet_address
       ORDER BY metric_value DESC
-      LIMIT 100;
+      LIMIT ${limit};
     `;
   } else if (mode === 'MONTHLY') {
     query = `
@@ -1452,7 +1535,7 @@ app.get('/api/leaderboard', (req, res) => {
       WHERE t.status = 'CLOSED' AND u.username IS NOT NULL AND strftime('%Y-%m', t.closed_at) = strftime('%Y-%m', 'now')
       GROUP BY u.wallet_address
       ORDER BY metric_value DESC
-      LIMIT 100;
+      LIMIT ${limit};
     `;
   } else if (mode === 'PAYOUTS') {
     query = `
@@ -1467,7 +1550,7 @@ app.get('/api/leaderboard', (req, res) => {
       WHERE u.username IS NOT NULL
       GROUP BY u.wallet_address
       ORDER BY metric_value DESC
-      LIMIT 100;
+      LIMIT ${limit};
     `;
   } else {
     return res.status(400).json({ error: "Invalid leaderboard mode" });
@@ -2710,35 +2793,103 @@ app.get('/api/accounts/details', requireWalletSession, (req, res) => {
           [accountId],
           (summaryErr, dailySummaries) => {
             if (summaryErr) return res.status(500).json({ error: 'Unable to load daily profit history.' });
-            res.json({
-              account,
-              lock: activeLock,
-              metrics: {
-                profitProgress: profitProgress.toFixed(1),
-                profitTarget: account.profit_target,
-                currentProfit: totalProfit,
-                ddProgress: ddProgress.toFixed(1),
-                maxAllowedDD,
-                currentDD,
-                mllFloor,
-                dllProgress: dllProgress.toFixed(1),
-                maxAllowedDLL,
-                currentDLL,
-                withdrawalFloor,
-                pendingWithdrawalAmount: Number(account.pending_withdrawal_amount || 0),
-                withdrawableAmount,
-                withdrawalPending: Number(account.pending_withdrawal_amount || 0) > 0,
-                riskBalance,
-                consistencyScore
-              },
-              dailySummaries: dailySummaries || [],
-              trades: trades || []
-            });
+            db.all(
+              'SELECT day, body, updated_at FROM account_trade_journals WHERE account_id = ? ORDER BY day',
+              [accountId],
+              (journalErr, journalEntries) => {
+                if (journalErr) return res.status(500).json({ error: 'Unable to load account trade journal entries.' });
+                res.json({
+                  account,
+                  lock: activeLock,
+                  metrics: {
+                    profitProgress: profitProgress.toFixed(1),
+                    profitTarget: account.profit_target,
+                    currentProfit: totalProfit,
+                    ddProgress: ddProgress.toFixed(1),
+                    maxAllowedDD,
+                    currentDD,
+                    mllFloor,
+                    dllProgress: dllProgress.toFixed(1),
+                    maxAllowedDLL,
+                    currentDLL,
+                    withdrawalFloor,
+                    pendingWithdrawalAmount: Number(account.pending_withdrawal_amount || 0),
+                    withdrawableAmount,
+                    withdrawalPending: Number(account.pending_withdrawal_amount || 0) > 0,
+                    riskBalance,
+                    consistencyScore
+                  },
+                  dailySummaries: dailySummaries || [],
+                  journalEntries: journalEntries || [],
+                  trades: trades || []
+                });
+              }
+            );
           }
         );
         });
       });
       });
+    }
+  );
+});
+
+app.put('/api/accounts/:accountId/journal', sensitiveLimiter, requireWalletSession, (req, res) => {
+  const { accountId } = req.params;
+  const { day, body } = req.body || {};
+  if (typeof day !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(day) ||
+      !Number.isFinite(Date.parse(`${day}T00:00:00.000Z`)) ||
+      new Date(`${day}T00:00:00.000Z`).toISOString().slice(0, 10) !== day ||
+      day > new Date().toISOString().slice(0, 10)) {
+    return res.status(400).json({ error: 'Choose a valid calendar day that is not in the future.' });
+  }
+  if (typeof body !== 'string' || body.length > 5000) {
+    return res.status(400).json({ error: 'Journal entries must be text of 5,000 characters or fewer.' });
+  }
+  const journalText = body.trim();
+  if (/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/.test(journalText)) {
+    return res.status(400).json({ error: 'Journal entries cannot contain control characters.' });
+  }
+
+  db.get(
+    'SELECT wallet_address FROM accounts WHERE id = ?',
+    [accountId],
+    (accountErr, account) => {
+      if (accountErr) return res.status(500).json({ error: 'Unable to verify account ownership.' });
+      if (!account || account.wallet_address?.toLowerCase() !== req.walletAddress) {
+        return res.status(403).json({ error: 'You do not own this account.' });
+      }
+
+      if (!journalText) {
+        return db.run(
+          'DELETE FROM account_trade_journals WHERE account_id = ? AND day = ?',
+          [accountId, day],
+          function(deleteErr) {
+            if (deleteErr) return res.status(500).json({ error: 'Unable to delete the journal entry.' });
+            res.json({ entry: null, deleted: this.changes > 0 });
+          }
+        );
+      }
+
+      db.run(
+        `INSERT INTO account_trade_journals (account_id, day, body, updated_at)
+         VALUES (?, ?, ?, CURRENT_TIMESTAMP)
+         ON CONFLICT(account_id, day) DO UPDATE SET
+           body = excluded.body,
+           updated_at = CURRENT_TIMESTAMP`,
+        [accountId, day, journalText],
+        (saveErr) => {
+          if (saveErr) return res.status(500).json({ error: 'Unable to save the journal entry.' });
+          db.get(
+            'SELECT day, body, updated_at FROM account_trade_journals WHERE account_id = ? AND day = ?',
+            [accountId, day],
+            (entryErr, entry) => {
+              if (entryErr) return res.status(500).json({ error: 'Unable to confirm the saved journal entry.' });
+              res.json({ entry });
+            }
+          );
+        }
+      );
     }
   );
 });
@@ -3343,181 +3494,473 @@ app.post('/api/admin/withdrawals/action', sensitiveLimiter, requireTradeSignatur
   });
 });
 
-app.post('/api/trades/execute', sensitiveLimiter, requireWalletSession, requireUserNotSuspended, (req, res) => {
-  const { account_id, symbol, side, price, size_usd, margin_used, leverage, sl, tp, wallet_address } = req.body;
-  const slTpMode = req.body?.sl_tp_mode || 'price';
-  const slAmount = req.body?.sl_amount == null ? null : Number(req.body.sl_amount);
-  const tpAmount = req.body?.tp_amount == null ? null : Number(req.body.tp_amount);
-  const market = markets.find(item => item.symbol === symbol);
-  const numericFields = [price, size_usd, margin_used, leverage];
-  if (!account_id || !market || market.enabled === false || !['BUY', 'SELL'].includes(side) ||
-      !['price', 'amount'].includes(slTpMode) ||
-      numericFields.some(value => !Number.isFinite(Number(value)) || Number(value) <= 0) ||
-      !Number.isInteger(Number(leverage)) || Number(leverage) > 50 ||
-      Math.abs(Number(size_usd) - Number(margin_used) * Number(leverage)) > 0.01 ||
-      (sl != null && (!Number.isFinite(Number(sl)) || Number(sl) <= 0)) ||
-      (tp != null && (!Number.isFinite(Number(tp)) || Number(tp) <= 0)) ||
-      (slTpMode === 'amount' && (
-        (slAmount != null && (!Number.isFinite(slAmount) || slAmount <= 0)) ||
-        (tpAmount != null && (!Number.isFinite(tpAmount) || tpAmount <= 0))
-      ))) {
-    return res.status(400).json({ error: 'Invalid trade parameters.' });
+app.get('/api/trade-copy/groups', requireWalletSession, (req, res) => {
+  db.all(
+    `SELECT g.id, g.name, g.active, g.created_at, g.updated_at,
+            m.account_id, m.role, m.size_pct, a.plan_id, a.initial_balance,
+            a.current_balance, a.status, a.lock_reason, a.admin_frozen,
+            p.name AS plan_name
+     FROM trade_copy_groups g
+     JOIN trade_copy_group_members m ON m.group_id = g.id
+     JOIN accounts a ON a.id = m.account_id
+     LEFT JOIN plans p ON p.id = a.plan_id
+     WHERE LOWER(g.wallet_address) = LOWER(?)
+     ORDER BY g.created_at DESC, m.role, a.created_at`,
+    [req.walletAddress],
+    (err, rows) => {
+      if (err) return res.status(500).json({ error: 'Unable to load copy-trading groups.' });
+      const groups = new Map();
+      for (const row of rows || []) {
+        let group = groups.get(row.id);
+        if (!group) {
+          group = {
+            id: row.id,
+            name: row.name,
+            active: Number(row.active) === 1,
+            created_at: row.created_at,
+            updated_at: row.updated_at,
+            leader: null,
+            followers: []
+          };
+          groups.set(row.id, group);
+        }
+        const account = {
+          id: row.account_id,
+          plan_id: row.plan_id,
+          plan_name: row.plan_name || 'Trading account',
+          initial_balance: Number(row.initial_balance || 0),
+          current_balance: Number(row.current_balance || 0),
+          status: row.status,
+          lock_reason: row.lock_reason,
+          admin_frozen: Number(row.admin_frozen) === 1,
+          size_pct: Number(row.size_pct)
+        };
+        if (row.role === 'LEADER') group.leader = account;
+        else group.followers.push(account);
+      }
+      res.json({ groups: [...groups.values()] });
+    }
+  );
+});
+
+app.post('/api/trade-copy/groups', sensitiveLimiter, requireWalletSession, requireUserNotSuspended, (req, res) => {
+  if (copyFlatteningWallets.has(req.walletAddress)) {
+    return res.status(409).json({ error: 'Copy-trading emergency stop is in progress. Try again when it finishes.' });
+  }
+  const { group_id: groupId, name: rawName, leader_account_id: leaderAccountId, followers, active } = req.body || {};
+  const name = typeof rawName === 'string' ? rawName.trim() : '';
+  if ((groupId !== undefined && groupId !== null && typeof groupId !== 'string') ||
+      (active !== undefined && typeof active !== 'boolean') ||
+      !name || name.length > 60 || typeof leaderAccountId !== 'string' ||
+      !Array.isArray(followers) || followers.length < 1) {
+    return res.status(400).json({ error: 'Enter a group name, one leader, and at least one follower.' });
+  }
+  const followerIds = followers.map(follower => follower?.account_id);
+  if (followerIds.some(id => typeof id !== 'string' || id === leaderAccountId) ||
+      new Set(followerIds).size !== followerIds.length ||
+      followers.some(follower => !Number.isFinite(Number(follower?.size_pct)) || Number(follower.size_pct) <= 0)) {
+    return res.status(400).json({ error: 'Choose unique accounts and enter a positive copy size percentage for each follower.' });
   }
 
-  db.get(
-    `SELECT a.*, p.max_drawdown_pct, p.daily_loss_pct,
-     COALESCE((SELECT SUM(w.amount) FROM withdrawals w
-       WHERE w.account_id = a.id AND w.status = 'PENDING'), 0) AS pending_withdrawal_amount
-     FROM accounts a JOIN plans p ON a.plan_id = p.id WHERE a.id = ?`,
-    [account_id],
-    (err, account) => {
-      if (err) return res.status(500).json({ error: 'Unable to load account.' });
-      if (!account) return res.status(404).json({ error: 'Account not found.' });
-      if (account.wallet_address.toLowerCase() !== req.walletAddress) {
-        return res.status(403).json({ error: 'Wallet does not own this account.' });
+  const accountIds = [leaderAccountId, ...followerIds];
+  const placeholders = accountIds.map(() => '?').join(', ');
+  db.all(
+    `SELECT id FROM accounts
+     WHERE LOWER(wallet_address) = LOWER(?) AND id IN (${placeholders})`,
+    [req.walletAddress, ...accountIds],
+    (accountsErr, accounts) => {
+      if (accountsErr) return res.status(500).json({ error: 'Unable to verify selected accounts.' });
+      if ((accounts || []).length !== accountIds.length) {
+        return res.status(403).json({ error: 'Every selected account must belong to your connected wallet.' });
       }
-
-      refreshRiskBaselines(account_id, (baselineErr, refreshedAccount) => {
-      if (baselineErr) return res.status(500).json({ error: 'Unable to update daily account baselines.' });
-      account = refreshedAccount;
-      unlockExpiredAccount(account, (unlockErr, activeLock) => {
-        if (unlockErr) return res.status(500).json({ error: 'Unable to refresh account lock status.' });
-        if (Number(account.admin_frozen) === 1) {
-          return res.status(403).json({ error: `Account is frozen by an administrator${account.admin_freeze_reason ? `: ${account.admin_freeze_reason}` : '.'}` });
-        }
-        if (activeLock) {
-          const message = activeLock.permanent
-            ? 'Account permanently locked after exceeding the maximum loss limit (MLL).'
-            : `Account locked for DLL breach until ${activeLock.lockedUntil}.`;
-          return res.status(403).json({ error: message, lock: activeLock });
-        }
-
-        if (account.status !== 'ACTIVE') {
-          return res.status(403).json({ error: `Account is not active (${account.status}).` });
-        }
-
-        if (Number(account.pending_withdrawal_amount) > 0) {
-          return res.status(403).json({ error: 'Trading is temporarily frozen while a withdrawal awaits admin review.' });
-        }
-
-        const existingBreach = getRiskBreach(account, account);
-        if (existingBreach) {
-          return applyRiskBreach(account, existingBreach, (lockErr, appliedLock) => {
-            if (lockErr) return res.status(500).json({ error: 'Unable to apply account risk lock.' });
-            res.status(403).json({
-              error: appliedLock.permanent
-                ? 'Account permanently locked after exceeding the maximum loss limit (MLL).'
-                : `Account locked for DLL breach until ${appliedLock.lockedUntil}.`,
-              lock: appliedLock
-            });
-          });
-        }
-
-        const margin = Number(margin_used);
-        if (margin > account.current_balance) {
-          return res.status(400).json({ error: `Insufficient available balance ($${account.current_balance.toFixed(2)} available).` });
-        }
-        getAuthoritativePrice(market).then((marketPrice) => {
-          const slippage = market.source === 'BITGET_PERP' ? marketPrice * 0.0005 : 5;
-          const executionPrice = marketPrice + (side === 'BUY' ? slippage : -slippage);
-          const units = Number(size_usd) / executionPrice;
-          let levels;
-          try {
-            levels = resolveStopTargetPrices({
-              executionPrice,
-              units,
-              side,
-              mode: slTpMode,
-              sl,
-              tp,
-              slAmount,
-              tpAmount
-            });
-          } catch (levelError) {
-            return res.status(400).json({ error: levelError.message });
-          }
-          const { sl: stopLoss, tp: takeProfit } = levels;
-
-          const tradeId = `trd_${crypto.randomBytes(8).toString('hex')}`;
-          db.serialize(() => {
-            db.run('BEGIN IMMEDIATE');
-            db.run(
-              `UPDATE accounts SET current_balance = current_balance - ?
-               WHERE id = ? AND current_balance >= ? AND status = 'ACTIVE' AND admin_frozen = 0
-               AND NOT EXISTS (SELECT 1 FROM withdrawals WHERE account_id = ? AND status = 'PENDING')
-               AND NOT EXISTS (SELECT 1 FROM users u WHERE LOWER(u.wallet_address) = LOWER(accounts.wallet_address)
-                               AND COALESCE(u.admin_suspended, 0) = 1)`,
-              [margin, account_id, margin, account_id],
-              function(updateErr) {
-                if (updateErr) {
-                  return db.run('ROLLBACK', () => res.status(500).json({ error: 'Unable to reserve account balance.' }));
-                }
-                if (this.changes !== 1) {
-                  return db.get(
-                    'SELECT admin_suspend_reason FROM users WHERE LOWER(wallet_address) = LOWER(?) AND admin_suspended = 1',
-                    [account.wallet_address],
-                    (suspensionErr, suspendedUser) => db.run('ROLLBACK', () => {
-                      if (suspensionErr) return res.status(500).json({ error: 'Unable to verify user account access.' });
-                      if (suspendedUser) {
-                        return res.status(403).json({
-                          error: `This user account is suspended by an administrator${suspendedUser.admin_suspend_reason ? `: ${suspendedUser.admin_suspend_reason}` : '.'}`,
-                          user_suspended: true
-                        });
-                      }
-                      res.status(409).json({ error: 'Account balance or status changed. Refresh and retry.' });
-                    })
-                  );
-                }
-                db.run(
-                  `INSERT INTO trades (id, account_id, symbol, side, entry_price, size_usd, units, sl, tp, status, leverage)
-                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'OPEN', ?)`,
-                  [tradeId, account_id, symbol, side, executionPrice, margin, units, stopLoss, takeProfit, leverage],
-                  (insertErr) => {
-                    if (insertErr) return db.run('ROLLBACK', () => res.status(500).json({ error: 'Unable to create trade.' }));
-                    db.run('COMMIT', (commitErr) => {
-                      if (commitErr) return res.status(500).json({ error: 'Unable to commit trade.' });
-                      res.json({
-                        success: true,
-                        trade_id: tradeId,
-                        execution_price: executionPrice,
-                        sl: stopLoss,
-                        tp: takeProfit
-                      });
+      const persistGroup = (existingGroup) => {
+        if (groupId && !existingGroup) return res.status(404).json({ error: 'Copy-trading group not found.' });
+        const resolvedGroupId = groupId || `cpy_${crypto.randomBytes(10).toString('hex')}`;
+        const isActive = active === undefined ? Number(existingGroup?.active || 0) : active === true;
+        db.serialize(() => {
+          db.run('BEGIN IMMEDIATE', beginErr => {
+            if (beginErr) return res.status(500).json({ error: 'Unable to start group save.' });
+            const fail = (status, message) => db.run('ROLLBACK', () => res.status(status).json({ error: message }));
+            const saveGroup = groupErr => {
+              if (groupErr) return fail(500, 'Unable to save copy-trading group.');
+              db.run('DELETE FROM trade_copy_group_members WHERE group_id = ?', [resolvedGroupId], deleteErr => {
+                if (deleteErr) return fail(500, 'Unable to update group accounts.');
+                const members = [
+                  { account_id: leaderAccountId, role: 'LEADER', size_pct: 100 },
+                  ...followers.map(follower => ({
+                    account_id: follower.account_id,
+                    role: 'FOLLOWER',
+                    size_pct: Number(follower.size_pct)
+                  }))
+                ];
+                const addMember = index => {
+                  if (index >= members.length) {
+                    return db.run('COMMIT', commitErr => {
+                      if (commitErr) return fail(500, 'Unable to finish saving the group.');
+                      res.json({ success: true, group_id: resolvedGroupId });
                     });
                   }
-                );
-              }
+                  const member = members[index];
+                  db.run(
+                    'INSERT INTO trade_copy_group_members (group_id, account_id, role, size_pct) VALUES (?, ?, ?, ?)',
+                    [resolvedGroupId, member.account_id, member.role, member.size_pct],
+                    insertErr => {
+                      if (insertErr) {
+                        const conflict = /UNIQUE constraint failed: trade_copy_group_members\.account_id/.test(insertErr.message);
+                        return fail(conflict ? 409 : 500, conflict
+                          ? 'An account is already assigned to another copy-trading group.'
+                          : 'Unable to assign an account to the group.');
+                      }
+                      addMember(index + 1);
+                    }
+                  );
+                };
+                addMember(0);
+              });
+            };
+            if (existingGroup) {
+              return db.run(
+                `UPDATE trade_copy_groups SET name = ?, active = ?, updated_at = CURRENT_TIMESTAMP
+                 WHERE id = ? AND LOWER(wallet_address) = LOWER(?)`,
+                [name, isActive ? 1 : 0, resolvedGroupId, req.walletAddress],
+                saveGroup
+              );
+            }
+            db.run(
+              `INSERT INTO trade_copy_groups (id, wallet_address, name, active)
+               VALUES (?, ?, ?, ?)`,
+              [resolvedGroupId, req.walletAddress, name, isActive ? 1 : 0],
+              saveGroup
             );
           });
-        }).catch((priceError) => {
-          console.error('Unable to obtain trade execution price:', priceError.message);
-          res.status(503).json({ error: 'Unable to obtain a fresh market price. Please retry.' });
         });
-      });
+      };
+      if (!groupId) return persistGroup(null);
+      db.get(
+        'SELECT id, active FROM trade_copy_groups WHERE id = ? AND LOWER(wallet_address) = LOWER(?)',
+        [groupId, req.walletAddress],
+        (groupErr, group) => {
+          if (groupErr) return res.status(500).json({ error: 'Unable to verify copy-trading group.' });
+          persistGroup(group);
+        }
+      );
+    }
+  );
+});
+
+app.post('/api/trade-copy/groups/:groupId/active', sensitiveLimiter, requireWalletSession, requireUserNotSuspended, (req, res) => {
+  if (copyFlatteningWallets.has(req.walletAddress)) {
+    return res.status(409).json({ error: 'Copy-trading emergency stop is in progress. Try again when it finishes.' });
+  }
+  const active = req.body?.active;
+  if (typeof active !== 'boolean') return res.status(400).json({ error: 'Choose whether this copy-trading group is active.' });
+  db.run(
+    `UPDATE trade_copy_groups SET active = ?, updated_at = CURRENT_TIMESTAMP
+     WHERE id = ? AND LOWER(wallet_address) = LOWER(?)`,
+    [active ? 1 : 0, req.params.groupId, req.walletAddress],
+    function(err) {
+      if (err) return res.status(500).json({ error: 'Unable to update group status.' });
+      if (this.changes !== 1) return res.status(404).json({ error: 'Copy-trading group not found.' });
+      res.json({ success: true, active });
+    }
+  );
+});
+
+app.delete('/api/trade-copy/groups/:groupId', sensitiveLimiter, requireWalletSession, requireUserNotSuspended, (req, res) => {
+  db.get(
+    'SELECT id FROM trade_copy_groups WHERE id = ? AND LOWER(wallet_address) = LOWER(?)',
+    [req.params.groupId, req.walletAddress],
+    (findErr, group) => {
+      if (findErr) return res.status(500).json({ error: 'Unable to verify copy-trading group.' });
+      if (!group) return res.status(404).json({ error: 'Copy-trading group not found.' });
+      db.serialize(() => {
+        db.run('BEGIN IMMEDIATE', beginErr => {
+          if (beginErr) return res.status(500).json({ error: 'Unable to start group deletion.' });
+          db.run('DELETE FROM trade_copy_group_members WHERE group_id = ?', [req.params.groupId], membersErr => {
+            if (membersErr) return db.run('ROLLBACK', () => res.status(500).json({ error: 'Unable to clear group accounts.' }));
+            db.run('DELETE FROM trade_copy_groups WHERE id = ?', [req.params.groupId], deleteErr => {
+              if (deleteErr) return db.run('ROLLBACK', () => res.status(500).json({ error: 'Unable to delete copy-trading group.' }));
+              db.run('COMMIT', commitErr => {
+                if (commitErr) return db.run('ROLLBACK', () => res.status(500).json({ error: 'Unable to finish deleting the group.' }));
+                res.json({ success: true });
+              });
+            });
+          });
+        });
       });
     }
   );
 });
 
-app.post('/api/trades/close', sensitiveLimiter, requireWalletSession, (req, res) => {
-  const { trade_id, wallet_address } = req.body;
-  if (!trade_id) return res.status(400).json({ error: 'Trade ID is required.' });
+function executeTradeForAccount(accountId, order, walletAddress, callback) {
+  const { symbol, side, size_usd, margin_used, leverage } = order;
+  const market = markets.find(item => item.symbol === symbol);
+  db.get(
+    `SELECT a.*, p.max_drawdown_pct, p.daily_loss_pct,
+     COALESCE((SELECT SUM(w.amount) FROM withdrawals w
+       WHERE w.account_id = a.id AND w.status = 'PENDING'), 0) AS pending_withdrawal_amount
+     FROM accounts a JOIN plans p ON a.plan_id = p.id WHERE a.id = ?`,
+    [accountId],
+    (err, account) => {
+      if (err) return callback({ status: 500, error: 'Unable to load account.' });
+      if (!account) return callback({ status: 404, error: 'Account not found.' });
+      if (account.wallet_address.toLowerCase() !== walletAddress) {
+        return callback({ status: 403, error: 'Wallet does not own this account.' });
+      }
 
+      refreshRiskBaselines(accountId, (baselineErr, refreshedAccount) => {
+        if (baselineErr) return callback({ status: 500, error: 'Unable to update daily account baselines.' });
+        account = refreshedAccount;
+        unlockExpiredAccount(account, (unlockErr, activeLock) => {
+          if (unlockErr) return callback({ status: 500, error: 'Unable to refresh account lock status.' });
+          if (Number(account.admin_frozen) === 1) {
+            return callback({ status: 403, error: `Account is frozen by an administrator${account.admin_freeze_reason ? `: ${account.admin_freeze_reason}` : '.'}` });
+          }
+          if (activeLock) {
+            const message = activeLock.permanent
+              ? 'Account permanently locked after exceeding the maximum loss limit (MLL).'
+              : `Account locked for DLL breach until ${activeLock.lockedUntil}.`;
+            return callback({ status: 403, error: message, lock: activeLock });
+          }
+          if (account.status !== 'ACTIVE') return callback({ status: 403, error: `Account is not active (${account.status}).` });
+          if (Number(account.pending_withdrawal_amount) > 0) {
+            return callback({ status: 403, error: 'Trading is temporarily frozen while a withdrawal awaits admin review.' });
+          }
+          const existingBreach = getRiskBreach(account, account);
+          if (existingBreach) {
+            return applyRiskBreach(account, existingBreach, (lockErr, appliedLock) => {
+              if (lockErr) return callback({ status: 500, error: 'Unable to apply account risk lock.' });
+              callback({
+                status: 403,
+                error: appliedLock.permanent
+                  ? 'Account permanently locked after exceeding the maximum loss limit (MLL).'
+                  : `Account locked for DLL breach until ${appliedLock.lockedUntil}.`,
+                lock: appliedLock
+              });
+            });
+          }
+
+          const margin = Number(margin_used);
+          if (margin > account.current_balance) {
+            return callback({ status: 400, error: `Insufficient available balance ($${account.current_balance.toFixed(2)} available).` });
+          }
+          getAuthoritativePrice(market).then(marketPrice => {
+            const slippage = market.source === 'BITGET_PERP' ? marketPrice * 0.0005 : 5;
+            const executionPrice = marketPrice + (side === 'BUY' ? slippage : -slippage);
+            const units = Number(size_usd) / executionPrice;
+            let levels;
+            try {
+              levels = resolveStopTargetPrices({
+                executionPrice,
+                units,
+                side,
+                mode: order.sl_tp_mode,
+                sl: order.sl,
+                tp: order.tp,
+                slAmount: order.sl_amount,
+                tpAmount: order.tp_amount
+              });
+            } catch (levelError) {
+              return callback({ status: 400, error: levelError.message });
+            }
+            const { sl: stopLoss, tp: takeProfit } = levels;
+            const tradeId = `trd_${crypto.randomBytes(8).toString('hex')}`;
+            db.serialize(() => {
+              db.run('BEGIN IMMEDIATE', beginErr => {
+                if (beginErr) return callback({ status: 500, error: 'Unable to reserve account balance.' });
+                db.run(
+                  `UPDATE accounts SET current_balance = current_balance - ?
+                   WHERE id = ? AND current_balance >= ? AND status = 'ACTIVE' AND admin_frozen = 0
+                   AND NOT EXISTS (SELECT 1 FROM withdrawals WHERE account_id = ? AND status = 'PENDING')
+                   AND NOT EXISTS (SELECT 1 FROM users u WHERE LOWER(u.wallet_address) = LOWER(accounts.wallet_address)
+                                   AND COALESCE(u.admin_suspended, 0) = 1)`,
+                  [margin, accountId, margin, accountId],
+                  function(updateErr) {
+                    if (updateErr) {
+                      return db.run('ROLLBACK', () => callback({ status: 500, error: 'Unable to reserve account balance.' }));
+                    }
+                    if (this.changes !== 1) {
+                      return db.get(
+                        'SELECT admin_suspend_reason FROM users WHERE LOWER(wallet_address) = LOWER(?) AND admin_suspended = 1',
+                        [account.wallet_address],
+                        (suspensionErr, suspendedUser) => db.run('ROLLBACK', () => {
+                          if (suspensionErr) return callback({ status: 500, error: 'Unable to verify user account access.' });
+                          if (suspendedUser) {
+                            return callback({
+                              status: 403,
+                              error: `This user account is suspended by an administrator${suspendedUser.admin_suspend_reason ? `: ${suspendedUser.admin_suspend_reason}` : '.'}`,
+                              user_suspended: true
+                            });
+                          }
+                          callback({ status: 409, error: 'Account balance or status changed. Refresh and retry.' });
+                        })
+                      );
+                    }
+                    db.run(
+                      `INSERT INTO trades (id, account_id, symbol, side, entry_price, size_usd, units, sl, tp, status, leverage)
+                       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'OPEN', ?)`,
+                      [tradeId, accountId, symbol, side, executionPrice, margin, units, stopLoss, takeProfit, leverage],
+                      insertErr => {
+                        if (insertErr) return db.run('ROLLBACK', () => callback({ status: 500, error: 'Unable to create trade.' }));
+                        db.run('COMMIT', commitErr => {
+                          if (commitErr) return callback({ status: 500, error: 'Unable to commit trade.' });
+                          callback(null, { success: true, trade_id: tradeId, execution_price: executionPrice, sl: stopLoss, tp: takeProfit });
+                        });
+                      }
+                    );
+                  }
+                );
+              });
+            });
+          }).catch(priceError => {
+            console.error('Unable to obtain trade execution price:', priceError.message);
+            callback({ status: 503, error: 'Unable to obtain a fresh market price. Please retry.' });
+          });
+        });
+      });
+    }
+  );
+}
+
+app.post('/api/trades/execute', sensitiveLimiter, requireWalletSession, requireUserNotSuspended, (req, res) => {
+  const { account_id: accountId, symbol, side, price, size_usd: sizeUsd, margin_used: marginUsed, leverage, sl, tp } = req.body || {};
+  const slTpMode = req.body?.sl_tp_mode || 'price';
+  const slAmount = req.body?.sl_amount == null ? null : Number(req.body.sl_amount);
+  const tpAmount = req.body?.tp_amount == null ? null : Number(req.body.tp_amount);
+  const market = markets.find(item => item.symbol === symbol);
+  const numericFields = [price, sizeUsd, marginUsed, leverage];
+  if (!accountId || !market || market.enabled === false || !['BUY', 'SELL'].includes(side) ||
+      !['price', 'amount'].includes(slTpMode) ||
+      numericFields.some(value => !Number.isFinite(Number(value)) || Number(value) <= 0) ||
+      !Number.isInteger(Number(leverage)) || Number(leverage) > 50 ||
+      Math.abs(Number(sizeUsd) - Number(marginUsed) * Number(leverage)) > 0.01 ||
+      (sl != null && (!Number.isFinite(Number(sl)) || Number(sl) <= 0)) ||
+      (tp != null && (!Number.isFinite(Number(tp)) || Number(tp) <= 0)) ||
+      (slTpMode === 'amount' && (
+        (slAmount != null && (!Number.isFinite(slAmount) || slAmount <= 0)) ||
+        (tpAmount != null && (!Number.isFinite(tpAmount) || tpAmount <= 0))
+      ))) return res.status(400).json({ error: 'Invalid trade parameters.' });
+  if (copyFlatteningWallets.has(req.walletAddress)) {
+    return res.status(409).json({ error: 'Copy-trading emergency stop is in progress. Wait before opening another trade.' });
+  }
+  const releaseExecution = trackTradeExecution(req.walletAddress, res);
+  const respond = (status, body) => {
+    releaseExecution();
+    return res.status(status).json(body);
+  };
+
+  const order = {
+    symbol, side, size_usd: Number(sizeUsd), margin_used: Number(marginUsed), leverage: Number(leverage),
+    sl_tp_mode: slTpMode, sl: sl == null ? null : Number(sl), tp: tp == null ? null : Number(tp),
+    sl_amount: slAmount, tp_amount: tpAmount
+  };
+  db.get(
+    `SELECT g.id FROM trade_copy_groups g
+     JOIN trade_copy_group_members m ON m.group_id = g.id
+     WHERE m.account_id = ? AND m.role = 'LEADER' AND g.active = 1
+       AND LOWER(g.wallet_address) = LOWER(?)`,
+    [accountId, req.walletAddress],
+    (groupErr, activeGroup) => {
+      if (groupErr) return respond(500, { error: 'Unable to check active copy-trading group.' });
+      executeTradeForAccount(accountId, order, req.walletAddress, (leaderErr, leaderTrade) => {
+        if (leaderErr) return respond(leaderErr.status, { error: leaderErr.error, lock: leaderErr.lock, user_suspended: leaderErr.user_suspended });
+        if (!activeGroup) return respond(200, leaderTrade);
+        db.run(
+          'INSERT INTO trade_copy_leader_trades (leader_trade_id, group_id) VALUES (?, ?)',
+          [leaderTrade.trade_id, activeGroup.id],
+          leaderMarkErr => {
+            if (leaderMarkErr) {
+              console.error('Unable to mark copy-trading leader trade:', leaderMarkErr.message);
+              return respond(200, { ...leaderTrade, copy_error: 'Leader trade opened, but copy tracking could not be saved.' });
+            }
+            db.all(
+              `SELECT m.account_id, m.size_pct FROM trade_copy_group_members m
+               WHERE m.group_id = ? AND m.role = 'FOLLOWER' ORDER BY m.rowid`,
+              [activeGroup.id],
+              (followersErr, followers) => {
+                if (followersErr) {
+                  console.error('Unable to load copy-trading followers:', followersErr.message);
+                  return respond(200, { ...leaderTrade, copy_error: 'Leader trade opened, but follower accounts could not be loaded.' });
+                }
+                const results = [];
+                const copyNext = index => {
+                  if (index >= followers.length) {
+                    return respond(200, { ...leaderTrade, copy_group_id: activeGroup.id, copy_results: results });
+                  }
+                  const follower = followers[index];
+                  const ratio = Number(follower.size_pct) / 100;
+                  const followerMargin = order.margin_used * ratio;
+                  const followerOrder = {
+                    ...order,
+                    margin_used: followerMargin,
+                    size_usd: followerMargin * order.leverage
+                  };
+                  if (order.sl_tp_mode === 'amount') {
+                    followerOrder.sl_amount = order.sl_amount == null ? null : order.sl_amount * ratio;
+                    followerOrder.tp_amount = order.tp_amount == null ? null : order.tp_amount * ratio;
+                  }
+                  if (!Number.isFinite(followerOrder.margin_used) || !Number.isFinite(followerOrder.size_usd) ||
+                      followerOrder.margin_used <= 0 || followerOrder.size_usd <= 0) {
+                    results.push({ account_id: follower.account_id, success: false, error: 'Follower size percentage results in an invalid order size.' });
+                    return copyNext(index + 1);
+                  }
+                  executeTradeForAccount(follower.account_id, followerOrder, req.walletAddress, (followerErr, followerTrade) => {
+                    if (followerErr) {
+                      results.push({ account_id: follower.account_id, success: false, error: followerErr.error });
+                      return copyNext(index + 1);
+                    }
+                    db.run(
+                      `INSERT INTO trade_copy_links (leader_trade_id, follower_trade_id, group_id)
+                       VALUES (?, ?, ?)`,
+                      [leaderTrade.trade_id, followerTrade.trade_id, activeGroup.id],
+                      linkErr => {
+                        if (linkErr) {
+                          console.error('Unable to link copied trade:', linkErr.message);
+                          results.push({
+                            account_id: follower.account_id,
+                            success: false,
+                            trade_id: followerTrade.trade_id,
+                            error: 'Follower trade opened, but its copy link could not be saved.'
+                          });
+                        } else {
+                          results.push({
+                            account_id: follower.account_id,
+                            success: true,
+                            trade_id: followerTrade.trade_id,
+                            execution_price: followerTrade.execution_price
+                          });
+                        }
+                        copyNext(index + 1);
+                      }
+                    );
+                  });
+                };
+                copyNext(0);
+              }
+            );
+          }
+        );
+      });
+    }
+  );
+});
+
+function closeTradeForWallet(tradeId, walletAddress, callback) {
   db.get(
     `SELECT t.*, a.wallet_address, a.current_equity, a.daily_starting_balance,
      a.status AS account_status, a.lock_reason, a.locked_until, a.permanent_lock
      FROM trades t JOIN accounts a ON a.id = t.account_id
      WHERE t.id = ? AND t.status = 'OPEN'`,
-    [trade_id],
+    [tradeId],
     (err, trade) => {
-      if (err) return res.status(500).json({ error: 'Unable to load trade.' });
-      if (!trade) return res.status(404).json({ error: 'Open trade not found.' });
-      if (trade.wallet_address.toLowerCase() !== req.walletAddress) {
-        return res.status(403).json({ error: 'Wallet does not own this trade.' });
+      if (err) return callback({ status: 500, error: 'Unable to load trade.' });
+      if (!trade) return callback({ status: 404, error: 'Open trade not found.' });
+      if (trade.wallet_address.toLowerCase() !== walletAddress) {
+        return callback({ status: 403, error: 'Wallet does not own this trade.' });
       }
 
       refreshRiskBaselines(trade.account_id, (baselineErr, refreshedAccount) => {
-      if (baselineErr) return res.status(500).json({ error: 'Unable to update daily account baselines.' });
+      if (baselineErr) return callback({ status: 500, error: 'Unable to update daily account baselines.' });
       const account = {
         id: trade.account_id,
         current_equity: refreshedAccount.current_equity,
@@ -3529,9 +3972,9 @@ app.post('/api/trades/close', sensitiveLimiter, requireWalletSession, (req, res)
         permanent_lock: refreshedAccount.permanent_lock
       };
       unlockExpiredAccount(account, (unlockErr) => {
-        if (unlockErr) return res.status(500).json({ error: 'Unable to refresh account lock status.' });
+        if (unlockErr) return callback({ status: 500, error: 'Unable to refresh account lock status.' });
         const market = getTradeMarket(trade.symbol);
-        if (!market) return res.status(409).json({ error: 'The trade market is no longer configured.' });
+        if (!market) return callback({ status: 409, error: 'The trade market is no longer configured.' });
         getAuthoritativePrice(market).then((price) => {
         const priceDiff = trade.side === 'BUY' ? price - trade.entry_price : trade.entry_price - price;
         const pnl = priceDiff * trade.units;
@@ -3541,28 +3984,28 @@ app.post('/api/trades/close', sensitiveLimiter, requireWalletSession, (req, res)
           db.run(
             `UPDATE trades SET status = 'CLOSED', pnl = ?, closed_at = CURRENT_TIMESTAMP
              WHERE id = ? AND status = 'OPEN'`,
-            [pnl, trade_id],
+            [pnl, tradeId],
             function(updateErr) {
               if (updateErr || this.changes !== 1) {
-                return db.run('ROLLBACK', () => res.status(409).json({ error: 'Trade was already closed.' }));
+                return db.run('ROLLBACK', () => callback({ status: 409, error: 'Trade was already closed.' }));
               }
               db.run(
                 `UPDATE accounts SET current_balance = current_balance + ?, current_equity = current_equity + ?
                  WHERE id = ?`,
                 [returnedMargin, pnl, trade.account_id],
                 (balanceErr) => {
-                  if (balanceErr) return db.run('ROLLBACK', () => res.status(500).json({ error: 'Unable to settle trade.' }));
+                  if (balanceErr) return db.run('ROLLBACK', () => callback({ status: 500, error: 'Unable to settle trade.' }));
                   loadAccountWithLiveRisk(trade.account_id, (accountErr, account) => {
-                      if (accountErr || !account) return db.run('ROLLBACK', () => res.status(500).json({ error: 'Unable to verify account limits.' }));
+                      if (accountErr || !account) return db.run('ROLLBACK', () => callback({ status: 500, error: 'Unable to verify account limits.' }));
                       const breach = getRiskBreach(account, account);
                       const activeLock = breach || getActiveLock(account);
                       const commit = (lock = null) => db.run('COMMIT', (commitErr) => {
-                        if (commitErr) return res.status(500).json({ error: 'Unable to commit trade settlement.' });
-                        res.json({ success: true, pnl, lock });
+                        if (commitErr) return callback({ status: 500, error: 'Unable to commit trade settlement.' });
+                        callback(null, { success: true, pnl, lock, trade_id: tradeId });
                       });
                       if (!breach) return commit(activeLock);
                       settleBreachWithinTransaction(account, breach, (lockErr, appliedLock) => {
-                        if (lockErr) return db.run('ROLLBACK', () => res.status(500).json({ error: 'Unable to apply account lock.' }));
+                        if (lockErr) return db.run('ROLLBACK', () => callback({ status: 500, error: 'Unable to apply account lock.' }));
                         commit({
                           reason: appliedLock.reason,
                           permanent: appliedLock.permanent,
@@ -3577,12 +4020,288 @@ app.post('/api/trades/close', sensitiveLimiter, requireWalletSession, (req, res)
         });
         }).catch((priceError) => {
           console.error('Unable to obtain trade closing price:', priceError.message);
-          res.status(503).json({ error: 'Unable to obtain a fresh market price. Please retry.' });
+          callback({ status: 503, error: 'Unable to obtain a fresh market price. Please retry.' });
         });
       });
       });
     }
   );
+}
+
+function closeOutstandingCopyTrades(walletAddress, callback) {
+  db.all(
+    `SELECT l.leader_trade_id, l.follower_trade_id, fa.id AS account_id
+     FROM trade_copy_links l
+     JOIN trades lt ON lt.id = l.leader_trade_id AND lt.status = 'CLOSED'
+     JOIN accounts la ON la.id = lt.account_id AND LOWER(la.wallet_address) = LOWER(?)
+     JOIN trades ft ON ft.id = l.follower_trade_id AND ft.status = 'OPEN'
+     JOIN accounts fa ON fa.id = ft.account_id AND LOWER(fa.wallet_address) = LOWER(?)
+     ORDER BY lt.closed_at, ft.created_at`,
+    [walletAddress, walletAddress],
+    (linksErr, links) => {
+      if (linksErr) return callback(linksErr);
+      const results = [];
+      const closeNext = index => {
+        if (index >= links.length) return callback(null, results);
+        const linked = links[index];
+        closeTradeForWallet(linked.follower_trade_id, walletAddress, (closeErr, closedTrade) => {
+          results.push(closeErr?.status === 404
+            ? {
+                leader_trade_id: linked.leader_trade_id,
+                account_id: linked.account_id,
+                trade_id: linked.follower_trade_id,
+                success: true,
+                already_closed: true
+              }
+            : closeErr
+            ? {
+                leader_trade_id: linked.leader_trade_id,
+                account_id: linked.account_id,
+                trade_id: linked.follower_trade_id,
+                success: false,
+                error: closeErr.error
+              }
+            : {
+                leader_trade_id: linked.leader_trade_id,
+                account_id: linked.account_id,
+                trade_id: linked.follower_trade_id,
+                success: true,
+                pnl: closedTrade.pnl
+              });
+          closeNext(index + 1);
+        });
+      };
+      closeNext(0);
+    }
+  );
+}
+
+app.post('/api/trades/close', sensitiveLimiter, requireWalletSession, (req, res) => {
+  const tradeId = req.body?.trade_id;
+  if (typeof tradeId !== 'string' || !tradeId) return res.status(400).json({ error: 'Trade ID is required.' });
+  closeTradeForWallet(tradeId, req.walletAddress, (closeErr, closedTrade) => {
+    if (closeErr) return res.status(closeErr.status).json({ error: closeErr.error });
+    closeOutstandingCopyTrades(req.walletAddress, (linksErr, copyResults) => {
+      if (linksErr) {
+        console.error('Unable to close linked copy trades:', linksErr.message);
+        return res.json({ ...closedTrade, copy_close_error: 'Trade closed, but copied follower positions could not be checked.' });
+      }
+      res.json({
+        ...closedTrade,
+        ...(copyResults.length ? { copy_close_results: copyResults } : {})
+      });
+    });
+  });
+});
+
+app.post('/api/trade-copy/flatten', sensitiveLimiter, requireWalletSession, (req, res) => {
+  const wallet = req.walletAddress;
+  if (copyFlatteningWallets.has(wallet)) {
+    return res.status(409).json({ error: 'A copy-trading emergency stop is already in progress.' });
+  }
+  copyFlatteningWallets.add(wallet);
+  let flattenFinished = false;
+  const releaseFlattening = () => {
+    if (flattenFinished) return;
+    flattenFinished = true;
+    copyFlatteningWallets.delete(wallet);
+  };
+  res.once('finish', releaseFlattening);
+  waitForTradeExecutions(wallet, () => {
+    db.run(
+      'UPDATE trade_copy_groups SET active = 0, updated_at = CURRENT_TIMESTAMP WHERE LOWER(wallet_address) = LOWER(?)',
+      [wallet],
+      disableErr => {
+        if (disableErr) {
+          releaseFlattening();
+          return res.status(500).json({ error: 'Unable to pause copy groups before flattening.' });
+        }
+        db.all(
+    `SELECT DISTINCT t.id AS trade_id, a.id AS account_id
+     FROM trades t
+     JOIN accounts a ON a.id = t.account_id
+     WHERE t.status = 'OPEN' AND LOWER(a.wallet_address) = LOWER(?)
+       AND (EXISTS (SELECT 1 FROM trade_copy_leader_trades l WHERE l.leader_trade_id = t.id)
+            OR EXISTS (SELECT 1 FROM trade_copy_links c WHERE c.follower_trade_id = t.id))
+     ORDER BY a.created_at, t.created_at`,
+    [wallet],
+    (tradesErr, trades) => {
+      if (tradesErr) {
+        releaseFlattening();
+        return res.status(500).json({ error: 'Unable to load open copy trades.' });
+      }
+      const results = [];
+      const closeNext = index => {
+        if (index >= trades.length) {
+          const failed = results.filter(result => !result.success);
+          releaseFlattening();
+          return res.json({
+            success: failed.length === 0,
+            groups_deactivated: true,
+            closed: results.length - failed.length,
+            failed,
+            results
+          });
+        }
+        const trade = trades[index];
+        closeTradeForWallet(trade.trade_id, wallet, (closeErr, closedTrade) => {
+          if (closeErr?.status === 404) {
+            results.push({ account_id: trade.account_id, trade_id: trade.trade_id, success: true, already_closed: true });
+            return closeNext(index + 1);
+          }
+          if (closeErr) {
+            results.push({ account_id: trade.account_id, trade_id: trade.trade_id, success: false, error: closeErr.error });
+            return closeNext(index + 1);
+          }
+          closeOutstandingCopyTrades(wallet, (linksErr, copyResults) => {
+            const failedCopies = (copyResults || []).filter(result => !result.success);
+            results.push({
+              account_id: trade.account_id, trade_id: trade.trade_id, success: true, pnl: closedTrade.pnl,
+              ...(linksErr ? { warning: 'Trade closed, but linked follower positions could not be checked.' } : {}),
+              ...(failedCopies.length ? { warning: 'Some linked follower positions remain open.' } : {})
+            });
+            closeNext(index + 1);
+          });
+        });
+      };
+      closeNext(0);
+    }
+        );
+      }
+    );
+  });
+});
+
+function findEligibleChatAccount(walletAddress, callback) {
+  db.all(
+    'SELECT id FROM accounts WHERE LOWER(wallet_address) = LOWER(?) ORDER BY created_at, id',
+    [walletAddress],
+    (accountsErr, accounts) => {
+      if (accountsErr) return callback(accountsErr);
+      const checkNext = (index) => {
+        if (index >= accounts.length) return callback(null, false);
+        const accountId = accounts[index].id;
+        refreshRiskBaselines(accountId, (baselineErr, account) => {
+          if (baselineErr) return callback(baselineErr);
+          refreshAccountLock(account, (lockErr) => {
+            if (lockErr) return callback(lockErr);
+            const eligible = account.status === 'ACTIVE' &&
+              !account.lock_reason &&
+              Number(account.permanent_lock) !== 1 &&
+              Number(account.admin_frozen) !== 1 &&
+              Number(account.pending_withdrawal_amount || 0) <= 0;
+            if (eligible) return callback(null, true);
+            checkNext(index + 1);
+          });
+        });
+      };
+      checkNext(0);
+    }
+  );
+}
+
+app.get('/api/chat/messages', (req, res) => {
+  const symbol = req.query.symbol;
+  const market = markets.find(item => item.symbol === symbol && item.enabled !== false);
+  if (!market) return res.status(400).json({ error: 'Select a configured market to view its chat.' });
+
+  db.all(
+    `SELECT c.id,
+       COALESCE(NULLIF(u.username, ''), 'Trader') AS username,
+       COALESCE(b.xp, 0) AS battlepass_xp, b.profile_image_url,
+       c.body, c.created_at
+     FROM public_chat_messages c
+     LEFT JOIN users u ON LOWER(u.wallet_address) = LOWER(c.wallet_address)
+     LEFT JOIN battlepass_users b ON LOWER(b.wallet_address) = LOWER(c.wallet_address)
+     WHERE c.market_symbol = ?
+     ORDER BY c.id DESC
+     LIMIT 100`,
+    [market.symbol],
+    (err, messages) => {
+      if (err) return res.status(500).json({ error: 'Unable to load public chat.' });
+      res.json({
+        messages: (messages || []).reverse().map(message => ({
+          ...message,
+          battlepass_level: getBattlePassLevel(message.battlepass_xp)
+        }))
+      });
+    }
+  );
+});
+
+app.post('/api/chat/messages', sensitiveLimiter, requireWalletSession, requireUserNotSuspended, (req, res) => {
+  const { symbol, message: rawMessage } = req.body || {};
+  const market = markets.find(item => item.symbol === symbol && item.enabled !== false);
+  if (!market) return res.status(400).json({ error: 'Select a configured market before posting.' });
+  const moderated = moderateChatMessage(rawMessage);
+  if (!moderated.valid) return res.status(400).json({ error: moderated.error });
+
+  findEligibleChatAccount(req.walletAddress, (eligibilityErr, eligible) => {
+    if (eligibilityErr) {
+      console.error('Unable to verify public chat account eligibility:', eligibilityErr.message);
+      return res.status(503).json({ error: 'Unable to verify account eligibility. Please retry.' });
+    }
+    if (!eligible) {
+      return res.status(403).json({ error: 'Posting requires an active, unlocked trading account with no admin freeze or pending withdrawal.' });
+    }
+
+    db.run(
+      `INSERT INTO public_chat_messages (market_symbol, wallet_address, body)
+       SELECT ?, ?, ?
+       WHERE NOT EXISTS (
+         SELECT 1 FROM public_chat_messages
+         WHERE wallet_address = ?
+           AND datetime(created_at) > datetime('now', ?)
+       )`,
+      [market.symbol, req.walletAddress, moderated.message, req.walletAddress, `-${CHAT_COOLDOWN_MS / 1000} seconds`],
+      function(insertErr) {
+        if (insertErr) {
+          console.error('Unable to save public chat message:', insertErr.message);
+          return res.status(500).json({ error: 'Unable to send your chat message.' });
+        }
+        if (this.changes === 0) {
+          return db.get(
+            `SELECT created_at FROM public_chat_messages
+             WHERE wallet_address = ?
+             ORDER BY id DESC LIMIT 1`,
+            [req.walletAddress],
+            (recentErr, recentMessage) => {
+              if (recentErr) return res.status(500).json({ error: 'Unable to check the chat posting limit.' });
+              const lastSentAt = recentMessage
+                ? Date.parse(`${recentMessage.created_at.replace(' ', 'T')}Z`)
+                : Date.now();
+              const retryAfter = Math.max(1, Math.ceil((lastSentAt + CHAT_COOLDOWN_MS - Date.now()) / 1000));
+              res.set('Retry-After', String(retryAfter));
+              res.status(429).json({
+                error: 'Slow mode is on: you can send one message per minute.',
+                retry_after_seconds: retryAfter
+              });
+            }
+          );
+        }
+        db.get(
+          `SELECT c.id,
+             COALESCE(NULLIF(u.username, ''), 'Trader') AS username,
+             COALESCE(b.xp, 0) AS battlepass_xp, b.profile_image_url,
+             c.body, c.created_at
+           FROM public_chat_messages c
+           LEFT JOIN users u ON LOWER(u.wallet_address) = LOWER(c.wallet_address)
+           LEFT JOIN battlepass_users b ON LOWER(b.wallet_address) = LOWER(c.wallet_address)
+           WHERE c.id = ?`,
+          [this.lastID],
+          (messageErr, savedMessage) => {
+            if (messageErr) return res.status(500).json({ error: 'Your chat message could not be confirmed.' });
+            res.status(201).json({
+              message: savedMessage && {
+                ...savedMessage,
+                battlepass_level: getBattlePassLevel(savedMessage.battlepass_xp)
+              }
+            });
+          }
+        );
+      }
+    );
+  });
 });
 
 app.get('/api/trades/active', requireWalletSession, (req, res) => {

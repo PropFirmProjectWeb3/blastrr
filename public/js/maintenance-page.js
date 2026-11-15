@@ -9,6 +9,12 @@
         })
         .then(data => {
             const page = data.pages?.find(item => item.page_id === pageId);
+            const leaderboardPage = data.pages?.find(item => item.page_id === 'leaderboard');
+            const homeLeaderboardSection = document.getElementById('home-leaderboards');
+            if (homeLeaderboardSection) {
+                homeLeaderboardSection.hidden = Number(page?.is_offline) === 1 ||
+                    Number(leaderboardPage?.is_offline) === 1;
+            }
             if (!Number(page?.is_offline)) return;
 
             const overlay = document.createElement('section');

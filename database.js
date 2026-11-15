@@ -48,6 +48,16 @@ function initTables() {
     )`);
     db.run('CREATE INDEX IF NOT EXISTS idx_user_admin_actions_wallet_created ON user_admin_actions(wallet_address, created_at DESC)');
 
+    db.run(`CREATE TABLE IF NOT EXISTS public_chat_messages (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      market_symbol TEXT NOT NULL,
+      wallet_address TEXT NOT NULL,
+      body TEXT NOT NULL,
+      created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+    )`);
+    db.run('CREATE INDEX IF NOT EXISTS idx_public_chat_market_created ON public_chat_messages(market_symbol, id DESC)');
+    db.run('CREATE INDEX IF NOT EXISTS idx_public_chat_wallet_created ON public_chat_messages(wallet_address, id DESC)');
+
     db.run(`CREATE TABLE IF NOT EXISTS creator_applications (
       wallet_address TEXT PRIMARY KEY,
       x_url TEXT,
@@ -139,6 +149,50 @@ function initTables() {
       FOREIGN KEY(account_id) REFERENCES accounts(id)
     )`);
 
+    db.run(`CREATE TABLE IF NOT EXISTS trade_copy_groups (
+      id TEXT PRIMARY KEY,
+      wallet_address TEXT NOT NULL,
+      name TEXT NOT NULL,
+      active INTEGER NOT NULL DEFAULT 0,
+      created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+    )`);
+    db.run('CREATE INDEX IF NOT EXISTS idx_trade_copy_groups_wallet ON trade_copy_groups(wallet_address, created_at)');
+    db.run(`CREATE TABLE IF NOT EXISTS trade_copy_group_members (
+      group_id TEXT NOT NULL,
+      account_id TEXT NOT NULL PRIMARY KEY,
+      role TEXT NOT NULL CHECK(role IN ('LEADER', 'FOLLOWER')),
+      size_pct REAL NOT NULL DEFAULT 100,
+      FOREIGN KEY(group_id) REFERENCES trade_copy_groups(id) ON DELETE CASCADE
+    )`);
+    db.run('CREATE INDEX IF NOT EXISTS idx_trade_copy_group_members_group ON trade_copy_group_members(group_id, role)');
+    db.run(`CREATE TABLE IF NOT EXISTS trade_copy_leader_trades (
+      leader_trade_id TEXT PRIMARY KEY,
+      group_id TEXT NOT NULL,
+      created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+    )`);
+    db.run('CREATE INDEX IF NOT EXISTS idx_trade_copy_leader_trades_group ON trade_copy_leader_trades(group_id)');
+    db.run(`CREATE TABLE IF NOT EXISTS trade_copy_links (
+      leader_trade_id TEXT NOT NULL,
+      follower_trade_id TEXT NOT NULL UNIQUE,
+      group_id TEXT NOT NULL,
+      created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      PRIMARY KEY(leader_trade_id, follower_trade_id)
+    )`);
+    db.run('CREATE INDEX IF NOT EXISTS idx_trade_copy_links_leader ON trade_copy_links(leader_trade_id)');
+
+    db.run(`CREATE TABLE IF NOT EXISTS account_trade_journals (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      account_id TEXT NOT NULL,
+      day TEXT NOT NULL,
+      body TEXT NOT NULL,
+      created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE(account_id, day),
+      FOREIGN KEY(account_id) REFERENCES accounts(id)
+    )`);
+    db.run('CREATE INDEX IF NOT EXISTS idx_account_trade_journals_account_day ON account_trade_journals(account_id, day)');
+
     db.run(`CREATE TABLE IF NOT EXISTS withdrawals (
       id TEXT PRIMARY KEY,
       account_id TEXT,
@@ -209,7 +263,7 @@ function initTables() {
       updated_by TEXT,
       updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
     )`);
-    for (const pageId of ['home', 'trade', 'accounts', 'leaderboard', 'blastrrpass', 'profile', 'plans', 'faq', 'docs']) {
+    for (const pageId of ['home', 'trade', 'accounts', 'copytrading', 'leaderboard', 'blastrrpass', 'profile', 'plans', 'faq', 'docs']) {
       db.run('INSERT OR IGNORE INTO site_maintenance (page_id) VALUES (?)', [pageId]);
     }
 
@@ -240,7 +294,7 @@ function initTables() {
       title TEXT NOT NULL,
       description TEXT NOT NULL,
       action_url TEXT NOT NULL DEFAULT 'https://x.com/',
-      task_type TEXT NOT NULL DEFAULT 'SOCIAL_CLICK' CHECK(task_type IN ('SOCIAL_CLICK', 'GREEN_DAY', 'GREEN_WEEK', 'TRADE_DAY', 'WITHDRAWAL', 'PLATFORM_REVIEW')),
+      task_type TEXT NOT NULL DEFAULT 'SOCIAL_CLICK' CHECK(task_type IN ('SOCIAL_CLICK', 'GREEN_DAY', 'GREEN_WEEK', 'TRADE_DAY', 'WITHDRAWAL', 'PLATFORM_REVIEW', 'JOURNAL_DAY', 'JOURNAL_WEEK')),
       cadence TEXT NOT NULL DEFAULT 'DAILY' CHECK(cadence IN ('DAILY', 'WEEKLY', 'MONTHLY', 'ONCE')),
       xp_reward INTEGER NOT NULL,
       points_reward INTEGER NOT NULL,
@@ -368,7 +422,7 @@ function initTables() {
       };
       const seedTasks = () => db.run(
         `UPDATE battlepass_tasks SET is_builtin = 1
-         WHERE task_type IN ('GREEN_DAY', 'GREEN_WEEK', 'TRADE_DAY')`,
+         WHERE task_type IN ('GREEN_DAY', 'GREEN_WEEK', 'TRADE_DAY', 'JOURNAL_DAY', 'JOURNAL_WEEK')`,
         markErr => {
           if (markErr) {
             console.error('Unable to mark built-in battle pass tasks', markErr.message);
@@ -379,7 +433,9 @@ function initTables() {
             ['Green week', 'Finish the previous UTC week with positive realized trading profit. Claim after the week closes.', 'GREEN_WEEK', 'WEEKLY', 2500, 250],
             ['Trade each day', 'Close at least one trade during the current UTC day.', 'TRADE_DAY', 'DAILY', 100, 10],
             ['Paid withdrawal', 'Claim after a withdrawal is marked paid during this UTC day.', 'WITHDRAWAL', 'DAILY', 500, 50],
-            ['Review the platform', 'Submit a review through the internal review form to earn this one-time reward automatically.', 'PLATFORM_REVIEW', 'ONCE', 200, 200]
+            ['Review the platform', 'Submit a review through the internal review form to earn this one-time reward automatically.', 'PLATFORM_REVIEW', 'ONCE', 200, 200],
+            ['Journal your day', 'Write or update a journal entry for today to unlock this daily reward.', 'JOURNAL_DAY', 'DAILY', 100, 10],
+            ['Journal five days', 'Write journal entries for five different days this UTC week.', 'JOURNAL_WEEK', 'WEEKLY', 500, 50]
           ];
           const seedNext = index => {
             if (index >= defaults.length) return;
@@ -413,6 +469,7 @@ function initTables() {
             return;
           }
           if (schema.sql.includes("'TRADE_DAY'") && schema.sql.includes("'PLATFORM_REVIEW'") &&
+              schema.sql.includes("'JOURNAL_DAY'") && schema.sql.includes("'JOURNAL_WEEK'") &&
               schema.sql.includes("'ONCE'")) return seedTasks();
           db.run('PRAGMA foreign_keys = OFF', pragmaErr => {
             if (pragmaErr) {
@@ -431,7 +488,7 @@ function initTables() {
                   title TEXT NOT NULL,
                   description TEXT NOT NULL,
                   action_url TEXT NOT NULL DEFAULT 'https://x.com/',
-                  task_type TEXT NOT NULL DEFAULT 'SOCIAL_CLICK' CHECK(task_type IN ('SOCIAL_CLICK', 'GREEN_DAY', 'GREEN_WEEK', 'TRADE_DAY', 'WITHDRAWAL', 'PLATFORM_REVIEW')),
+                  task_type TEXT NOT NULL DEFAULT 'SOCIAL_CLICK' CHECK(task_type IN ('SOCIAL_CLICK', 'GREEN_DAY', 'GREEN_WEEK', 'TRADE_DAY', 'WITHDRAWAL', 'PLATFORM_REVIEW', 'JOURNAL_DAY', 'JOURNAL_WEEK')),
                   cadence TEXT NOT NULL DEFAULT 'DAILY' CHECK(cadence IN ('DAILY', 'WEEKLY', 'MONTHLY', 'ONCE')),
                   xp_reward INTEGER NOT NULL,
                   points_reward INTEGER NOT NULL,

@@ -433,6 +433,46 @@
         .account-profit-chart { display: grid; grid-template-columns: minmax(0, 1fr) minmax(200px, 0.55fr); gap: 14px; align-items: start; }
         .daily-profit-svg { width: 100%; min-height: 150px; overflow: visible; background: rgba(5, 7, 11, 0.45); border-radius: 8px; }
         .daily-profit-svg text { fill: #9ca3af; font: 11px Inter, sans-serif; }
+        .account-trade-calendar-section { display: grid; gap: 12px; margin: 24px 0; }
+        .account-calendar-heading, .account-calendar-month-controls, .account-journal-editor-heading, .account-journal-editor-actions { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+        .account-calendar-heading h3, .account-journal-editor-heading h4 { margin: 0; color: #e5e7eb; font-size: 14px; }
+        .account-calendar-heading p, .account-journal-help { margin: 4px 0 0; color: #9298a1; font-size: 11px; line-height: 1.45; }
+        .account-calendar-month-controls { flex: 0 0 auto; gap: 9px; }
+        .account-calendar-month-controls .btn-wallet { width: 34px; min-height: 34px; padding: 4px; font-size: 18px; line-height: 1; }
+        .account-calendar-month-controls .btn-wallet:disabled { opacity: 0.4; cursor: not-allowed; }
+        .account-calendar-month { min-width: 128px; color: #e5e7eb; font-size: 12px; text-align: center; }
+        .account-trade-calendar { display: grid; gap: 6px; }
+        .account-calendar-weekdays, .account-calendar-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 6px; }
+        .account-calendar-weekdays span { padding: 2px; color: #8993a2; font-size: 10px; font-weight: 700; text-align: center; }
+        .account-calendar-day { display: flex; min-width: 0; min-height: 90px; flex-direction: column; align-items: flex-start; gap: 5px; padding: 8px; border: 1px solid rgba(180, 190, 200, 0.13); border-radius: 9px; background: rgba(10, 12, 14, 0.8); color: #d7dce4; font: inherit; text-align: left; cursor: pointer; transition: border-color 0.15s ease, transform 0.15s ease; }
+        .account-calendar-day:hover:not(:disabled), .account-calendar-day:focus-visible { transform: translateY(-1px); border-color: rgba(203, 213, 225, 0.4); outline: none; }
+        .account-calendar-day:disabled { opacity: 0.35; cursor: not-allowed; }
+        .account-calendar-day.is-winning { border-color: rgba(52, 211, 153, 0.28); background: linear-gradient(145deg, rgba(6, 78, 59, 0.25), rgba(7, 11, 12, 0.85)); }
+        .account-calendar-day.is-losing { border-color: rgba(248, 113, 113, 0.28); background: linear-gradient(145deg, rgba(127, 29, 29, 0.25), rgba(12, 8, 9, 0.85)); }
+        .account-calendar-day.is-flat { border-color: rgba(180, 190, 200, 0.2); background: rgba(25, 28, 31, 0.62); }
+        .account-calendar-day.is-empty { background: rgba(8, 10, 12, 0.62); }
+        .account-calendar-day.has-journal { box-shadow: inset 0 0 0 1px rgba(167, 139, 250, 0.3); }
+        .account-calendar-day-number { color: #aab2bd; font-size: 10px; font-weight: 700; }
+        .account-calendar-profit { max-width: 100%; color: #6ee7b7; font-size: 13px; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+        .account-calendar-day.is-losing .account-calendar-profit { color: #fca5a5; }
+        .account-calendar-day.is-flat .account-calendar-profit { color: #cbd5e1; }
+        .account-calendar-trade-count, .account-calendar-no-trades { color: #a0a8b3; font-size: 9px; line-height: 1.3; }
+        .account-calendar-journal-indicator { margin-top: auto; color: #c4b5fd; font-size: 8px; line-height: 1.2; }
+        .account-calendar-blank { min-height: 1px; }
+        .account-calendar-legend { display: flex; flex-wrap: wrap; gap: 10px 16px; margin: 2px 0 0; color: #9298a1; font-size: 10px; }
+        .account-calendar-legend span { display: inline-flex; align-items: center; gap: 5px; }
+        .account-calendar-legend i { width: 8px; height: 8px; border-radius: 3px; background: #282b30; }
+        .account-calendar-legend i.is-winning { background: #16835d; }
+        .account-calendar-legend i.is-losing { background: #a33a3a; }
+        .account-calendar-legend i.is-flat { background: #737b85; }
+        .account-journal-editor { display: grid; gap: 9px; padding: 13px; border: 1px solid rgba(167, 139, 250, 0.2); border-radius: 10px; background: rgba(7, 8, 11, 0.75); }
+        .account-journal-editor[hidden] { display: none; }
+        .account-journal-editor-heading span { color: #8993a2; font-size: 10px; }
+        .account-journal-editor textarea { width: 100%; min-height: 120px; padding: 10px 12px; border: 1px solid rgba(180, 190, 200, 0.16); border-radius: 8px; background: #080a0b; color: #e5e7eb; font: inherit; font-size: 12px; line-height: 1.5; resize: vertical; }
+        .account-journal-editor textarea:focus { border-color: rgba(167, 139, 250, 0.55); outline: none; }
+        .account-journal-editor-actions { justify-content: flex-end; }
+        .account-journal-status { flex: 1; min-height: 18px; color: #a5b0c0; font-size: 11px; }
+        .account-journal-help { margin: 0; font-size: 10px; }
         .profit-zero-line { stroke: rgba(156, 163, 175, 0.35); stroke-dasharray: 4 4; }
         .profit-line { fill: none; stroke: #c084fc; stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; }
         .daily-profit-table { min-width: 0; font-size: 12px; }
@@ -556,6 +596,34 @@
         .live-market-chart-status { position: absolute; top: 12px; left: 12px; z-index: 1; color: #9ca3af; font-size: 12px; pointer-events: none; }
         .live-market-chart-attribution { position: absolute; bottom: 6px; left: 8px; z-index: 1; color: #9ca3af; font-size: 10px; opacity: 0.72; text-decoration: none; }
         .live-market-chart-attribution:hover { opacity: 1; }
+        .market-chat-card { display: grid; gap: 12px; }
+        .market-chat-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+        .market-chat-heading .card-title { margin: 0; }
+        .market-chat-room { margin: 4px 0 0; color: #9298a1; font-size: 11px; }
+        .market-chat-public-label { padding: 4px 7px; border: 1px solid rgba(52, 211, 153, 0.24); border-radius: 999px; color: #6ee7b7; font-size: 9px; font-weight: 750; letter-spacing: 0.08em; }
+        .market-chat-popout { margin-left: auto; padding: 5px 8px; border: 1px solid rgba(180, 190, 200, 0.14); border-radius: 7px; background: rgba(255, 255, 255, 0.025); color: #c4b5fd; cursor: pointer; font: inherit; font-size: 10px; white-space: nowrap; }
+        .market-chat-popout:hover { border-color: rgba(167, 139, 250, 0.38); color: #fff; }
+        .market-chat-messages { display: flex; min-height: 180px; max-height: 300px; flex-direction: column; gap: 8px; padding: 10px; overflow-y: auto; border: 1px solid rgba(180, 190, 200, 0.1); border-radius: 8px; background: rgba(5, 7, 9, 0.6); }
+        .market-chat-message { display: grid; grid-template-columns: minmax(0, auto) 1fr; align-items: baseline; gap: 3px 8px; overflow-wrap: anywhere; }
+        .market-chat-author-wrap { position: relative; width: fit-content; }
+        .market-chat-message-author { position: relative; padding: 0; border: 0; background: none; color: #c4b5fd; cursor: pointer; font: inherit; font-size: 11px; font-weight: 700; }
+        .market-chat-player-card { position: absolute; z-index: 4; bottom: calc(100% + 7px); left: 0; display: flex; width: 230px; align-items: center; gap: 10px; padding: 10px; visibility: hidden; opacity: 0; transform: translateY(3px); border: 1px solid rgba(167, 139, 250, 0.28); border-radius: 9px; background: #111214; box-shadow: 0 12px 30px rgba(0, 0, 0, 0.55); transition: opacity 0.12s ease, transform 0.12s ease, visibility 0.12s; text-align: left; pointer-events: none; }
+        .market-chat-author-wrap:hover .market-chat-player-card, .market-chat-message-author:focus-visible .market-chat-player-card, .market-chat-author-wrap:focus-within .market-chat-player-card { visibility: visible; opacity: 1; transform: translateY(0); }
+        .market-chat-player-card > img, .market-chat-player-avatar-fallback { display: grid; width: 38px; height: 38px; flex: 0 0 38px; place-items: center; border: 1px solid rgba(196, 181, 253, 0.25); border-radius: 50%; background: #211532; color: #ddd6fe; font-size: 15px; font-weight: 800; object-fit: cover; }
+        .market-chat-player-details { display: grid; gap: 3px; min-width: 0; }
+        .market-chat-player-details strong { overflow: hidden; color: #f3f4f6; font-size: 11px; text-overflow: ellipsis; }
+        .market-chat-player-details small, .market-chat-player-rank { color: #a5aab3; font-size: 9px; }
+        .market-chat-player-rank { color: #c4b5fd; }
+        .market-chat-message-time { color: #737b85; font-size: 10px; }
+        .market-chat-message-body { grid-column: 1 / -1; color: #d7dce4; font-size: 12px; line-height: 1.45; white-space: pre-wrap; overflow-wrap: anywhere; }
+        .market-chat-empty, .market-chat-status, .market-chat-note { margin: 0; color: #9298a1; font-size: 11px; line-height: 1.45; }
+        .market-chat-status.is-error { color: #fca5a5; }
+        .market-chat-form { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; }
+        .market-chat-form input { min-width: 0; min-height: 38px; padding: 8px 10px; border: 1px solid rgba(180, 190, 200, 0.16); border-radius: 7px; background: #080a0b; color: #e5e7eb; font: inherit; font-size: 12px; }
+        .market-chat-form input:focus { border-color: rgba(167, 139, 250, 0.55); outline: none; }
+        .market-chat-form button { min-height: 38px; padding: 7px 13px; }
+        .market-chat-form button:disabled, .market-chat-form input:disabled { opacity: 0.5; cursor: not-allowed; }
+        .market-chat-note { font-size: 10px; }
         .order-card { border-color: rgba(167, 139, 250, 0.24); }
         .order-card-title { color: #ddd6fe; }
         .order-card .form-group { margin-bottom: 12px; }
@@ -691,6 +759,17 @@
             .account-card-header, .account-card-actions { align-items: flex-start; flex-direction: column; }
             .account-card-actions { width: 100%; }
             .account-profit-chart { grid-template-columns: 1fr; }
+            .account-calendar-heading { align-items: flex-start; flex-direction: column; }
+            .account-calendar-month-controls { width: 100%; justify-content: space-between; }
+            .account-calendar-weekdays, .account-calendar-grid { gap: 3px; }
+            .account-calendar-weekdays span { font-size: 9px; }
+            .account-calendar-day { min-height: 69px; gap: 4px; padding: 5px 4px; border-radius: 7px; }
+            .account-calendar-profit { font-size: 10px; line-height: 1.2; }
+            .account-calendar-trade-count, .account-calendar-no-trades { font-size: 8px; }
+            .account-calendar-journal-indicator { font-size: 7px; }
+            .account-calendar-legend { gap: 8px; font-size: 9px; }
+            .account-journal-editor { padding: 10px; }
+            .account-journal-editor-heading { align-items: flex-start; flex-direction: column; gap: 3px; }
         }
 
         [hidden] { display: none !important; }
@@ -738,8 +817,8 @@
         .leaderboard-toolbar input { width: min(100%, 380px); min-height: 42px; padding: 10px 13px; border: 1px solid rgba(203, 213, 225, 0.13); border-radius: 9px; background: rgba(4, 3, 7, 0.82); color: #f3f4f6; font: inherit; font-size: 13px; }
         .leaderboard-toolbar input:focus { border-color: rgba(167, 139, 250, 0.56); outline: none; box-shadow: 0 0 0 3px rgba(167, 139, 250, 0.12); }
         .leaderboard-my-rank { padding: 8px 11px; border: 1px solid rgba(167, 139, 250, 0.24); border-radius: 999px; background: rgba(88, 42, 133, 0.15); color: #d8b4fe; font-size: 12px; font-weight: 700; }
-        .leaderboard-card-list { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 390px), 1fr)); gap: 10px; }
-        .leaderboard-card { display: grid; min-width: 0; gap: 13px; padding: 14px; }
+        .leaderboard-card-list { display: grid; grid-template-columns: minmax(0, 1fr); gap: 8px; }
+        .leaderboard-card { display: grid; grid-template-columns: minmax(220px, 0.9fr) minmax(0, 1.4fr) auto; align-items: center; min-width: 0; gap: 14px; padding: 10px 14px; }
         .leaderboard-card.is-current-user { border-color: rgba(52, 211, 153, 0.3); }
         .leaderboard-card-top { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-width: 0; }
         .leaderboard-trader { gap: 9px; min-width: 0; }
@@ -898,7 +977,15 @@
             .leaderboard-section-heading { align-items: stretch; }
             .leaderboard-mode-tabs { justify-content: flex-start; }
             .leaderboard-mode-tabs .nav-tab { flex: 1 1 auto; }
-            .leaderboard-card-top { align-items: flex-start; }
+            .copy-trading-toolbar, .copy-group-heading { align-items: stretch; flex-direction: column; }
+            .copy-trading-toolbar-actions, .copy-group-actions { justify-content: stretch; }
+            .copy-trading-toolbar-actions > button, .copy-group-actions > button { flex: 1 1 130px; }
+            .copy-account-card { align-items: flex-start; }
+            .copy-wizard-heading { align-items: flex-start; }
+            .copy-follower-choice { align-items: flex-start; flex-wrap: wrap; }
+            .copy-size-input { width: 100%; }
+            .leaderboard-card { grid-template-columns: minmax(0, 1fr); gap: 10px; padding: 12px; }
+            .leaderboard-card-top { align-items: center; }
             .leaderboard-card-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
             .leaderboard-card-stats > div:first-child { grid-column: 1 / -1; }
             .leaderboard-card-actions > button { flex: 1 1 auto; }
@@ -1081,7 +1168,65 @@
         .battlepass-task-status { margin-right: auto; color: #9ba6b5; font-size: 10px; }
         .battlepass-task-status.is-claimed { color: #7f8a98; }
         .battlepass-task-status.is-ready { color: #34d399; }
+        .battlepass-journal-progress { width: 100%; height: 6px; margin: 3px 0; overflow: hidden; border-radius: 999px; background: rgba(148, 163, 184, 0.13); }
+        .battlepass-journal-progress i { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, #34d399, #a78bfa); transition: width 0.2s ease; }
         .battlepass-task-action-row { min-width: 0; max-width: 100%; }
+        .copy-trading-toolbar, .copy-trading-toolbar-actions, .copy-group-heading, .copy-group-actions,
+        .copy-wizard-heading, .copy-wizard-actions { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+        .copy-trading-toolbar { margin-bottom: 16px; }
+        .copy-trading-warning, .copy-wizard-help { margin: 0; color: #a5b0c0; font-size: 12px; line-height: 1.55; }
+        .copy-trading-warning { max-width: 580px; }
+        .copy-trading-toolbar-actions { justify-content: flex-end; }
+        .copy-accounts-overview { display: grid; gap: 10px; margin-bottom: 18px; }
+        .copy-accounts-overview h2 { margin: 0; color: #e5e7eb; font-size: 15px; }
+        .copy-account-overview-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 9px; }
+        .copy-overview-account { display: grid; gap: 8px; min-width: 0; padding: 12px; border: 1px solid var(--surface-border); border-radius: 10px; background: rgba(5, 7, 11, 0.38); }
+        .copy-overview-account > div { display: grid; gap: 4px; min-width: 0; }
+        .copy-overview-account strong { color: #e5e7eb; font-size: 12px; }
+        .copy-overview-account code { color: #9ca3af; font-size: 10px; overflow-wrap: anywhere; }
+        .copy-overview-balance, .copy-overview-status, .copy-overview-assignment { color: #9ca3af; font-size: 10px; }
+        .copy-overview-balance strong { color: #d1d5db; font-variant-numeric: tabular-nums; }
+        .copy-overview-assignment { color: #c4b5fd; }
+        .copy-trading-flatten, .copy-group-delete {
+            min-height: 38px; padding: 0 14px; border: 1px solid rgba(248, 113, 113, 0.48);
+            border-radius: 9px; background: rgba(127, 29, 29, 0.24); color: #fecaca;
+            cursor: pointer; font: inherit; font-size: 12px; font-weight: 700;
+        }
+        .copy-trading-flatten:hover:not(:disabled), .copy-group-delete:hover { background: rgba(153, 27, 27, 0.4); }
+        .copy-trading-flatten:disabled { cursor: wait; opacity: 0.65; }
+        .copy-group-list { display: grid; gap: 14px; }
+        .copy-group-card { display: grid; gap: 16px; }
+        .copy-group-heading h2, .copy-wizard-heading h2 { margin: 4px 0 0; color: #f3f4f6; font-size: 18px; }
+        .copy-group-toggle { display: inline-flex; align-items: center; gap: 8px; color: #d1d5db; font-size: 12px; font-weight: 700; }
+        .copy-group-toggle input { width: 18px; height: 18px; accent-color: #34d399; }
+        .copy-group-members { display: grid; gap: 8px; }
+        .copy-account-card { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px; border: 1px solid var(--surface-border); border-radius: 10px; background: rgba(5, 7, 11, 0.38); }
+        .copy-account-card > div:first-child, .copy-account-balance { display: grid; gap: 4px; min-width: 0; }
+        .copy-account-card strong { overflow-wrap: anywhere; color: #e5e7eb; font-size: 12px; }
+        .copy-account-card small, .copy-account-balance span { color: #9ca3af; font-size: 10px; }
+        .copy-account-role { color: #c4b5fd; font-size: 9px; font-weight: 800; letter-spacing: 0.1em; }
+        .copy-account-balance { text-align: right; white-space: nowrap; }
+        .copy-account-balance strong { color: #d1d5db; font-variant-numeric: tabular-nums; }
+        .copy-group-actions { justify-content: flex-start; }
+        .copy-group-wizard { display: grid; gap: 16px; margin-bottom: 18px; }
+        .copy-wizard-heading { align-items: flex-start; }
+        .copy-wizard-account-list { display: grid; gap: 8px; margin-top: 12px; }
+        .copy-wizard-account { display: flex; align-items: center; gap: 12px; min-width: 0; padding: 12px; border: 1px solid var(--surface-border); border-radius: 10px; background: rgba(5, 7, 11, 0.38); }
+        .copy-wizard-account > label:first-child, .copy-wizard-account:not(.copy-follower-choice) { display: flex; align-items: center; gap: 12px; }
+        .copy-wizard-account input[type="radio"], .copy-wizard-account input[type="checkbox"] { flex: 0 0 auto; accent-color: #a78bfa; }
+        .copy-wizard-account span { display: grid; gap: 4px; min-width: 0; }
+        .copy-wizard-account strong { overflow-wrap: anywhere; color: #e5e7eb; font-size: 12px; }
+        .copy-wizard-account small { color: #9ca3af; font-size: 10px; }
+        .copy-follower-choice { justify-content: space-between; }
+        .copy-follower-choice > label:first-child { flex: 1; }
+        .copy-size-input { display: grid; gap: 5px; width: min(120px, 30%); color: #a5b0c0; font-size: 10px; }
+        .copy-size-input input, .copy-wizard-review input[type="text"] { width: 100%; min-width: 0; padding: 9px; border: 1px solid var(--surface-border); border-radius: 7px; background: #100b19; color: #f3f4f6; }
+        .copy-wizard-review { display: grid; gap: 10px; }
+        .copy-wizard-review p { margin: 0; color: #d1d5db; font-size: 12px; }
+        .copy-wizard-review ul { display: grid; gap: 6px; margin: 0; padding-left: 20px; color: #cbd5e1; font-size: 12px; }
+        .copy-wizard-review .form-group { margin: 8px 0; }
+        .copy-wizard-actions { justify-content: flex-end; }
+        .copy-trading-status { min-height: 20px; }
         .battlepass-task-action, .battlepass-task-action-row > button {
             display: inline-flex;
             align-items: center;

@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Market Chat · Blastrr</title>
+    <link rel="icon" type="image/png" href="/favicon.png">
+    <link rel="stylesheet" href="/css/chat.css">
+</head>
+<body>
+    <main class="chat-page">
+        <header class="chat-header">
+            <a class="chat-brand" href="/app.html" target="_blank" rel="noopener">
+                <img src="/favicon.png" alt="">
+                <span>BLASTRR <small>MARKET CHAT</small></span>
+            </a>
+            <label class="chat-market-select">
+                <span>Market</span>
+                <select id="chat-market" aria-label="Select chat market"></select>
+            </label>
+            <span class="chat-public-tag">PUBLIC · TEXT ONLY</span>
+        </header>
+        <section class="chat-room" aria-label="Market conversation">
+            <div class="chat-room-heading">
+                <div><span class="chat-eyebrow">LIVE ROOM</span><h1 id="chat-room-title">Market chat</h1></div>
+                <a class="chat-return-link" href="/app.html" target="_blank" rel="noopener">Open trading terminal ↗</a>
+            </div>
+            <div id="chat-messages" class="chat-messages" role="log" aria-live="polite" aria-relevant="additions text">
+                <p class="chat-empty">Loading messages…</p>
+            </div>
+            <p id="chat-status" class="chat-status" role="status" aria-live="polite">Anyone can read. Sign in from the trading terminal to post. Slow mode: one message per minute.</p>
+            <form id="chat-form" class="chat-form">
+                <label class="sr-only" for="chat-input">Write a public market chat message</label>
+                <input id="chat-input" type="text" maxlength="500" autocomplete="off" placeholder="Say something…" disabled>
+                <button id="chat-send" type="submit" disabled>Send</button>
+            </form>
+            <p class="chat-guidance">Posting requires an active, unlocked trading account. Links, profanity, and scam messages are blocked.</p>
+        </section>
+    </main>
+    <script src="/js/chat.js" defer></script>
+</body>
+</html>

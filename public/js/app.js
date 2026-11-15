@@ -26,15 +26,26 @@ let connectedWallet = null;
         let marketTickerReconnectTimer = null;
         let marketTickerReconnectAttempts = 0;
         let marketTickerItems = new Map();
+        let marketChatSymbol = null;
+        let marketChatGeneration = 0;
+        let marketChatRefreshInterval = null;
+        let marketChatFeedback = '';
+        let marketChatFeedbackIsError = false;
+        let marketChatSending = false;
+        const marketChatWindows = new Map();
         let autoSyncInterval = null;
         let currentLivePrice = 0;
         let displayedOpenTrades = [];
+        const accountCalendarMonths = new Map();
+        const accountJournalDays = new Map();
+        const accountJournalDrafts = new Map();
         let userHasEditedPrice = false;
         let availableCommissionBalance = 0;
         let currentLeaderboardMode = 'DAILY';
-        let rawLeaderboardData = [];
         let currentUserProfile = null;
         let adminUserSearchQuery = '';
+        let tradeCopyGroups = [];
+        let tradeCopyWizard = null;
         let hidePermanentlyLockedAccounts = true;
         let walletSessionToken = null;
         let walletSessionOwner = null;
@@ -58,6 +69,7 @@ let connectedWallet = null;
         const maintenanceViewPages = {
             tradeView: 'trade',
             accountsView: 'accounts',
+            copyTradingView: 'copytrading',
             leaderboardView: 'leaderboard',
             blastrrPassView: 'blastrrpass',
             profileView: 'profile',
@@ -67,6 +79,7 @@ let connectedWallet = null;
             home: 'Homepage',
             trade: 'Trading Terminal',
             accounts: 'My Accounts',
+            copytrading: 'Copy Trading',
             leaderboard: 'Leaderboard',
             blastrrpass: 'BlastrrPass',
             profile: 'Profile & Promos',
@@ -183,6 +196,23 @@ let connectedWallet = null;
             document.getElementById('disclaimer-simulated-funds')?.addEventListener('change', updateDisclaimerContinueState);
             document.getElementById('disclaimer-continue-button')?.addEventListener('click', acceptDisclaimer);
             document.getElementById('disclaimer-cancel-purchase')?.addEventListener('click', () => resolvePurchaseDisclaimer(false));
+            document.getElementById('market-chat-form')?.addEventListener('submit', postMarketChatMessage);
+            document.getElementById('market-chat-popout')?.addEventListener('click', openMarketChatInNewTab);
+            window.addEventListener('message', event => {
+                if (event.origin !== window.location.origin || event.data?.type !== 'BLASTRR_CHAT_READY') return;
+                const child = marketChatWindows.get(event.source);
+                if (!child || child.closed) return;
+                child.postMessage({
+                    type: 'BLASTRR_CHAT_SESSION',
+                    wallet: connectedWallet,
+                    token: walletSessionToken,
+                    expiresAt: walletSessionExpiresAt
+                }, window.location.origin);
+                marketChatWindows.delete(event.source);
+            });
+            marketChatRefreshInterval = setInterval(() => {
+                if (!document.hidden && marketChatSymbol) loadMarketChat(marketChatSymbol);
+            }, 10000);
             document.getElementById('wallet-menu-trigger')?.addEventListener('click', toggleWalletMenu);
             document.addEventListener('click', event => {
                 if (!event.target.closest('#wallet-menu')) closeWalletMenu();
@@ -456,6 +486,143 @@ let connectedWallet = null;
             resetChartMarketStats(opt.textContent);
             initLiveMarketChart(opt.dataset.pair, opt.dataset.source);
             startPricePolling(opt.dataset.pair, opt.dataset.type, opt.dataset.source);
+            startMarketChat(tvSymbol, opt.textContent);
+        }
+
+        function startMarketChat(symbol, label) {
+            marketChatSymbol = symbol;
+            marketChatGeneration++;
+            const room = document.getElementById('market-chat-room');
+            if (room) room.textContent = `${label || symbol} · public room`;
+            marketChatFeedback = '';
+            marketChatFeedbackIsError = false;
+            updateMarketChatControls();
+            loadMarketChat(symbol);
+        }
+
+        async function openMarketChatInNewTab() {
+            if (!marketChatSymbol) return;
+            for (const chatWindow of marketChatWindows.keys()) {
+                if (chatWindow.closed) marketChatWindows.delete(chatWindow);
+            }
+            const chatWindow = window.open(`/chat.html?symbol=${encodeURIComponent(marketChatSymbol)}`, '_blank');
+            if (!chatWindow) {
+                marketChatFeedback = 'Allow pop-ups to open chat in a new tab.';
+                marketChatFeedbackIsError = true;
+                updateMarketChatControls();
+                return;
+            }
+            marketChatWindows.set(chatWindow, true);
+            try {
+                await ensureWalletSession();
+                setTimeout(() => marketChatWindows.delete(chatWindow), 15000);
+            } catch (error) {
+                marketChatWindows.delete(chatWindow);
+                chatWindow.close();
+                marketChatFeedback = error.message || 'Unable to authorize the chat tab.';
+                marketChatFeedbackIsError = true;
+                updateMarketChatControls();
+            }
+        }
+
+        function updateMarketChatControls() {
+            const input = document.getElementById('market-chat-input');
+            const send = document.getElementById('market-chat-send');
+            const status = document.getElementById('market-chat-status');
+            if (!input || !send || !status) return;
+            const hasEligibleAccount = userAccounts.some(isSelectableTradingAccount);
+            const canPost = dashboardAuthenticated && Boolean(connectedWallet) && hasEligibleAccount;
+            input.disabled = !canPost;
+            send.disabled = !canPost || marketChatSending;
+            status.classList.toggle('is-error', marketChatFeedbackIsError);
+            status.textContent = marketChatFeedback || (!dashboardAuthenticated
+                ? 'Sign in to post. Anyone can read. Slow mode: one message per minute.'
+                : !hasEligibleAccount
+                    ? 'Posting requires an active, unlocked trading account. DLL/MLL-locked or admin-frozen accounts cannot post.'
+                    : 'Text only. Slow mode: one message per minute. Links and moderated content are blocked.');
+        }
+
+        async function loadMarketChat(symbol) {
+            const generation = marketChatGeneration;
+            const messagesElement = document.getElementById('market-chat-messages');
+            if (!symbol || !messagesElement) return;
+            try {
+                const response = await fetch(`/api/chat/messages?symbol=${encodeURIComponent(symbol)}`);
+                const data = await response.json();
+                if (!response.ok) throw new Error(data.error || 'Unable to load public chat.');
+                if (generation !== marketChatGeneration || symbol !== marketChatSymbol) return;
+                if (marketChatFeedback === 'Public chat is temporarily unavailable.') {
+                    marketChatFeedback = '';
+                    marketChatFeedbackIsError = false;
+                    updateMarketChatControls();
+                }
+                const wasNearBottom = messagesElement.scrollHeight - messagesElement.scrollTop - messagesElement.clientHeight < 48;
+                const messages = Array.isArray(data.messages) ? data.messages : [];
+                messagesElement.innerHTML = messages.length
+                    ? messages.map(message => {
+                        const timestamp = new Date(`${String(message.created_at || '').replace(' ', 'T')}Z`);
+                        const time = Number.isNaN(timestamp.getTime()) ? '' : timestamp.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+                        const username = message.username || message.display_name || 'Trader';
+                        const avatar = message.profile_image_url
+                            ? `<img src="${escapeHTML(message.profile_image_url)}" alt="" loading="lazy" referrerpolicy="no-referrer">`
+                            : `<span class="market-chat-player-avatar-fallback">${escapeHTML(username.slice(0, 1).toUpperCase())}</span>`;
+                        return `<article class="market-chat-message">
+                            <span class="market-chat-author-wrap">
+                                <button class="market-chat-message-author" type="button" aria-label="View ${escapeHTML(username)} player card">
+                                    ${escapeHTML(username)}
+                                    <span class="market-chat-player-card" role="tooltip">
+                                        ${avatar}
+                                        <span class="market-chat-player-details"><strong>${escapeHTML(username)}</strong><small>Level ${Number(message.battlepass_level) || 0} · ${Number(message.battlepass_xp || 0).toLocaleString()} XP</small><span class="market-chat-player-rank">BlastrrPass player</span></span>
+                                    </span>
+                                </button>
+                            </span>
+                            <time class="market-chat-message-time">${escapeHTML(time)}</time>
+                            <span class="market-chat-message-body">${escapeHTML(message.body)}</span>
+                        </article>`;
+                    }).join('')
+                    : '<p class="market-chat-empty">No messages yet. Start the conversation.</p>';
+                if (wasNearBottom || messages.length <= 1) messagesElement.scrollTop = messagesElement.scrollHeight;
+            } catch (error) {
+                if (generation === marketChatGeneration) {
+                    marketChatFeedback = 'Public chat is temporarily unavailable.';
+                    marketChatFeedbackIsError = true;
+                    updateMarketChatControls();
+                }
+            }
+        }
+
+        async function postMarketChatMessage(event) {
+            event.preventDefault();
+            const input = document.getElementById('market-chat-input');
+            if (!input || !marketChatSymbol || !dashboardAuthenticated || !connectedWallet) return;
+            const message = input.value.trim();
+            if (!message) return;
+            const submittedSymbol = marketChatSymbol;
+            marketChatSending = true;
+            marketChatFeedback = 'Sending…';
+            marketChatFeedbackIsError = false;
+            updateMarketChatControls();
+            try {
+                const response = await walletFetch('/api/chat/messages', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ symbol: marketChatSymbol, message })
+                });
+                const data = await response.json();
+                if (!response.ok) throw new Error(data.error || 'Unable to send your message.');
+                if (marketChatSymbol === submittedSymbol && input.value.trim() === message) {
+                    input.value = '';
+                    marketChatFeedback = 'Message sent.';
+                    marketChatFeedbackIsError = false;
+                    await loadMarketChat(submittedSymbol);
+                }
+            } catch (error) {
+                marketChatFeedback = error.message || 'Unable to send your message.';
+                marketChatFeedbackIsError = true;
+            } finally {
+                marketChatSending = false;
+                updateMarketChatControls();
+            }
         }
 
         function resetChartMarketStats(marketLabel) {
@@ -795,6 +962,7 @@ let connectedWallet = null;
             }
             else if (viewId === 'leaderboardView') loadLeaderboard(currentLeaderboardMode);
             else if (viewId === 'accountsView' && connectedWallet) loadUserAccounts(connectedWallet);
+            else if (viewId === 'copyTradingView' && connectedWallet) loadCopyTradingPage();
             else if (viewId === 'blastrrPassView' && connectedWallet) loadBattlePass();
         }
 
@@ -1036,8 +1204,11 @@ let connectedWallet = null;
                     const action = task.task_type === 'SOCIAL_CLICK' && url
                         ? `<a class="battlepass-task-action" href="${safeUrl}" target="_blank" rel="noopener noreferrer" data-task-link="${Number(task.id)}">${task.claimed ? 'Open task again' : 'Open task &amp; earn reward'}</a>`
                         : '';
+                    const isJournalTask = task.task_type === 'JOURNAL_DAY' || task.task_type === 'JOURNAL_WEEK';
                     const state = task.task_type === 'PLATFORM_REVIEW'
                         ? task.claimed ? 'Earned once' : 'Automatically applied when you submit a review'
+                        : isJournalTask && !task.claimed && !task.eligible
+                            ? `${Number(task.progress || 0)} of ${Number(task.progress_target || (task.task_type === 'JOURNAL_DAY' ? 1 : 5))} journal days`
                         : task.claimed ? 'Earned this period' : task.eligible ? 'Reward ready to claim' : 'Complete the activity to unlock';
                     const claimButton = !['SOCIAL_CLICK', 'PLATFORM_REVIEW'].includes(task.task_type) && !task.claimed
                         ? `<button class="btn-wallet" type="button" data-task-claim="${Number(task.id)}" ${task.eligible ? '' : 'disabled'}>${task.eligible ? 'Claim reward' : 'Not ready'}</button>`
@@ -1048,10 +1219,13 @@ let connectedWallet = null;
                     const embed = xPostUrl
                         ? `<details class="battlepass-x-preview"><summary>Preview X post</summary><blockquote class="twitter-tweet"><a href="${xPostUrl}" target="_blank" rel="noopener noreferrer">View post on X</a></blockquote></details>`
                         : '';
+                    const journalProgress = isJournalTask
+                        ? `<div class="battlepass-journal-progress" role="progressbar" aria-label="Journal task progress" aria-valuemin="0" aria-valuemax="${Number(task.progress_target || (task.task_type === 'JOURNAL_DAY' ? 1 : 5))}" aria-valuenow="${Number(task.progress || 0)}"><i style="width:${Math.min(100, Number(task.progress || 0) / Number(task.progress_target || 1) * 100)}%"></i></div>`
+                        : '';
                     return `<article class="battlepass-task" data-battlepass-task="${Number(task.id)}">
                         <div class="battlepass-task-copy"><div class="battlepass-task-heading"><strong>${escapeHTML(task.title)}</strong>
                         <span class="battlepass-task-awards"><span><i class="battlepass-gem" aria-hidden="true">◆</i> +${Number(task.points_reward)}</span><span class="battlepass-award-divider"></span><span><i class="battlepass-xp-mark" aria-hidden="true">XP</i> +${Number(task.xp_reward).toLocaleString()}</span></span></div>
-                        <p>${escapeHTML(task.description)}</p><div class="battlepass-task-action-row"><span class="battlepass-task-status ${task.claimed ? 'is-claimed' : task.eligible ? 'is-ready' : ''}">${state}</span>${embed}${action}${reviewButton}${claimButton}</div></div></article>`;
+                        <p>${escapeHTML(task.description)}</p>${journalProgress}<div class="battlepass-task-action-row"><span class="battlepass-task-status ${task.claimed ? 'is-claimed' : task.eligible ? 'is-ready' : ''}">${state}</span>${embed}${action}${reviewButton}${claimButton}</div></div></article>`;
                 }).join('');
                 container.onclick = event => {
                     const button = event.target.closest('[data-task-claim]');
@@ -1476,8 +1650,7 @@ let connectedWallet = null;
             try {
                 const res = await fetch(`/api/leaderboard?mode=${mode}`);
                 const data = await res.json();
-                rawLeaderboardData = data.leaderboard || [];
-                renderLeaderboardTable(rawLeaderboardData);
+                renderLeaderboardTable(data.leaderboard || []);
             } catch (err) { alert(err.message || 'Unable to execute trade.'); }
         }
 
@@ -1558,18 +1731,6 @@ let connectedWallet = null;
             };
         }
 
-        function filterLeaderboardTable() {
-            const query = document.getElementById('lb-search-input')?.value.toLowerCase().trim() || '';
-            if (!query) {
-                renderLeaderboardTable(rawLeaderboardData);
-                return;
-            }
-            const filtered = rawLeaderboardData.filter(row => 
-                row.username.toLowerCase().includes(query) || row.discount_code.toLowerCase().includes(query)
-            );
-            renderLeaderboardTable(filtered);
-        }
-
         function shareRankOnX(rank, username, metricValue) {
             const modeText = currentLeaderboardMode === 'DAILY' ? 'Daily Profit' : (currentLeaderboardMode === 'MONTHLY' ? 'Monthly Profit' : 'Lifetime Payouts');
             const text = `I'm ranked #${rank} on @BlastrrProp for ${modeText} with $${metricValue.toFixed(2)} USDT! 🚀\n\nTrade live crypto prop accounts with ${standardDiscountPct}% off using my referral code: ${currentUserProfile?.discount_code || 'BLASTRR'}\n\nhttps://blastrr.com/?ref=${currentUserProfile?.discount_code || ''}`;
@@ -1611,6 +1772,7 @@ let connectedWallet = null;
 
         function lockDashboard(message = 'Sign a message with your wallet to unlock your trading dashboard.') {
             dashboardAuthenticated = false;
+            updateMarketChatControls();
             resolvePurchaseDisclaimer(false);
             document.body.classList.add('auth-locked');
             const header = document.querySelector('body > header');
@@ -1628,6 +1790,7 @@ let connectedWallet = null;
             disclaimerGateMode = mode;
             if (mode === 'login') {
                 dashboardAuthenticated = false;
+                updateMarketChatControls();
                 document.body.classList.add('auth-locked');
             }
             const header = document.querySelector('body > header');
@@ -1741,6 +1904,7 @@ let connectedWallet = null;
 
         function unlockDashboard() {
             dashboardAuthenticated = true;
+            updateMarketChatControls();
             document.body.classList.remove('auth-locked');
             const header = document.querySelector('body > header');
             const main = document.querySelector('main');
@@ -1929,6 +2093,9 @@ let connectedWallet = null;
             if (changedWallet) {
                 resetDashboardToTradeView();
                 userAccounts = [];
+                tradeCopyGroups = [];
+                renderCopyTradingGroups();
+                renderCopyAccountOverview();
                 walletSessionGeneration++;
                 walletSessionToken = null;
                 walletSessionOwner = null;
@@ -1998,6 +2165,7 @@ let connectedWallet = null;
                 const data = await res.json();
                 if (!Array.isArray(data.accounts)) throw new Error('The wallet account list is unavailable.');
                 userAccounts = data.accounts;
+                updateMarketChatControls();
                 populateTicketAccountOptions();
 
                 const selectElem = document.getElementById('active-account-select');
@@ -2057,6 +2225,10 @@ let connectedWallet = null;
             lockDashboard('Your wallet has been disconnected. Sign in again to access your dashboard.');
             availableWallets = [];
             userAccounts = [];
+            tradeCopyGroups = [];
+            renderCopyTradingGroups();
+            renderCopyAccountOverview();
+            updateMarketChatControls();
             selectedAccountId = null;
             activeAccount = null;
             currentUserProfile = null;
@@ -2124,6 +2296,258 @@ let connectedWallet = null;
             const synced = await silentSyncUserData(wallet);
             renderAccountsPortfolioFlickerFree();
             return synced;
+        }
+
+        async function loadCopyTradingPage() {
+            const status = document.getElementById('copy-trading-status');
+            try {
+                await loadUserAccounts(connectedWallet);
+                const response = await walletFetch('/api/trade-copy/groups');
+                const data = await response.json();
+                if (!response.ok) throw new Error(data.error || 'Unable to load copy-trading groups.');
+                tradeCopyGroups = data.groups || [];
+                renderCopyTradingGroups();
+                renderCopyAccountOverview();
+                if (status) status.textContent = '';
+            } catch (error) {
+                if (status) status.textContent = error.message || 'Unable to load copy-trading groups.';
+            }
+        }
+
+        function renderCopyAccountOverview() {
+            const container = document.getElementById('copy-account-overview');
+            if (!container) return;
+            if (!userAccounts.length) {
+                container.innerHTML = '<p class="workspace-empty-state">No trading accounts are attached to this wallet.</p>';
+                return;
+            }
+            const assignments = new Map();
+            for (const group of tradeCopyGroups) {
+                assignments.set(group.leader?.id, { name: group.name, role: 'Leader' });
+                for (const follower of group.followers) assignments.set(follower.id, { name: group.name, role: 'Follower' });
+            }
+            container.innerHTML = userAccounts.map(account => {
+                const assignment = assignments.get(account.id);
+                return `<article class="copy-overview-account">
+                    <div><strong>${escapeHTML(account.plan_name || 'Trading account')}</strong><code>${escapeHTML(account.id)}</code></div>
+                    <span class="copy-overview-balance">Balance <strong>$${Number(account.current_balance || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong></span>
+                    <span class="copy-overview-status">${escapeHTML(account.status || 'Unknown')}${Number(account.admin_frozen) === 1 ? ' · Admin frozen' : ''}</span>
+                    <span class="copy-overview-assignment">${assignment ? `${assignment.role} · ${escapeHTML(assignment.name)}` : 'Available'}</span>
+                </article>`;
+            }).join('');
+        }
+
+        function renderCopyTradingGroups() {
+            const container = document.getElementById('copy-groups-container');
+            if (!container) return;
+            if (!tradeCopyGroups.length) {
+                container.innerHTML = '<p class="workspace-empty-state">No copy-trading groups yet. Create a group to get started.</p>';
+                return;
+            }
+            container.innerHTML = tradeCopyGroups.map(group => {
+                const accountsMarkup = [group.leader, ...group.followers].filter(Boolean).map(account => `
+                    <article class="copy-account-card ${account === group.leader ? 'is-leader' : ''}">
+                        <div>
+                            <span class="copy-account-role">${account === group.leader ? 'LEADER' : 'FOLLOWER'}</span>
+                            <strong>${escapeHTML(account.plan_name)} · ${escapeHTML(account.id)}</strong>
+                            <small>${escapeHTML(account.status)}${account.admin_frozen ? ' · Admin frozen' : ''}</small>
+                        </div>
+                        <div class="copy-account-balance">
+                            <span>Balance</span><strong>$${Number(account.current_balance).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong>
+                            ${account === group.leader ? '' : `<small>${Number(account.size_pct).toLocaleString()}% size</small>`}
+                        </div>
+                    </article>
+                `).join('');
+                return `<article class="card copy-group-card" data-copy-group="${escapeHTML(group.id)}">
+                    <div class="copy-group-heading">
+                        <div><span class="battlepass-eyebrow">${group.active ? 'ACTIVE GROUP' : 'PAUSED GROUP'}</span><h2>${escapeHTML(group.name)}</h2></div>
+                        <label class="copy-group-toggle"><input type="checkbox" data-copy-action="toggle" ${group.active ? 'checked' : ''}><span>Active</span></label>
+                    </div>
+                    <div class="copy-group-members">${accountsMarkup}</div>
+                    <div class="copy-group-actions">
+                        <button class="battlepass-secondary-button" type="button" data-copy-action="trade">Trade with leader</button>
+                        <button class="battlepass-secondary-button" type="button" data-copy-action="edit">Edit</button>
+                        <button class="copy-group-delete" type="button" data-copy-action="delete">Delete group</button>
+                    </div>
+                </article>`;
+            }).join('');
+        }
+
+        function startCopyGroupWizard(groupId = null) {
+            const group = tradeCopyGroups.find(item => item.id === groupId);
+            tradeCopyWizard = group ? {
+                groupId: group.id,
+                name: group.name,
+                leaderId: group.leader?.id || '',
+                followers: Object.fromEntries(group.followers.map(account => [account.id, Number(account.size_pct)])),
+                active: group.active,
+                step: 1
+            } : { groupId: null, name: '', leaderId: '', followers: {}, active: false, step: 1 };
+            const wizard = document.getElementById('copy-group-wizard');
+            if (wizard) wizard.hidden = false;
+            renderCopyGroupWizard();
+            wizard?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+
+        function renderCopyGroupWizard() {
+            const wizard = document.getElementById('copy-group-wizard');
+            const content = document.getElementById('copy-wizard-content');
+            const title = document.getElementById('copy-wizard-title');
+            const stepLabel = document.getElementById('copy-wizard-step-label');
+            const back = document.getElementById('copy-wizard-back');
+            const next = document.getElementById('copy-wizard-next');
+            const save = document.getElementById('copy-wizard-save');
+            const error = document.getElementById('copy-wizard-error');
+            if (!wizard || !content || !tradeCopyWizard) return;
+            const step = tradeCopyWizard.step;
+            const assignedAccountIds = new Set(tradeCopyGroups
+                .filter(group => group.id !== tradeCopyWizard.groupId)
+                .flatMap(group => [group.leader?.id, ...group.followers.map(account => account.id)]));
+            const eligibleAccounts = userAccounts.filter(account =>
+                (isSelectableTradingAccount(account) || [tradeCopyWizard.leaderId, ...Object.keys(tradeCopyWizard.followers)].includes(account.id)) &&
+                (!assignedAccountIds.has(account.id) || account.id === tradeCopyWizard.leaderId || tradeCopyWizard.followers[account.id] != null)
+            );
+            const accountLabel = account => `${escapeHTML(account.plan_name || 'Trading account')} · ${escapeHTML(account.id)}`;
+            if (step === 1) {
+                title.textContent = 'Choose a leader';
+                content.innerHTML = `<p class="copy-wizard-help">The leader is the account you select in the Trade Terminal. Orders submitted there are copied to the followers.</p>
+                    <div class="copy-wizard-account-list">${eligibleAccounts.map(account => `
+                        <label class="copy-wizard-account">
+                            <input type="radio" name="copy-leader" value="${escapeHTML(account.id)}" ${tradeCopyWizard.leaderId === account.id ? 'checked' : ''}>
+                            <span><strong>${accountLabel(account)}</strong><small>Balance $${Number(account.current_balance || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} · ${escapeHTML(account.status)}</small></span>
+                        </label>`).join('') || '<p class="workspace-empty-state">No available accounts. Accounts already assigned to another group cannot be reused.</p>'}</div>`;
+            } else if (step === 2) {
+                title.textContent = 'Choose followers';
+                const followerAccounts = eligibleAccounts.filter(account => account.id !== tradeCopyWizard.leaderId);
+                content.innerHTML = `<p class="copy-wizard-help">Choose one or more follower accounts and set each order size as a percentage of the leader’s submitted size. 100% matches it; 200% doubles it.</p>
+                    <div class="copy-wizard-account-list">${followerAccounts.map(account => {
+                        const selected = tradeCopyWizard.followers[account.id] != null;
+                        return `<div class="copy-wizard-account copy-follower-choice">
+                            <label><input type="checkbox" data-copy-follower="${escapeHTML(account.id)}" ${selected ? 'checked' : ''}>
+                                <span><strong>${accountLabel(account)}</strong><small>Balance $${Number(account.current_balance || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} · ${escapeHTML(account.status)}</small></span></label>
+                            <label class="copy-size-input"><span>Size %</span><input type="number" min="0.01" step="any" data-copy-size="${escapeHTML(account.id)}" value="${selected ? escapeHTML(tradeCopyWizard.followers[account.id]) : '100'}" ${selected ? '' : 'disabled'}></label>
+                        </div>`;
+                    }).join('') || '<p class="workspace-empty-state">No other available accounts to use as followers.</p>'}</div>`;
+            } else {
+                title.textContent = 'Review and save';
+                const leader = eligibleAccounts.find(account => account.id === tradeCopyWizard.leaderId);
+                const followerSummary = Object.entries(tradeCopyWizard.followers).map(([id, sizePct]) => {
+                    const account = userAccounts.find(item => item.id === id);
+                    return `<li>${accountLabel(account || { id, plan_name: 'Trading account' })} — ${Number(sizePct).toLocaleString()}%</li>`;
+                }).join('');
+                content.innerHTML = `<div class="copy-wizard-review">
+                    <p><strong>Leader:</strong> ${leader ? accountLabel(leader) : 'Not selected'}</p>
+                    <p><strong>Followers:</strong></p><ul>${followerSummary}</ul>
+                    <label class="form-group"><span>Group name</span><input id="copy-group-name" type="text" maxlength="60" value="${escapeHTML(tradeCopyWizard.name)}" placeholder="e.g. Main portfolio"></label>
+                    <label class="copy-group-toggle"><input id="copy-group-active" type="checkbox" ${tradeCopyWizard.active ? 'checked' : ''}><span>Activate this group after saving</span></label>
+                    <p class="copy-wizard-help">Each follower executes independently and can fail if its balance or account status does not allow the order. The leader’s linked exits continue to close follower positions if this group is later paused or deleted.</p>
+                </div>`;
+            }
+            stepLabel.textContent = `STEP ${step} OF 3`;
+            back.hidden = step === 1;
+            next.hidden = step === 3;
+            save.hidden = step !== 3;
+            error.textContent = '';
+        }
+
+        function closeCopyGroupWizard() {
+            tradeCopyWizard = null;
+            const wizard = document.getElementById('copy-group-wizard');
+            if (wizard) wizard.hidden = true;
+        }
+
+        async function saveCopyGroup() {
+            if (!tradeCopyWizard) return;
+            const name = document.getElementById('copy-group-name')?.value.trim();
+            const active = document.getElementById('copy-group-active')?.checked === true;
+            const saveButton = document.getElementById('copy-wizard-save');
+            const error = document.getElementById('copy-wizard-error');
+            if (!name) {
+                error.textContent = 'Enter a name for this group.';
+                return;
+            }
+            saveButton.disabled = true;
+            try {
+                const response = await walletFetch('/api/trade-copy/groups', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        group_id: tradeCopyWizard.groupId,
+                        name,
+                        leader_account_id: tradeCopyWizard.leaderId,
+                        followers: Object.entries(tradeCopyWizard.followers).map(([account_id, size_pct]) => ({ account_id, size_pct })),
+                        active
+                    })
+                });
+                const data = await response.json();
+                if (!response.ok) throw new Error(data.error || 'Unable to save copy-trading group.');
+                closeCopyGroupWizard();
+                await loadCopyTradingPage();
+            } catch (saveError) {
+                error.textContent = saveError.message || 'Unable to save copy-trading group.';
+            } finally {
+                saveButton.disabled = false;
+            }
+        }
+
+        async function handleCopyGroupAction(event) {
+            const button = event.target.closest('[data-copy-action]');
+            if (!button) return;
+            const card = button.closest('[data-copy-group]');
+            const group = tradeCopyGroups.find(item => item.id === card?.dataset.copyGroup);
+            if (!group) return;
+            const status = document.getElementById('copy-trading-status');
+            const action = button.dataset.copyAction;
+            try {
+                if (action === 'toggle' && event.type !== 'change') return;
+                if (action === 'edit') return startCopyGroupWizard(group.id);
+                if (action === 'trade') {
+                    switchActiveAccount(group.leader.id);
+                    switchView('tradeView');
+                    return;
+                }
+                if (action === 'toggle') {
+                    const response = await walletFetch(`/api/trade-copy/groups/${encodeURIComponent(group.id)}/active`, {
+                        method: 'POST', headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ active: button.checked })
+                    });
+                    const data = await response.json();
+                    if (!response.ok) throw new Error(data.error || 'Unable to update group status.');
+                    group.active = data.active;
+                    renderCopyTradingGroups();
+                } else if (action === 'delete') {
+                    if (!confirm(`Delete “${group.name}”? Existing copied positions remain linked for leader exits and flattening.`)) return;
+                    const response = await walletFetch(`/api/trade-copy/groups/${encodeURIComponent(group.id)}`, { method: 'DELETE' });
+                    const data = await response.json();
+                    if (!response.ok) throw new Error(data.error || 'Unable to delete copy-trading group.');
+                    await loadCopyTradingPage();
+                }
+            } catch (error) {
+                if (status) status.textContent = error.message || 'Unable to update copy-trading group.';
+                if (action === 'toggle') renderCopyTradingGroups();
+            }
+        }
+
+        async function flattenCopyTrades(button) {
+            if (!confirm('Emergency stop: pause all copy groups and close every open copy-trading position across your accounts?')) return;
+            const status = document.getElementById('copy-trading-status');
+            button.disabled = true;
+            if (status) status.textContent = 'Closing open copy trades…';
+            try {
+                const response = await walletFetch('/api/trade-copy/flatten', { method: 'POST' });
+                const data = await response.json();
+                if (!response.ok) throw new Error(data.error || 'Unable to flatten copy trades.');
+                const failures = data.failed || [];
+                const summary = failures.length
+                    ? `Closed ${data.closed} position(s); ${failures.length} could not be closed. ${failures.map(item => `${item.trade_id}: ${item.error}`).join(' ')}`
+                    : `Emergency stop complete. Paused all copy groups and closed ${data.closed} open copy-trading position(s).`;
+                await loadCopyTradingPage();
+                if (status) status.textContent = summary;
+            } catch (error) {
+                if (status) status.textContent = error.message || 'Unable to flatten copy trades.';
+            } finally {
+                button.disabled = false;
+            }
         }
 
         function togglePermanentlyLockedAccounts(checked) {
@@ -2205,6 +2629,30 @@ let connectedWallet = null;
                                         <h3>Daily profit</h3>
                                         <div id="profit-chart-${acc.id}" class="account-profit-chart"></div>
                                     </section>
+                                    <section class="account-trade-calendar-section" aria-label="Trade calendar and journal">
+                                        <div class="account-calendar-heading">
+                                            <div><h3>Trade calendar</h3><p>Daily results from closed trades. Select a day to write or edit your journal.</p></div>
+                                            <div class="account-calendar-month-controls">
+                                                <button class="btn-wallet" type="button" data-calendar-step="-1" aria-label="Previous month">‹</button>
+                                                <strong id="account-calendar-month-${acc.id}" class="account-calendar-month"></strong>
+                                                <button class="btn-wallet" type="button" data-calendar-step="1" aria-label="Next month">›</button>
+                                            </div>
+                                        </div>
+                                        <div id="account-calendar-${acc.id}" class="account-trade-calendar"></div>
+                                        <div id="account-journal-editor-${acc.id}" class="account-journal-editor" hidden>
+                                            <div class="account-journal-editor-heading">
+                                                <h4 id="account-journal-date-${acc.id}"></h4>
+                                                <span>No file uploads · text only</span>
+                                            </div>
+                                            <label class="sr-only" for="account-journal-text-${acc.id}">Journal entry for this trading day</label>
+                                            <textarea id="account-journal-text-${acc.id}" maxlength="5000" placeholder="Describe the trades you took and what you were thinking. What was your plan, what went well, and what would you change?"></textarea>
+                                            <div class="account-journal-editor-actions">
+                                                <span id="account-journal-status-${acc.id}" class="account-journal-status" role="status"></span>
+                                                <button class="btn-wallet" type="button" data-journal-save>Save entry</button>
+                                            </div>
+                                            <p class="account-journal-help">Up to 5,000 characters. Saving an empty entry removes it.</p>
+                                        </div>
+                                    </section>
                                     <h3 class="account-trades-heading">Trade history</h3>
                                     <div class="table-responsive">
                                         <table>
@@ -2218,6 +2666,7 @@ let connectedWallet = null;
                     `;
                     container.insertAdjacentHTML('beforeend', cardHtml);
                     cardElem = document.getElementById(`acc-card-${acc.id}`);
+                    bindAccountCalendarControls(cardElem);
                 }
 
                 cardElem.querySelector(`#bal-val-${CSS.escape(acc.id)}`).innerText = `$${acc.current_balance.toLocaleString()}`;
@@ -2285,6 +2734,10 @@ let connectedWallet = null;
                     profit: m.riskBalance - acc.daily_starting_balance
                 });
                 renderDailyProfitChart(cardElem.querySelector(`#profit-chart-${CSS.escape(acc.id)}`), dailyHistory);
+                cardElem._calendarAccount = acc;
+                cardElem._calendarTrades = trades;
+                cardElem._calendarJournals = details.journalEntries || [];
+                renderAccountTradeCalendar(cardElem, acc, trades, details.journalEntries || []);
             }
             if (!container.querySelector('[id^="acc-card-"]')) {
                 const emptyMessage = document.createElement('p');
@@ -2293,6 +2746,192 @@ let connectedWallet = null;
                     ? 'No accounts to show. Turn off “Hide permanently locked accounts” to review permanently locked accounts.'
                     : 'No accounts found.';
                 container.replaceChildren(emptyMessage);
+            }
+        }
+
+        function bindAccountCalendarControls(card) {
+            if (!card || card.dataset.calendarBound === 'true') return;
+            card.dataset.calendarBound = 'true';
+            card.addEventListener('click', event => {
+                const monthButton = event.target.closest('[data-calendar-step]');
+                if (monthButton) {
+                    const accountId = card.id.slice('acc-card-'.length);
+                    changeAccountCalendarMonth(accountId, Number(monthButton.dataset.calendarStep));
+                    return;
+                }
+                const dayButton = event.target.closest('[data-calendar-day]');
+                if (dayButton) {
+                    selectAccountJournalDay(card.id.slice('acc-card-'.length), dayButton.dataset.calendarDay);
+                    return;
+                }
+                const saveButton = event.target.closest('[data-journal-save]');
+                if (saveButton) saveAccountJournalEntry(card.id.slice('acc-card-'.length), saveButton);
+            });
+            card.addEventListener('input', event => {
+                if (!event.target.matches('[id^="account-journal-text-"]')) return;
+                const accountId = card.id.slice('acc-card-'.length);
+                const day = accountJournalDays.get(accountId);
+                if (day) accountJournalDrafts.set(`${accountId}:${day}`, event.target.value);
+            });
+        }
+
+        function getUtcMonthKey(date) {
+            return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, '0')}`;
+        }
+
+        function renderAccountTradeCalendar(card, account, trades, journalEntries) {
+            const accountId = account.id;
+            const calendar = card.querySelector(`#account-calendar-${CSS.escape(accountId)}`);
+            const monthLabel = card.querySelector(`#account-calendar-month-${CSS.escape(accountId)}`);
+            if (!calendar || !monthLabel) return;
+
+            const now = new Date();
+            const currentMonth = getUtcMonthKey(now);
+            const monthKey = accountCalendarMonths.get(accountId) || currentMonth;
+            const [year, month] = monthKey.split('-').map(Number);
+            const firstDay = new Date(Date.UTC(year, month - 1, 1));
+            const daysInMonth = new Date(Date.UTC(year, month, 0)).getUTCDate();
+            const monthStartDay = firstDay.getUTCDay();
+            const monthDate = new Date(Date.UTC(year, month - 1, 1));
+            monthLabel.textContent = monthDate.toLocaleDateString(undefined, { month: 'long', year: 'numeric', timeZone: 'UTC' });
+
+            const tradesByDay = new Map();
+            (trades || []).filter(trade => trade.status === 'CLOSED').forEach(trade => {
+                const tradeDay = String(trade.closed_at || trade.created_at || '').slice(0, 10);
+                if (!/^\d{4}-\d{2}-\d{2}$/.test(tradeDay)) return;
+                const totals = tradesByDay.get(tradeDay) || { profit: 0, count: 0 };
+                totals.profit += Number(trade.pnl) || 0;
+                totals.count++;
+                tradesByDay.set(tradeDay, totals);
+            });
+            const journalsByDay = new Map((journalEntries || []).map(entry => [entry.day, entry]));
+            const cells = [];
+
+            for (let index = 0; index < monthStartDay; index++) {
+                cells.push('<span class="account-calendar-blank" aria-hidden="true"></span>');
+            }
+            for (let dayNumber = 1; dayNumber <= daysInMonth; dayNumber++) {
+                const day = `${monthKey}-${String(dayNumber).padStart(2, '0')}`;
+                const totals = tradesByDay.get(day) || { profit: 0, count: 0 };
+                const journal = journalsByDay.get(day);
+                const isFuture = day > now.toISOString().slice(0, 10);
+                const resultClass = totals.count === 0
+                    ? 'is-empty'
+                    : totals.profit > 0
+                        ? 'is-winning'
+                        : totals.profit < 0
+                            ? 'is-losing'
+                            : 'is-flat';
+                const signedProfit = `${totals.profit > 0 ? '+' : totals.profit < 0 ? '−' : ''}$${Math.abs(totals.profit).toFixed(2)}`;
+                cells.push(`
+                    <button class="account-calendar-day ${resultClass}${journal ? ' has-journal' : ''}" type="button"
+                        data-calendar-day="${day}" aria-label="${day}: ${totals.count} closed trades, ${signedProfit}${journal ? ', journal entry saved' : ''}"
+                        ${isFuture ? 'disabled' : ''}>
+                        <span class="account-calendar-day-number">${dayNumber}</span>
+                        ${totals.count ? `<strong class="account-calendar-profit">${signedProfit}</strong><span class="account-calendar-trade-count">${totals.count} ${totals.count === 1 ? 'trade' : 'trades'}</span>` : '<span class="account-calendar-no-trades">No closed trades</span>'}
+                        ${journal ? '<span class="account-calendar-journal-indicator" aria-label="Journal entry saved">Journal saved</span>' : ''}
+                    </button>
+                `);
+            }
+
+            calendar.innerHTML = `
+                <div class="account-calendar-weekdays" aria-hidden="true">
+                    ${['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(day => `<span>${day}</span>`).join('')}
+                </div>
+                <div class="account-calendar-grid">${cells.join('')}</div>
+                <p class="account-calendar-legend"><span><i class="is-winning"></i> Winning day</span><span><i class="is-losing"></i> Losing day</span><span><i class="is-flat"></i> Break-even</span><span><i class="is-empty"></i> No closed trades</span></p>
+            `;
+
+            const nextMonthButton = card.querySelector('[data-calendar-step="1"]');
+            if (nextMonthButton) nextMonthButton.disabled = monthKey >= currentMonth;
+            const selectedDay = accountJournalDays.get(accountId);
+            const editor = card.querySelector(`#account-journal-editor-${CSS.escape(accountId)}`);
+            if (selectedDay && selectedDay.startsWith(`${monthKey}-`)) {
+                const journal = journalsByDay.get(selectedDay);
+                const dateHeading = card.querySelector(`#account-journal-date-${CSS.escape(accountId)}`);
+                const textarea = card.querySelector(`#account-journal-text-${CSS.escape(accountId)}`);
+                if (editor && dateHeading && textarea) {
+                    editor.hidden = false;
+                    dateHeading.textContent = new Date(`${selectedDay}T00:00:00Z`).toLocaleDateString(undefined, {
+                        weekday: 'long', month: 'long', day: 'numeric', year: 'numeric', timeZone: 'UTC'
+                    });
+                    const draftKey = `${accountId}:${selectedDay}`;
+                    if (document.activeElement !== textarea) {
+                        textarea.value = accountJournalDrafts.has(draftKey)
+                            ? accountJournalDrafts.get(draftKey)
+                            : journal?.body || '';
+                    }
+                }
+            } else if (editor) editor.hidden = true;
+        }
+
+        function changeAccountCalendarMonth(accountId, step) {
+            const card = document.getElementById(`acc-card-${accountId}`);
+            if (!card) return;
+            const currentKey = accountCalendarMonths.get(accountId) || getUtcMonthKey(new Date());
+            const [year, month] = currentKey.split('-').map(Number);
+            const target = new Date(Date.UTC(year, month - 1 + step, 1));
+            const targetKey = getUtcMonthKey(target);
+            if (targetKey > getUtcMonthKey(new Date())) return;
+            accountCalendarMonths.set(accountId, targetKey);
+            renderAccountTradeCalendar(card, card._calendarAccount, card._calendarTrades, card._calendarJournals);
+        }
+
+        function selectAccountJournalDay(accountId, day) {
+            const card = document.getElementById(`acc-card-${accountId}`);
+            if (!card || !/^\d{4}-\d{2}-\d{2}$/.test(day)) return;
+            accountJournalDays.set(accountId, day);
+            const journal = (card._calendarJournals || []).find(entry => entry.day === day);
+            const editor = card.querySelector(`#account-journal-editor-${CSS.escape(accountId)}`);
+            const dateHeading = card.querySelector(`#account-journal-date-${CSS.escape(accountId)}`);
+            const textarea = card.querySelector(`#account-journal-text-${CSS.escape(accountId)}`);
+            const status = card.querySelector(`#account-journal-status-${CSS.escape(accountId)}`);
+            if (!editor || !dateHeading || !textarea) return;
+            dateHeading.textContent = new Date(`${day}T00:00:00Z`).toLocaleDateString(undefined, {
+                weekday: 'long', month: 'long', day: 'numeric', year: 'numeric', timeZone: 'UTC'
+            });
+            textarea.value = accountJournalDrafts.get(`${accountId}:${day}`) ?? journal?.body ?? '';
+            if (status) status.textContent = '';
+            editor.hidden = false;
+            editor.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            textarea.focus({ preventScroll: true });
+        }
+
+        async function saveAccountJournalEntry(accountId, button) {
+            const card = document.getElementById(`acc-card-${accountId}`);
+            const day = accountJournalDays.get(accountId);
+            const textarea = card?.querySelector(`#account-journal-text-${CSS.escape(accountId)}`);
+            const status = card?.querySelector(`#account-journal-status-${CSS.escape(accountId)}`);
+            if (!card || !day || !textarea || !status) return;
+            button.disabled = true;
+            status.textContent = 'Saving…';
+            try {
+                const response = await walletFetch(`/api/accounts/${encodeURIComponent(accountId)}/journal`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ day, body: textarea.value })
+                });
+                const data = await response.json();
+                if (!response.ok) throw new Error(data.error || 'Unable to save journal entry.');
+                const entries = card._calendarJournals || [];
+                const entryIndex = entries.findIndex(entry => entry.day === day);
+                if (data.entry) {
+                    if (entryIndex >= 0) entries[entryIndex] = data.entry;
+                    else entries.push(data.entry);
+                    accountJournalDrafts.set(`${accountId}:${day}`, data.entry.body);
+                    status.textContent = 'Journal entry saved.';
+                } else {
+                    if (entryIndex >= 0) entries.splice(entryIndex, 1);
+                    accountJournalDrafts.delete(`${accountId}:${day}`);
+                    status.textContent = 'Journal entry removed.';
+                }
+                card._calendarJournals = entries;
+                renderAccountTradeCalendar(card, card._calendarAccount, card._calendarTrades, entries);
+                await loadBattlePass();
+            } catch (error) {
+                status.textContent = error.message || 'Unable to save journal entry.';
+            } finally {
+                button.disabled = false;
             }
         }
 
@@ -3507,6 +4146,18 @@ let connectedWallet = null;
                 });
                 const data = await res.json();
                 if (data.success) {
+                    if (data.copy_results) {
+                        const succeeded = data.copy_results.filter(result => result.success).length;
+                        const failed = data.copy_results.filter(result => !result.success);
+                        const copySummary = failed.length
+                            ? ` Leader trade opened; ${succeeded} follower(s) copied, ${failed.length} failed: ${failed.map(result => `${result.account_id}: ${result.error}`).join(' ')}`
+                            : ` Order copied to all ${succeeded} follower account(s).`;
+                        setTradeFeedback(data.copy_error
+                            ? `${data.copy_error}${copySummary}`
+                            : copySummary.trim());
+                    } else if (data.copy_error) {
+                        setTradeFeedback(data.copy_error);
+                    }
                     await loadUserAccounts(connectedWallet);
                     await loadOpenTrades(selectedAccountId);
                 } else setTradeFeedback(data.error || 'Unable to execute trade.');
@@ -3520,7 +4171,6 @@ let connectedWallet = null;
         }
 
         async function closeTrade(tradeId, currentPrice, automatic = false) {
-            if (!automatic && !confirm("Are you sure you want to close this position early?")) return;
             try {
                 const res = await walletFetch('/api/trades/close', {
                     method: 'POST',
@@ -3529,6 +4179,14 @@ let connectedWallet = null;
                 });
                 const data = await res.json();
                 if (data.success) {
+                    if (Array.isArray(data.copy_close_results)) {
+                        const failedCopies = data.copy_close_results.filter(result => !result.success);
+                        setTradeFeedback(failedCopies.length
+                            ? `Leader position closed; ${failedCopies.length} copied follower position(s) could not be closed.`
+                            : `Leader position closed with ${data.copy_close_results.length} copied follower position(s).`);
+                    } else if (data.copy_close_error) {
+                        setTradeFeedback(data.copy_close_error);
+                    }
                     loadUserAccounts(connectedWallet);
                     loadLeaderboard(currentLeaderboardMode);
                 } else if (!automatic) setTradeFeedback(data.error || 'Unable to close position.');
@@ -4247,6 +4905,59 @@ let connectedWallet = null;
         document.getElementById('admin-maintenance-save')?.addEventListener('click', event => {
             saveAdminMaintenanceSettings(event.currentTarget);
         });
+        document.getElementById('copy-group-create')?.addEventListener('click', () => startCopyGroupWizard());
+        document.getElementById('copy-wizard-cancel')?.addEventListener('click', closeCopyGroupWizard);
+        document.getElementById('copy-wizard-back')?.addEventListener('click', () => {
+            if (!tradeCopyWizard) return;
+            tradeCopyWizard.step = Math.max(1, tradeCopyWizard.step - 1);
+            renderCopyGroupWizard();
+        });
+        document.getElementById('copy-wizard-next')?.addEventListener('click', () => {
+            if (!tradeCopyWizard) return;
+            const error = document.getElementById('copy-wizard-error');
+            if (tradeCopyWizard.step === 1) {
+                if (!tradeCopyWizard.leaderId) {
+                    if (error) error.textContent = 'Choose a leader account.';
+                    return;
+                }
+                tradeCopyWizard.step = 2;
+            } else if (tradeCopyWizard.step === 2) {
+                const followers = Object.entries(tradeCopyWizard.followers);
+                if (!followers.length || followers.some(([, pct]) => !Number.isFinite(Number(pct)) || Number(pct) <= 0)) {
+                    if (error) error.textContent = 'Choose at least one follower and give each a positive size percentage.';
+                    return;
+                }
+                tradeCopyWizard.step = 3;
+            }
+            renderCopyGroupWizard();
+        });
+        document.getElementById('copy-wizard-save')?.addEventListener('click', saveCopyGroup);
+        document.getElementById('copy-wizard-content')?.addEventListener('change', event => {
+            if (!tradeCopyWizard) return;
+            const target = event.target;
+            if (target.matches('input[name="copy-leader"]')) {
+                tradeCopyWizard.leaderId = target.value;
+                delete tradeCopyWizard.followers[target.value];
+            } else if (target.matches('[data-copy-follower]')) {
+                const accountId = target.dataset.copyFollower;
+                if (target.checked) {
+                    const input = document.querySelector(`[data-copy-size="${CSS.escape(accountId)}"]`);
+                    tradeCopyWizard.followers[accountId] = Number(input?.value) || 100;
+                    if (input) input.disabled = false;
+                } else {
+                    delete tradeCopyWizard.followers[accountId];
+                    const input = document.querySelector(`[data-copy-size="${CSS.escape(accountId)}"]`);
+                    if (input) input.disabled = true;
+                }
+            } else if (target.matches('[data-copy-size]')) {
+                tradeCopyWizard.followers[target.dataset.copySize] = Number(target.value);
+            }
+            const error = document.getElementById('copy-wizard-error');
+            if (error) error.textContent = '';
+        });
+        document.getElementById('copy-groups-container')?.addEventListener('click', handleCopyGroupAction);
+        document.getElementById('copy-groups-container')?.addEventListener('change', handleCopyGroupAction);
+        document.getElementById('copy-flatten-all')?.addEventListener('click', event => flattenCopyTrades(event.currentTarget));
         document.getElementById('admin-promo-code-form')?.addEventListener('submit', async event => {
             event.preventDefault();
             const form = event.currentTarget;

@@ -146,7 +146,7 @@ test('trading terminal displays spot stats and puts account selection first in t
 
 test('admin can toggle maintenance for each public page and set an outage message', () => {
   assert.match(databaseJs, /CREATE TABLE IF NOT EXISTS site_maintenance/);
-  assert.match(databaseJs, /'home', 'trade', 'accounts', 'leaderboard', 'blastrrpass', 'profile', 'plans', 'faq', 'docs'/);
+  assert.match(databaseJs, /'home', 'trade', 'accounts', 'copytrading', 'leaderboard', 'blastrrpass', 'profile', 'plans', 'faq', 'docs'/);
   assert.match(serverJs, /app\.get\('\/api\/maintenance\/status'/);
   assert.match(serverJs, /app\.post\('\/api\/admin\/maintenance\/load', sensitiveLimiter, requireTradeSignature, requireAdminWallet/);
   assert.match(serverJs, /app\.post\('\/api\/admin\/maintenance\/save', sensitiveLimiter, requireTradeSignature, requireAdminWallet/);
@@ -337,9 +337,32 @@ test('accounts, leaderboard, and profile use responsive Battle Pass-style cards'
   assert.match(appJs, /class="account-card"/);
   assert.match(appJs, /class="battlepass-task profile-commission-card"/);
   assert.match(appCss, /\.account-card\s*\{[^}]*border: 1px solid rgba\(203, 213, 225, 0\.095\)[^}]*background: rgba\(4, 3, 7, 0\.82\)/);
-  assert.match(appCss, /\.leaderboard-card-list\s*\{[^}]*grid-template-columns: repeat\(auto-fit/);
+  assert.match(appCss, /\.leaderboard-card-list\s*\{[^}]*grid-template-columns: minmax\(0, 1fr\)/);
+  assert.match(appCss, /\.leaderboard-card \{ display: grid; grid-template-columns: minmax\(220px, 0\.9fr\) minmax\(0, 1\.4fr\) auto/);
+  assert.match(appCss, /@media \(max-width: 700px\)[\s\S]*?\.leaderboard-card \{ grid-template-columns: minmax\(0, 1fr\)/);
   assert.match(appCss, /\.battlepass-task\s*\{[\s\S]*?border: 1px solid var\(--surface-border\)[\s\S]*?background: rgba\(5, 7, 11, 0\.38\)/);
   assert.match(appCss, /@media \(max-width: 700px\)[\s\S]*?\.leaderboard-card-stats \{ grid-template-columns: repeat\(2, minmax\(0, 1fr\)\)/);
+  const leaderboardStart = appHtml.indexOf('<section id="leaderboardView"');
+  const leaderboardEnd = appHtml.indexOf('</section>', leaderboardStart);
+  const leaderboardHtml = appHtml.slice(leaderboardStart, leaderboardEnd);
+  assert.doesNotMatch(leaderboardHtml, /lb-search-input|filterLeaderboardTable|type="search"/);
+  assert.match(appJs, /async function loadLeaderboard\(mode = 'DAILY'\)/);
+  assert.doesNotMatch(appJs, /function filterLeaderboardTable|lb-search-input/);
+});
+
+test('homepage shows five users for every leaderboard category and hides during leaderboard maintenance', () => {
+  const maintenanceJs = fs.readFileSync('public/js/maintenance-page.js', 'utf8');
+  assert.match(landingHtml, /<section id="home-leaderboards" class="home-leaderboards" hidden/);
+  for (const mode of ['DAILY', 'MONTHLY', 'PAYOUTS']) {
+    assert.match(landingHtml, new RegExp(`mode:"${mode}",host:"home-lb-${mode.toLowerCase()}"`));
+  }
+  assert.match(landingHtml, /\/api\/leaderboard\?mode=\$\{category\.mode\}&limit=5/);
+  assert.match(landingHtml, /data\.leaderboard\.slice\(0,5\)/);
+  assert.match(landingHtml, /home-leaderboard-row/);
+  assert.ok(landingHtml.includes('name.textContent=`@${row.username || "Trader"}`;'));
+  assert.match(landingHtml, /@media\(max-width:720px\)[\s\S]*?\.home-leaderboard-grid\{grid-template-columns:1fr\}/);
+  assert.match(maintenanceJs, /item\.page_id === 'leaderboard'/);
+  assert.match(maintenanceJs, /homeLeaderboardSection\.hidden = Number\(page\?\.is_offline\) === 1 \|\|[\s\S]*?Number\(leaderboardPage\?\.is_offline\) === 1/);
 });
 
 test('homepage buttons keep purple styling while terminal buttons use restrained neutral borders', () => {
@@ -464,6 +487,31 @@ test('account cards expose expandable trade history and daily profit charts', ()
   assert.match(appJs, /id="profit-target-\$\{acc\.id\}"/);
   assert.match(appJs, /Target: \$\$\{acc\.profit_target\.toLocaleString\(\)\}/);
   assert.match(appCss, /\.account-risk-item \{ display: grid; grid-template-rows: 18px 7px 14px;/);
+});
+
+test('expanded accounts show a responsive daily trade calendar and save text-only journal entries', () => {
+  assert.match(databaseJs, /CREATE TABLE IF NOT EXISTS account_trade_journals/);
+  assert.match(databaseJs, /UNIQUE\(account_id, day\)/);
+  assert.match(serverJs, /SELECT day, body, updated_at FROM account_trade_journals WHERE account_id = \? ORDER BY day/);
+  assert.match(serverJs, /app\.put\('\/api\/accounts\/:accountId\/journal', sensitiveLimiter, requireWalletSession/);
+  assert.match(serverJs, /account\.wallet_address\?\.toLowerCase\(\) !== req\.walletAddress/);
+  assert.match(serverJs, /Journal entries must be text of 5,000 characters or fewer/);
+  assert.match(serverJs, /day > new Date\(\)\.toISOString\(\)\.slice\(0, 10\)/);
+  assert.match(serverJs, /ON CONFLICT\(account_id, day\) DO UPDATE SET/);
+  assert.match(appJs, /<section class="account-trade-calendar-section" aria-label="Trade calendar and journal">/);
+  assert.match(appJs, /function renderAccountTradeCalendar\(card, account, trades, journalEntries\)/);
+  assert.match(appJs, /trade\.status === 'CLOSED'/);
+  assert.match(appJs, /totals\.profit > 0[\s\S]*?'is-winning'[\s\S]*?totals\.profit < 0[\s\S]*?'is-losing'[\s\S]*?'is-flat'/);
+  assert.match(appJs, /data-calendar-day="\$\{day\}"/);
+  assert.match(appJs, /function saveAccountJournalEntry\(accountId, button\)/);
+  assert.match(appJs, /method: 'PUT'/);
+  assert.match(appJs, /data\.entry\.body/);
+  assert.match(appJs, /maxlength="5000"/);
+  assert.match(appCss, /\.account-calendar-grid \{ display: grid; grid-template-columns: repeat\(7, minmax\(0, 1fr\)\)/);
+  assert.match(appCss, /\.account-calendar-day\.is-winning/);
+  assert.match(appCss, /\.account-calendar-day\.is-losing/);
+  assert.match(appCss, /\.account-calendar-day\.is-flat/);
+  assert.match(appCss, /@media \(max-width: 700px\)[\s\S]*?\.account-calendar-day \{ min-height: 69px/);
 });
 
 test('accounts view keeps temporary DLL locks visible and can hide permanent MLL locks', () => {

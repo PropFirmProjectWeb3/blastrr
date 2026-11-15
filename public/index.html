@@ -35,6 +35,19 @@ section{padding:78px 0}.section-head{display:flex;justify-content:space-between;
 .plan-task-list{display:grid;gap:8px}
 .plan-task-list .metric{margin:0}
 .plan-task-list .metric strong{color:#c4b5fd}
+.home-leaderboards{padding-top:46px;padding-bottom:24px}
+.home-leaderboard-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
+.home-leaderboard-card{min-width:0;padding:19px;border:1px solid rgba(173,127,255,.2);border-radius:16px;background:linear-gradient(145deg,rgba(25,23,41,.82),rgba(10,10,18,.9))}
+.home-leaderboard-card h3{margin:0;color:#f2edff;font-size:16px}
+.home-leaderboard-card>p{margin:3px 0 14px;color:#9089a5;font-size:11px}
+.home-leaderboard-list{display:grid;gap:7px;margin:0;padding:0;list-style:none}
+.home-leaderboard-row{display:grid;grid-template-columns:28px minmax(0,1fr) auto;align-items:center;gap:8px;min-height:42px;padding:7px 8px;border:1px solid rgba(203,213,225,.08);border-radius:9px;background:rgba(5,7,11,.48)}
+.home-leaderboard-rank{color:#a7a0b8;font-size:10px;font-weight:800;text-align:center}
+.home-leaderboard-row:nth-child(-n+3) .home-leaderboard-rank{color:#d8b4fe}
+.home-leaderboard-name{min-width:0;overflow:hidden;color:#e8e3f3;font-size:12px;font-weight:700;text-overflow:ellipsis;white-space:nowrap}
+.home-leaderboard-value{color:#68f0c0;font-size:11px;font-weight:800;text-align:right;white-space:nowrap}
+.home-leaderboard-empty{padding:10px 4px;color:#9089a5;font-size:11px}
+.home-leaderboards[hidden]{display:none}
 .market-hours-banner{position:relative;display:flex;align-items:center;gap:18px;margin:0 auto;padding:20px 24px;border:1px solid rgba(104,240,192,.26);border-radius:18px;background:radial-gradient(ellipse at 0 50%,rgba(60,212,160,.12),transparent 52%),linear-gradient(110deg,rgba(13,31,30,.9),rgba(11,14,22,.92));box-shadow:inset 0 1px rgba(255,255,255,.035)}
 .market-hours-icon{display:grid;place-items:center;flex:0 0 46px;width:46px;height:46px;border:1px solid rgba(104,240,192,.24);border-radius:14px;background:rgba(60,212,160,.1);color:#8df2cc;font-size:21px}
 .market-hours-copy{flex:1}.market-hours-kicker{display:flex;align-items:center;gap:8px;margin-bottom:3px;color:#8df2cc;font-size:10px;font-weight:900;letter-spacing:.13em;text-transform:uppercase}.market-hours-copy h2{margin:0;color:#f5fff9;font-size:18px;letter-spacing:-.02em}.market-hours-copy p{margin:4px 0 0;color:#b7c9c2;font-size:12px;line-height:1.55}.market-hours-note{flex:0 0 auto;max-width:180px;color:#82968e;font-size:10px;line-height:1.5;text-align:right}
@@ -49,8 +62,8 @@ section{padding:78px 0}.section-head{display:flex;justify-content:space-between;
 footer{border-top:1px solid rgba(173,127,255,.15);padding:35px 0 25px}.footer-top{display:flex;justify-content:space-between;gap:25px;align-items:flex-start}.footer-brand p{max-width:320px;color:#8f89a6;font-size:12px}.footer-links{display:flex;gap:20px;flex-wrap:wrap;color:#b8b0cc;font-size:12px}.disclaimer{border-top:1px solid rgba(173,127,255,.12);margin-top:24px;padding-top:18px;color:#77718c;font-size:10px;line-height:1.7}.disclaimer strong{color:#aaa2c3}
 .review-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:14px}.public-review-card{padding:20px;border:1px solid rgba(173,127,255,.2);border-radius:16px;background:linear-gradient(145deg,rgba(25,23,41,.8),rgba(10,10,18,.9))}.public-review-head{display:flex;justify-content:space-between;align-items:center;gap:12px}.public-review-name{font-weight:800;color:#eee8ff}.public-review-stars{color:#fbbf24;letter-spacing:2px;white-space:nowrap}.public-review-text{margin:13px 0 0;color:#c7c0d9;font-size:13px;line-height:1.65;white-space:pre-wrap;overflow-wrap:anywhere}
 .reveal{opacity:0;transform:translateY(16px);transition:opacity .6s ease,transform .6s ease}.reveal.visible{opacity:1;transform:none}
-@media(max-width:1000px){.navlinks{gap:15px}.chain-pill{display:none}.hero-grid{grid-template-columns:1fr 1fr;gap:20px}.hero h1{font-size:54px}.plans{grid-template-columns:repeat(2,1fr)}.steps{grid-template-columns:repeat(2,1fr)}.step:nth-child(2):after{display:none}.network-panel{grid-template-columns:1fr}.feature-layout{grid-template-columns:1fr}}
-@media(max-width:720px){.wrap{width:min(100% - 28px,var(--max))}header{height:67px}.navlinks{display:none;position:absolute;top:66px;left:0;right:0;padding:18px;background:rgba(9,8,17,.97);border-bottom:1px solid var(--line);flex-direction:column;align-items:stretch;gap:0}.navlinks.open{display:flex}.navlinks a{padding:12px 8px}.menu-toggle{display:block}.navright .btn{display:none}.brand{font-size:17px}.hero{padding:40px 0 28px}.hero-grid{grid-template-columns:1fr}.hero h1{font-size:clamp(44px,13vw,65px)}.hero p{font-size:15px}.visual{min-height:390px}.chart-svg{height:185px}.floating-stat{top:84px;right:12px;padding:10px}.floating-stat b{font-size:16px}.ticker-inner{justify-content:flex-start;gap:13px}.ticker-item{width:calc(50% - 8px);font-size:11px}.section-head{display:block}.section-head .btn{margin-top:18px}.section-head h2{font-size:32px}.launch-strip{align-items:flex-start;flex-direction:column}.promo-code{margin:8px 0 0 0}.timer{width:100%}.timebox{flex:1}.plans{grid-template-columns:1fr}.plan{padding:21px}.plan .btn{margin-top:12px}.networks{grid-template-columns:repeat(3,1fr)}.network:last-child{grid-column:2}.steps{grid-template-columns:1fr}.step:not(:last-child):after{content:"↓";right:20px;top:auto;bottom:-19px}.feature-grid{grid-template-columns:1fr 1fr}.cta-band{padding:25px;display:block}.cta-actions{margin-top:22px}.footer-top{display:block}.footer-links{margin-top:22px}.footer-links a{padding:5px 0}}
+@media(max-width:1000px){.navlinks{gap:15px}.chain-pill{display:none}.hero-grid{grid-template-columns:1fr 1fr;gap:20px}.hero h1{font-size:54px}.plans{grid-template-columns:repeat(2,1fr)}.home-leaderboard-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.home-leaderboard-card:last-child{grid-column:1/-1}.steps{grid-template-columns:repeat(2,1fr)}.step:nth-child(2):after{display:none}.network-panel{grid-template-columns:1fr}.feature-layout{grid-template-columns:1fr}}
+@media(max-width:720px){.wrap{width:min(100% - 28px,var(--max))}header{height:67px}.navlinks{display:none;position:absolute;top:66px;left:0;right:0;padding:18px;background:rgba(9,8,17,.97);border-bottom:1px solid var(--line);flex-direction:column;align-items:stretch;gap:0}.navlinks.open{display:flex}.navlinks a{padding:12px 8px}.menu-toggle{display:block}.navright .btn{display:none}.brand{font-size:17px}.hero{padding:40px 0 28px}.hero-grid{grid-template-columns:1fr}.hero h1{font-size:clamp(44px,13vw,65px)}.hero p{font-size:15px}.visual{min-height:390px}.chart-svg{height:185px}.floating-stat{top:84px;right:12px;padding:10px}.floating-stat b{font-size:16px}.ticker-inner{justify-content:flex-start;gap:13px}.ticker-item{width:calc(50% - 8px);font-size:11px}.section-head{display:block}.section-head .btn{margin-top:18px}.section-head h2{font-size:32px}.home-leaderboards{padding-top:36px}.home-leaderboard-grid{grid-template-columns:1fr}.home-leaderboard-card:last-child{grid-column:auto}.launch-strip{align-items:flex-start;flex-direction:column}.promo-code{margin:8px 0 0 0}.timer{width:100%}.timebox{flex:1}.plans{grid-template-columns:1fr}.plan{padding:21px}.plan .btn{margin-top:12px}.networks{grid-template-columns:repeat(3,1fr)}.network:last-child{grid-column:2}.steps{grid-template-columns:1fr}.step:not(:last-child):after{content:"↓";right:20px;top:auto;bottom:-19px}.feature-grid{grid-template-columns:1fr 1fr}.cta-band{padding:25px;display:block}.cta-actions{margin-top:22px}.footer-top{display:block}.footer-links{margin-top:22px}.footer-links a{padding:5px 0}}
 @media(max-width:720px){.market-hours-banner{align-items:flex-start;gap:12px;padding:17px}.market-hours-icon{flex-basis:38px;width:38px;height:38px;border-radius:12px;font-size:18px}.market-hours-copy h2{font-size:16px}.market-hours-copy p{font-size:11px}.market-hours-note{display:none}}
 .networks{grid-template-columns:repeat(3,1fr)}
 @media(max-width:720px){.network:last-child{grid-column:auto}}
@@ -72,6 +85,7 @@ button:disabled,input[type="button"]:disabled,input[type="submit"]:disabled,inpu
       <a href="#home">Home</a>
       <a href="app.html">Trade Terminal</a>
       <a href="#plans">Plans</a>
+      <a href="#home-leaderboards">Leaderboards</a>
       <a href="#how">How it works</a>
       <a href="#rules">Trading rules</a>
       <a href="faq.html">FAQ</a>
@@ -163,6 +177,26 @@ button:disabled,input[type="button"]:disabled,input[type="submit"]:disabled,inpu
   <div class="ticker-item"><span class="ticker-icon">⌁</span><span><strong>Static drawdown</strong><br><span class="muted">Rules you can plan around</span></span></div>
   <div class="ticker-item"><span class="ticker-icon">◎</span><span><strong>USDT payments</strong><br><span class="muted">Six supported networks</span></span></div>
 </div></div>
+
+<section id="home-leaderboards" class="home-leaderboards" hidden aria-labelledby="home-leaderboards-title">
+ <div class="wrap">
+  <div class="section-head reveal"><div><span class="eyebrow">Community standings</span><h2 id="home-leaderboards-title">Top traders, <span class="gradient-text">right now.</span></h2><p>Top five participants in daily profit, monthly profit and lifetime payouts.</p></div><a class="btn secondary" href="app.html">View full leaderboard ↗</a></div>
+  <div class="home-leaderboard-grid">
+   <article class="home-leaderboard-card reveal" aria-labelledby="home-lb-daily-title">
+    <h3 id="home-lb-daily-title">Daily Profit</h3><p>Realized PnL closed today</p>
+    <ol id="home-lb-daily" class="home-leaderboard-list"><li class="home-leaderboard-empty">Loading standings…</li></ol>
+   </article>
+   <article class="home-leaderboard-card reveal" aria-labelledby="home-lb-monthly-title">
+    <h3 id="home-lb-monthly-title">Monthly Profit</h3><p>Realized PnL this month</p>
+    <ol id="home-lb-monthly" class="home-leaderboard-list"><li class="home-leaderboard-empty">Loading standings…</li></ol>
+   </article>
+   <article class="home-leaderboard-card reveal" aria-labelledby="home-lb-payouts-title">
+    <h3 id="home-lb-payouts-title">Lifetime Payouts</h3><p>Approved and paid USDT</p>
+    <ol id="home-lb-payouts" class="home-leaderboard-list"><li class="home-leaderboard-empty">Loading standings…</li></ol>
+   </article>
+  </div>
+ </div>
+</section>
 
 <section id="plans">
  <div class="wrap">
@@ -272,6 +306,11 @@ let planLoadAttempts = 0;
 let standardDiscountPct = 90;
 const money = n => "$"+n.toLocaleString("en-US");
 const discountedPrice = plan => Math.round(Number(plan.base_price_usdt) * (100-standardDiscountPct)) / 100;
+const homeLeaderboardCategories = [
+ {mode:"DAILY",host:"home-lb-daily"},
+ {mode:"MONTHLY",host:"home-lb-monthly"},
+ {mode:"PAYOUTS",host:"home-lb-payouts"}
+];
 function renderPlans(){
  const host=document.getElementById("planCards");
  if(!plans.length){
@@ -336,6 +375,48 @@ async function loadPlans(){
  }
 }
 loadPlans();
+async function loadHomeLeaderboardCategory(category){
+ const host=document.getElementById(category.host);
+ if(!host) return;
+ try{
+  const response=await fetch(`/api/leaderboard?mode=${category.mode}&limit=5`);
+  if(!response.ok) throw new Error(`Leaderboard request failed (${response.status})`);
+  const data=await response.json();
+  const rows=Array.isArray(data.leaderboard)?data.leaderboard.slice(0,5):[];
+  host.replaceChildren();
+  if(!rows.length){
+   const empty=document.createElement("li");
+   empty.className="home-leaderboard-empty";
+   empty.textContent="No standings available yet.";
+   host.append(empty);
+   return;
+  }
+  rows.forEach((row,index)=>{
+   const item=document.createElement("li");
+   item.className="home-leaderboard-row";
+   const rank=document.createElement("span");
+   rank.className="home-leaderboard-rank";
+   rank.textContent=String(index+1);
+   const name=document.createElement("strong");
+   name.className="home-leaderboard-name";
+   name.textContent=`@${row.username || "Trader"}`;
+   const metric=document.createElement("span");
+   metric.className="home-leaderboard-value";
+   const amount=Number(row.metric_value);
+   metric.textContent=`$${(Number.isFinite(amount)?amount:0).toLocaleString("en-US",{minimumFractionDigits:2,maximumFractionDigits:2})}`;
+   item.append(rank,name,metric);
+   host.append(item);
+  });
+ }catch(error){
+  console.error(`Unable to load ${category.mode.toLowerCase()} homepage leaderboard:`,error);
+  host.replaceChildren();
+  const unavailable=document.createElement("li");
+  unavailable.className="home-leaderboard-empty";
+  unavailable.textContent="Standings are temporarily unavailable.";
+  host.append(unavailable);
+ }
+}
+homeLeaderboardCategories.forEach(loadHomeLeaderboardCategory);
 async function loadPublishedReviews(){
  try{
   const response=await fetch("/api/reviews");

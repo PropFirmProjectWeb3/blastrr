@@ -75,6 +75,7 @@
         <nav id="nav-menu">
             <button class="nav-tab active" data-maintenance-page="trade" onclick="switchView('tradeView')">Trade Terminal</button>
             <button class="nav-tab" data-maintenance-page="accounts" onclick="switchView('accountsView')">My Accounts</button>
+            <button class="nav-tab" data-maintenance-page="copytrading" onclick="switchView('copyTradingView')">Copy Trading</button>
             <button class="nav-tab" data-maintenance-page="leaderboard" onclick="switchView('leaderboardView')">Leaderboard</button>
             <button class="nav-tab" data-maintenance-page="blastrrpass" onclick="switchView('blastrrPassView')">BlastrrPass</button>
             <button class="nav-tab" data-maintenance-page="profile" onclick="switchView('profileView')">Profile &amp; Promos</button>
@@ -159,6 +160,27 @@
                             </table>
                         </div>
                     </div>
+
+                    <section class="card market-chat-card" aria-labelledby="market-chat-title">
+                        <div class="market-chat-heading">
+                            <div>
+                                <div id="market-chat-title" class="card-title">Market chat</div>
+                                <p id="market-chat-room" class="market-chat-room">Select a market to join its chat.</p>
+                            </div>
+                            <span class="market-chat-public-label">PUBLIC</span>
+                            <button id="market-chat-popout" class="market-chat-popout" type="button" aria-label="Open market chat in a new tab">Open in new tab</button>
+                        </div>
+                        <div id="market-chat-messages" class="market-chat-messages" role="log" aria-live="polite" aria-relevant="additions text">
+                            <p class="market-chat-empty">Loading chat…</p>
+                        </div>
+                        <p id="market-chat-status" class="market-chat-status" role="status">Anyone can read. Posting requires an active, unlocked trading account. Slow mode: one message per minute.</p>
+                        <form id="market-chat-form" class="market-chat-form">
+                            <label class="sr-only" for="market-chat-input">Write a public market chat message</label>
+                            <input id="market-chat-input" type="text" maxlength="500" autocomplete="off" placeholder="Say something…" disabled>
+                            <button id="market-chat-send" class="btn-wallet" type="submit" disabled>Send</button>
+                        </form>
+                        <p class="market-chat-note">Text only. Links, profanity, and scam messages are blocked.</p>
+                    </section>
                 </div>
 
                 <div>
@@ -267,11 +289,48 @@
             </div>
         </section>
 
+        <section id="copyTradingView" class="view-panel workspace-view">
+            <div class="battlepass-page-heading">
+                <div><span class="battlepass-eyebrow">TRADE AS A GROUP</span><h1>Copy trading</h1></div>
+                <p class="support-note">Choose a leader account and assign follower accounts. Each follower copies the leader’s submitted size at its own execution price.</p>
+            </div>
+            <div class="copy-trading-toolbar">
+                <p class="copy-trading-warning">Copy trading uses simulated accounts. Follower orders can fail independently when an account is locked or lacks available balance.</p>
+                <div class="copy-trading-toolbar-actions">
+                    <button id="copy-group-create" class="battlepass-secondary-button" type="button">Create group</button>
+                    <button id="copy-flatten-all" class="copy-trading-flatten" type="button">Flatten all copy trades</button>
+                </div>
+            </div>
+            <p id="copy-trading-status" class="support-feedback" role="status" aria-live="polite"></p>
+            <section class="copy-accounts-overview" aria-labelledby="copy-accounts-heading">
+                <h2 id="copy-accounts-heading">Your accounts</h2>
+                <div id="copy-account-overview" class="copy-account-overview-grid">
+                    <p class="workspace-empty-state">Loading your accounts…</p>
+                </div>
+            </section>
+            <div id="copy-group-wizard" class="card copy-group-wizard" hidden>
+                <div class="copy-wizard-heading">
+                    <div><span id="copy-wizard-step-label" class="battlepass-eyebrow">STEP 1 OF 3</span><h2 id="copy-wizard-title">Choose a leader</h2></div>
+                    <button id="copy-wizard-cancel" class="battlepass-secondary-button" type="button">Cancel</button>
+                </div>
+                <div id="copy-wizard-content"></div>
+                <p id="copy-wizard-error" class="support-feedback" role="status" aria-live="polite"></p>
+                <div class="copy-wizard-actions">
+                    <button id="copy-wizard-back" class="battlepass-secondary-button" type="button" hidden>Back</button>
+                    <button id="copy-wizard-next" class="btn-wallet" type="button">Next</button>
+                    <button id="copy-wizard-save" class="btn-wallet" type="button" hidden>Save group</button>
+                </div>
+            </div>
+            <div id="copy-groups-container" class="copy-group-list">
+                <p class="workspace-empty-state">Connect your wallet to manage copy-trading groups.</p>
+            </div>
+        </section>
+
         <!-- 3. LEADERBOARD VIEW -->
         <section id="leaderboardView" class="view-panel workspace-view">
             <div class="battlepass-page-heading">
                 <div><span class="battlepass-eyebrow">COMMUNITY STANDINGS</span><h1>Trader leaderboard</h1></div>
-                <p class="support-note">Search traders, compare standings, and share your current rank.</p>
+                <p class="support-note">Compare trader standings and share your current rank.</p>
             </div>
             <div class="battlepass-mission-board leaderboard-board">
                 <div class="battlepass-section-heading leaderboard-section-heading">
@@ -283,7 +342,6 @@
                     </div>
                 </div>
                 <div class="leaderboard-toolbar">
-                    <input type="search" id="lb-search-input" placeholder="Search username or promo code..." aria-label="Search leaderboard" oninput="filterLeaderboardTable()">
                     <span id="lb-my-rank-label" class="leaderboard-my-rank" style="display: none;">Your Rank: #-</span>
                 </div>
                 <span id="lb-metric-col-header" class="sr-only">Daily Realized Profit</span>
@@ -850,6 +908,7 @@
                         <label><input type="checkbox" value="home"> Homepage</label>
                         <label><input type="checkbox" value="trade"> Trading Terminal</label>
                         <label><input type="checkbox" value="accounts"> My Accounts</label>
+                        <label><input type="checkbox" value="copytrading"> Copy Trading</label>
                         <label><input type="checkbox" value="leaderboard"> Leaderboard</label>
                         <label><input type="checkbox" value="blastrrpass"> BlastrrPass</label>
                         <label><input type="checkbox" value="profile"> Profile &amp; Promos</label>

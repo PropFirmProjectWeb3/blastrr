@@ -1,0 +1,58 @@
+const test = require('node:test');
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+
+const databaseJs = fs.readFileSync('database.js', 'utf8');
+const serverJs = fs.readFileSync('server.js', 'utf8');
+const appHtml = fs.readFileSync('public/app.html', 'utf8');
+const appJs = fs.readFileSync('public/js/app.js', 'utf8');
+const appCss = fs.readFileSync('public/css/app.css', 'utf8');
+
+test('copy-trading groups persist unique account assignments and linked positions', () => {
+  assert.match(databaseJs, /CREATE TABLE IF NOT EXISTS trade_copy_groups/);
+  assert.match(databaseJs, /CREATE TABLE IF NOT EXISTS trade_copy_group_members/);
+  assert.match(databaseJs, /account_id TEXT NOT NULL PRIMARY KEY/);
+  assert.match(databaseJs, /CREATE TABLE IF NOT EXISTS trade_copy_leader_trades/);
+  assert.match(databaseJs, /CREATE TABLE IF NOT EXISTS trade_copy_links/);
+  assert.match(serverJs, /app\.get\('\/api\/trade-copy\/groups', requireWalletSession/);
+  assert.match(serverJs, /app\.post\('\/api\/trade-copy\/groups', sensitiveLimiter, requireWalletSession, requireUserNotSuspended/);
+  assert.match(serverJs, /An account is already assigned to another copy-trading group/);
+  assert.match(serverJs, /app\.post\('\/api\/trade-copy\/groups\/:groupId\/active'/);
+  assert.match(serverJs, /app\.delete\('\/api\/trade-copy\/groups\/:groupId'/);
+});
+
+test('leader trades copy independently sized orders and linked exits', () => {
+  assert.match(serverJs, /const ratio = Number\(follower\.size_pct\) \/ 100/);
+  assert.match(serverJs, /size_usd: followerMargin \* order\.leverage/);
+  assert.match(serverJs, /executeTradeForAccount\(follower\.account_id, followerOrder/);
+  assert.match(serverJs, /INSERT INTO trade_copy_leader_trades/);
+  assert.match(serverJs, /INSERT INTO trade_copy_links/);
+  assert.match(serverJs, /function closeOutstandingCopyTrades/);
+  assert.match(serverJs, /closeOutstandingCopyTrades\(req\.walletAddress/);
+});
+
+test('copy-trading emergency flatten closes tracked trades across paused or deleted groups', () => {
+  assert.match(serverJs, /app\.post\('\/api\/trade-copy\/flatten', sensitiveLimiter, requireWalletSession/);
+  assert.match(serverJs, /UPDATE trade_copy_groups SET active = 0/);
+  assert.match(serverJs, /waitForTradeExecutions\(wallet/);
+  assert.match(serverJs, /copyFlatteningWallets\.add\(wallet\)/);
+  assert.match(serverJs, /EXISTS \(SELECT 1 FROM trade_copy_leader_trades/);
+  assert.match(serverJs, /EXISTS \(SELECT 1 FROM trade_copy_links/);
+  assert.match(appHtml, /id="copy-flatten-all"/);
+  assert.match(appJs, /Emergency stop: pause all copy groups and close every open copy-trading position/);
+  assert.match(appJs, /walletFetch\('\/api\/trade-copy\/flatten'/);
+  assert.match(appJs, /Paused all copy groups/);
+});
+
+test('copy-trading page includes the group wizard and can be put under maintenance', () => {
+  assert.match(appHtml, /id="copyTradingView"/);
+  assert.match(appHtml, /id="copy-group-wizard"/);
+  assert.match(appHtml, /id="copy-account-overview"/);
+  assert.match(appHtml, /data-maintenance-page="copytrading"/);
+  assert.match(appHtml, /value="copytrading"> Copy Trading/);
+  assert.match(serverJs, /'copytrading'/);
+  assert.match(databaseJs, /'copytrading'/);
+  assert.match(appJs, /copyTradingView: 'copytrading'/);
+  assert.match(appJs, /data-copy-size/);
+  assert.match(appCss, /\.copy-trading-flatten/);
+});

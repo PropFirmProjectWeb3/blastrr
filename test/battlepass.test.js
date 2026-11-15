@@ -23,6 +23,17 @@ test('battle pass task rewards are period-limited and built-in trading tasks are
   assert.match(databaseJs, /is_builtin INTEGER NOT NULL DEFAULT 0/);
   assert.match(databaseJs, /UNIQUE\(wallet_address, task_id, cadence, period_key\)/);
   assert.match(serverJs, /task\.task_type === 'TRADE_DAY'/);
+  assert.match(databaseJs, /'Journal your day'.*'JOURNAL_DAY', 'DAILY', 100, 10/);
+  assert.match(databaseJs, /'Journal five days'.*'JOURNAL_WEEK', 'WEEKLY', 500, 50/);
+  assert.match(databaseJs, /'JOURNAL_DAY', 'JOURNAL_WEEK'/);
+  assert.match(serverJs, /task\.task_type === 'JOURNAL_DAY' \|\| task\.task_type === 'JOURNAL_WEEK'/);
+  assert.match(serverJs, /COUNT\(DISTINCT j\.day\)/);
+  assert.match(serverJs, /task\.task_type === 'JOURNAL_DAY' \? 1 : 5/);
+  assert.match(serverJs, /task\.progress_target = target/);
+  assert.match(serverJs, /task\.task_type === 'JOURNAL_WEEK' && task\.cadence !== 'WEEKLY'/);
+  assert.match(appJs, /battlepass-journal-progress/);
+  assert.match(appJs, /journal days/);
+  assert.match(appJs, /await loadBattlePass\(\)/);
   assert.match(databaseJs, /'Paid withdrawal'.*'WITHDRAWAL', 'DAILY'/);
   assert.match(serverJs, /task\.task_type === 'GREEN_DAY' \? 1 : 7/);
   assert.match(serverJs, /date\(COALESCE\(w\.paid_at, w\.created_at\)\)/);
@@ -69,7 +80,7 @@ test('profile rewards and level discounts are wallet-bound and checkout applies 
 });
 
 test('leaderboards and public profile cards include BlastrrPass level and XP', () => {
-  assert.equal((serverJs.match(/AS battlepass_xp/g) || []).length, 3);
+  assert.equal((serverJs.match(/AS battlepass_xp/g) || []).length, 5);
   assert.equal((serverJs.match(/b\.profile_image_url, COALESCE\(b\.xp/g) || []).length, 3);
   assert.match(appJs, /<small>Battle Pass rank<\/small>/);
   assert.match(appJs, /<small>XP earned<\/small>/);

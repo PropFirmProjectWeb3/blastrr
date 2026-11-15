@@ -11,15 +11,29 @@ const appCss = fs.readFileSync('public/css/app.css', 'utf8');
 test('creator referral rates default to 2%, are admin-adjustable, and apply to new sales', () => {
   assert.match(databaseJs, /referral_pct REAL NOT NULL DEFAULT 2/);
   assert.match(databaseJs, /commission_pct REAL DEFAULT 2/);
+  assert.match(databaseJs, /referred_by TEXT/);
+  assert.match(databaseJs, /level INTEGER NOT NULL DEFAULT 1/);
+  assert.match(databaseJs, /CREATE TABLE IF NOT EXISTS referral_settings/);
   assert.match(serverJs, /app\.post\('\/api\/admin\/referrals\/search', sensitiveLimiter, requireTradeSignature, requireAdminWallet/);
   assert.match(serverJs, /app\.post\('\/api\/admin\/referrals\/commission', sensitiveLimiter, requireTradeSignature, requireAdminWallet/);
+  assert.match(serverJs, /app\.post\('\/api\/admin\/referrals\/settings\/save', sensitiveLimiter, requireTradeSignature, requireAdminWallet/);
   assert.match(serverJs, /referralPct < 0 \|\| referralPct > 100/);
-  assert.match(serverJs, /const commissionEarned = finalPrice \* referralCommissionPct \/ 100/);
-  assert.match(serverJs, /commission_earned, commission_pct/);
+  assert.match(serverJs, /UPDATE users SET referred_by = \?[\s\S]*?referred_by IS NULL/);
+  assert.match(serverJs, /finalPrice \* referralCommissionPct \/ 100/);
+  assert.match(serverJs, /finalPrice \* levelTwoCommissionPct \/ 100/);
+  assert.match(serverJs, /commission_pct, level\)[\s\S]*?VALUES \(\?, \?, \?, \?, \?, \?, 1\)/);
+  assert.match(serverJs, /commission_pct, level\)[\s\S]*?VALUES \(\?, \?, \?, \?, \?, \?, 2\)/);
+  assert.match(serverJs, /COUNT\(DISTINCT CASE WHEN level = 1 THEN referee_wallet END\)/);
   assert.match(appHtml, /id="disp-referral-pct"/);
+  assert.match(appHtml, /id="disp-level-two-pct"/);
+  assert.match(appHtml, /id="profile-referees-list"/);
+  assert.match(appHtml, /id="promo-referees-list"/);
+  assert.match(appHtml, /id="admin-level-two-form"/);
   assert.match(appHtml, /id="admin-creator-search-form"/);
   assert.match(appJs, /data\.user\.referral_pct/);
   assert.match(appJs, /admin-creators-panel/);
+  assert.match(appJs, /referral_level/);
+  assert.match(appJs, /profile-referees-list', 'promo-referees-list'/);
 });
 
 test('creator applications are editable, reviewed by admins, and set custom referral bonuses on approval', () => {

@@ -5,14 +5,16 @@ let connectedWallet = null;
         let userReviewAccounts = [];
         let selectedAccountId = null;
         let activeAccount = null;
-        let tvWidget = null;
-        let liveMarketChart = null;
-        let liveMarketCandleSeries = null;
+                let liveMarketChart = null;
+                let liveMarketCandleSeries = null;
         let liveMarketResizeObserver = null;
         let liveMarketChartPair = null;
         let liveMarketChartStatus = null;
         let liveMarketLastCandle = null;
+        let liveMarketFirstCandleTime = null;
         let liveMarketChartGeneration = 0;
+        let liveMarketTradeLines = [];
+        let liveMarketTradeMarkers = [];
         let livePriceRequestGeneration = 0;
         let activePromoCode = null;
         let battlePassDiscountBonusPct = 0;
@@ -32,6 +34,7 @@ let connectedWallet = null;
         let currentLeaderboardMode = 'DAILY';
         let rawLeaderboardData = [];
         let currentUserProfile = null;
+        let adminUserSearchQuery = '';
         let hidePermanentlyLockedAccounts = true;
         let walletSessionToken = null;
         let walletSessionOwner = null;
@@ -260,44 +263,6 @@ let connectedWallet = null;
             }
         }
 
-        function initTradingViewWidget(symbol) {
-            disposeLiveMarketChart();
-            const container = document.getElementById('tradingview-widget-container');
-            if (!container) return;
-            container.innerHTML = '';
-            if (!window.TradingView?.widget) {
-                container.textContent = 'TradingView chart is unavailable.';
-                return;
-            }
-            tvWidget = new TradingView.widget({
-                "autosize": true,
-                "symbol": symbol,
-                "interval": "D",
-                "timezone": "Etc/UTC",
-                "theme": "dark",
-                "style": "1",
-                "locale": "en",
-                "toolbar_bg": "#090d13",
-                "studies": ["MAExp@tv-basicstudies"],
-                "studies_overrides": {
-                    "moving average exponential.plot.color": "#b7bdc5",
-                    "moving average exponential.plot.linewidth": 2
-                },
-                "overrides": {
-                    "paneProperties.background": "#090d13",
-                    "paneProperties.vertGridProperties.color": "rgba(196, 178, 255, 0.10)",
-                    "paneProperties.horzGridProperties.color": "rgba(196, 178, 255, 0.10)",
-                    "mainSeriesProperties.candleStyle.upColor": "#72f0c3",
-                    "mainSeriesProperties.candleStyle.downColor": "#ff638e",
-                    "mainSeriesProperties.candleStyle.borderUpColor": "#72f0c3",
-                    "mainSeriesProperties.candleStyle.borderDownColor": "#ff638e",
-                    "mainSeriesProperties.candleStyle.wickUpColor": "#72f0c3",
-                    "mainSeriesProperties.candleStyle.wickDownColor": "#ff638e"
-                },
-                "container_id": "tradingview-widget-container"
-            });
-        }
-
         function disposeLiveMarketChart() {
             liveMarketChartGeneration += 1;
             liveMarketResizeObserver?.disconnect();
@@ -308,17 +273,19 @@ let connectedWallet = null;
             liveMarketChartPair = null;
             liveMarketChartStatus = null;
             liveMarketLastCandle = null;
+            liveMarketFirstCandleTime = null;
+            liveMarketTradeLines = [];
+            liveMarketTradeMarkers = [];
         }
 
-        async function initLiveMarketChart(pair) {
+        async function initLiveMarketChart(pair, source) {
             disposeLiveMarketChart();
             const container = document.getElementById('tradingview-widget-container');
             if (!container) return;
             container.replaceChildren();
-            tvWidget = null;
 
             if (!window.LightweightCharts?.createChart) {
-                container.textContent = 'Live perpetual chart is unavailable. Check the chart library connection.';
+                container.textContent = 'Live chart is unavailable. Check the chart library connection.';
                 return;
             }
 
@@ -328,10 +295,10 @@ let connectedWallet = null;
             chartHost.className = 'live-market-chart-host';
             liveMarketChartStatus = document.createElement('div');
             liveMarketChartStatus.className = 'live-market-chart-status';
-            liveMarketChartStatus.textContent = 'Loading live Bitget candles…';
+            liveMarketChartStatus.textContent = 'Loading live candles…';
             const attribution = document.createElement('a');
             attribution.className = 'live-market-chart-attribution';
-            attribution.href = 'https://www.tradingview.com/';
+            attribution.href = 'https://www.tradingview.com/lightweight-charts/';
             attribution.target = '_blank';
             attribution.rel = 'noopener noreferrer';
             attribution.textContent = 'Charts by TradingView';
@@ -368,14 +335,24 @@ let connectedWallet = null;
             }
 
             try {
-                const endpoint = `https://api.bitget.com/api/v2/mix/market/candles?productType=USDT-FUTURES&symbol=${encodeURIComponent(pair)}&granularity=1m&limit=120`;
+                const endpoint = source === 'BITGET_PERP'
+                    ? `https://api.bitget.com/api/v2/mix/market/candles?productType=USDT-FUTURES&symbol=${encodeURIComponent(pair)}&granularity=1m&limit=120`
+                    : source === 'BINANCE_SPOT'
+                        ? `https://api.binance.com/api/v3/klines?symbol=${encodeURIComponent(pair)}&interval=1m&limit=120`
+                        : source === 'BINANCE_PERP'
+                            ? `https://fapi.binance.com/fapi/v1/klines?symbol=${encodeURIComponent(pair)}&interval=1m&limit=120`
+                            : null;
+                if (!endpoint) throw new Error(`Candlestick charts are not configured for ${source}.`);
                 const response = await fetch(endpoint);
-                if (!response.ok) throw new Error(`Bitget candle request failed (${response.status}).`);
+                if (!response.ok) throw new Error(`Market candle request failed (${response.status}).`);
                 const data = await response.json();
-                if (data?.code !== '00000') throw new Error(`Bitget candle request failed (${data?.msg || data?.code}).`);
+                if (source === 'BITGET_PERP' && data?.code !== '00000') {
+                    throw new Error(`Bitget candle request failed (${data?.msg || data?.code}).`);
+                }
                 if (generation !== liveMarketChartGeneration || liveMarketChartPair !== pair) return;
 
-                const candles = (data.data || []).map(candle => ({
+                const candleRows = source === 'BITGET_PERP' ? data.data || [] : Array.isArray(data) ? data : [];
+                const candles = candleRows.map(candle => ({
                     time: Math.floor(Number(candle[0]) / 1000),
                     open: Number(candle[1]),
                     high: Number(candle[2]),
@@ -384,23 +361,25 @@ let connectedWallet = null;
                 })).filter(candle => Number.isFinite(candle.time) &&
                     [candle.open, candle.high, candle.low, candle.close].every(value => Number.isFinite(value) && value > 0))
                     .sort((a, b) => a.time - b.time);
-                if (candles.length === 0) throw new Error('Bitget returned no valid candles.');
+                if (candles.length === 0) throw new Error('Market provider returned no valid candles.');
                 liveMarketCandleSeries.setData(candles);
+                liveMarketFirstCandleTime = candles[0].time;
                 liveMarketLastCandle = { ...candles[candles.length - 1] };
                 liveMarketChart.timeScale().fitContent();
+                renderChartTradeOverlays(displayedOpenTrades);
                 liveMarketChartStatus.remove();
                 liveMarketChartStatus = null;
             } catch (error) {
                 if (generation !== liveMarketChartGeneration) return;
                 console.error(`Unable to load Bitget candles for ${pair}:`, error.message);
-                liveMarketChartStatus.textContent = 'Unable to load live candles. Retrying with the next price update.';
+                liveMarketChartStatus.textContent = 'Unable to load live candles. Change market or refresh to retry.';
             }
         }
 
-        function updateLiveMarketChart(ticker) {
-            if (!liveMarketCandleSeries || !ticker || ticker.symbol !== liveMarketChartPair) return;
-            const price = Number(ticker.markPrice);
-            const timestamp = Number(ticker.ts);
+        function updateLiveMarketChart(pair, priceValue, timestampValue) {
+            if (!liveMarketCandleSeries || pair !== liveMarketChartPair) return;
+            const price = Number(priceValue);
+            const timestamp = Number(timestampValue);
             if (!Number.isFinite(price) || price <= 0) return;
             const time = Math.floor((Number.isFinite(timestamp) ? timestamp : Date.now()) / 60000) * 60;
             const latest = liveMarketLastCandle;
@@ -422,12 +401,49 @@ let connectedWallet = null;
             liveMarketCandleSeries.update({ ...liveMarketLastCandle });
         }
 
-        function updateTradingViewSymbol(symbol) {
-            if (tvWidget && tvWidget.chart) {
-                try { tvWidget.chart().setSymbol(symbol); } catch(e) { initTradingViewWidget(symbol); }
-            } else {
-                initTradingViewWidget(symbol);
+        function renderChartTradeOverlays(trades) {
+            if (!liveMarketCandleSeries) return;
+            liveMarketTradeLines.forEach(line => liveMarketCandleSeries.removePriceLine(line));
+            liveMarketTradeLines = [];
+            liveMarketTradeMarkers = [];
+            const selectedSymbol = document.getElementById('order-symbol')?.value;
+            const validTrades = (trades || []).filter(trade =>
+                trade.symbol === selectedSymbol && trade.status === 'OPEN'
+            );
+            const lineStyle = LightweightCharts.LineStyle?.Dashed ?? 2;
+            for (const trade of validTrades) {
+                const isLong = trade.side === 'BUY';
+                const tradeLabel = `${isLong ? 'LONG' : 'SHORT'} ${String(trade.id).slice(-6)}`;
+                const addPriceLine = (price, title, color, width = 1) => {
+                    const value = Number(price);
+                    if (!Number.isFinite(value) || value <= 0) return;
+                    liveMarketTradeLines.push(liveMarketCandleSeries.createPriceLine({
+                        price: value,
+                        color,
+                        lineWidth: width,
+                        lineStyle,
+                        axisLabelVisible: true,
+                        title
+                    }));
+                };
+                addPriceLine(trade.entry_price, `${tradeLabel} entry`, isLong ? '#34d399' : '#f87171', 2);
+                addPriceLine(trade.sl, `${tradeLabel} SL`, '#fb7185');
+                addPriceLine(trade.tp, `${tradeLabel} TP`, '#22d3ee');
+
+                const entryTimestamp = new Date(trade.created_at).getTime();
+                const entryTime = Math.floor(entryTimestamp / 60000) * 60;
+                if (Number.isFinite(entryTimestamp) && entryTime >= liveMarketFirstCandleTime && entryTime <= liveMarketLastCandle?.time) {
+                    liveMarketTradeMarkers.push({
+                        time: entryTime,
+                        position: isLong ? 'belowBar' : 'aboveBar',
+                        color: isLong ? '#34d399' : '#f87171',
+                        shape: isLong ? 'arrowUp' : 'arrowDown',
+                        text: `${isLong ? 'Long' : 'Short'} entry`
+                    });
+                }
             }
+            liveMarketTradeMarkers.sort((left, right) => left.time - right.time);
+            liveMarketCandleSeries.setMarkers(liveMarketTradeMarkers);
         }
 
         function onSymbolChanged(tvSymbol) {
@@ -438,11 +454,7 @@ let connectedWallet = null;
             const opt = select.querySelector(`option[value="${tvSymbol}"]`);
             if (!opt) return;
             resetChartMarketStats(opt.textContent);
-            if (opt.dataset.source === 'BITGET_PERP') {
-                initLiveMarketChart(opt.dataset.pair);
-            } else {
-                updateTradingViewSymbol(tvSymbol);
-            }
+            initLiveMarketChart(opt.dataset.pair, opt.dataset.source);
             startPricePolling(opt.dataset.pair, opt.dataset.type, opt.dataset.source);
         }
 
@@ -645,9 +657,11 @@ let connectedWallet = null;
             try {
                 const endpoint = source === 'BINANCE_SPOT'
                     ? `https://api.binance.com/api/v3/ticker/24hr?symbol=${encodeURIComponent(pair)}`
-                    : source === 'BITGET_PERP'
-                        ? `https://api.bitget.com/api/v2/mix/market/ticker?productType=USDT-FUTURES&symbol=${encodeURIComponent(pair)}`
-                        : null;
+                    : source === 'BINANCE_PERP'
+                        ? `https://fapi.binance.com/fapi/v1/ticker/24hr?symbol=${encodeURIComponent(pair)}`
+                        : source === 'BITGET_PERP'
+                            ? `https://api.bitget.com/api/v2/mix/market/ticker?productType=USDT-FUTURES&symbol=${encodeURIComponent(pair)}`
+                            : null;
                 if (!endpoint) throw new Error(`Unsupported market price source: ${source}`);
                 const res = await fetch(endpoint);
                 if (!res.ok) throw new Error(`Market price request failed (${res.status}).`);
@@ -655,17 +669,21 @@ let connectedWallet = null;
                 let price;
                 if (source === 'BINANCE_SPOT') {
                     price = Number(data?.lastPrice);
+                    if (generation === livePriceRequestGeneration) updateLiveMarketChart(pair, price, Date.now());
                 } else {
                     if (source === 'BITGET_PERP') {
                         if (data?.code !== '00000') throw new Error(`Bitget price request failed (${data?.msg || data?.code}).`);
                         const ticker = data.data?.[0];
                         if (ticker?.symbol !== pair) throw new Error('Bitget returned an unexpected market symbol.');
                         price = Number(ticker.markPrice);
-                        if (generation === livePriceRequestGeneration) updateLiveMarketChart(ticker);
+                        if (generation === livePriceRequestGeneration) updateLiveMarketChart(pair, price, ticker.ts);
                         if (generation === livePriceRequestGeneration) renderChartMarketStats(ticker);
                     } else {
                         price = Number(data?.lastPrice);
-                        if (generation === livePriceRequestGeneration) renderChartMarketStats(data);
+                        if (generation === livePriceRequestGeneration) {
+                            updateLiveMarketChart(pair, price, Date.now());
+                            renderChartMarketStats(data);
+                        }
                     }
                 }
                 if (!Number.isFinite(price) || price <= 0) throw new Error('Market provider returned an invalid price.');
@@ -695,6 +713,23 @@ let connectedWallet = null;
             const lbl = document.getElementById('leverage-label');
             if (lbl) lbl.innerText = val == "1" ? "1x Spot Mode" : `${val}x Leverage Mode`;
             calculateMetrics();
+        }
+
+        function toggleStopAmountMode(enabled) {
+            const stopLabel = document.getElementById('order-sl-label');
+            const targetLabel = document.getElementById('order-tp-label');
+            const help = document.getElementById('order-sl-tp-mode-help');
+            const stopInput = document.getElementById('order-sl');
+            const targetInput = document.getElementById('order-tp');
+            if (stopLabel) stopLabel.textContent = enabled ? 'Stop Loss amount ($ P&L)' : 'Stop Loss trigger price (SL)';
+            if (targetLabel) targetLabel.textContent = enabled ? 'Take Profit amount ($ P&L)' : 'Take Profit trigger price (TP)';
+            if (help) {
+                help.textContent = enabled
+                    ? 'Dollar amounts are converted to trigger prices from the filled position size and execution price.'
+                    : 'Unchecked: enter the stop-loss and take-profit trigger prices.';
+            }
+            if (stopInput) stopInput.placeholder = enabled ? 'e.g. 500 loss' : 'Optional';
+            if (targetInput) targetInput.placeholder = enabled ? 'e.g. 1000 profit' : 'Optional';
         }
 
         function calculateMetrics() {
@@ -744,7 +779,7 @@ let connectedWallet = null;
 
             if (viewId === 'adminView') {
                 loadAdminWithdrawals();
-                loadAdminAccounts();
+                loadAdminPlans();
                 loadAdminTickets();
                 loadAdminReviews();
                 if (document.getElementById('admin-creators-panel')?.hidden === false) {
@@ -835,6 +870,7 @@ let connectedWallet = null;
                 tab?.classList.toggle('active', selected);
                 tab?.setAttribute('aria-selected', String(selected));
             });
+            if (panelId === 'profile-support-panel' && connectedWallet) loadUserTickets(connectedWallet);
         }
 
         function battlePassLevelForXp(xp) {
@@ -2446,55 +2482,284 @@ let connectedWallet = null;
             return `<div class="table-responsive"><table class="admin-trade-table"><thead><tr><th>Trade</th><th>Pair</th><th>Side</th><th>Status</th><th>Entry</th><th>Size</th><th>PnL</th></tr></thead><tbody>${rows}</tbody></table></div>`;
         }
 
-        async function loadAdminAccounts() {
-            const container = document.getElementById('admin-account-list');
+        function renderAdminAccountCard(account) {
+            const mllCap = Number(account.initial_balance) * (1 + Number(account.max_drawdown_pct) / 100);
+            const riskLock = account.permanent_lock
+                ? `Permanent risk lock: ${escapeHTML(account.lock_reason || 'MLL')}`
+                : account.locked_until ? `Risk lock until ${escapeHTML(account.locked_until)}` : '';
+            const adminFreeze = Number(account.admin_frozen) === 1;
+            const automaticPause = Number(account.withdrawal_pending) === 1;
+            return `
+                <article class="admin-account-card">
+                    <div class="admin-account-heading">
+                        <div><strong>${escapeHTML(account.plan_name)}</strong> · <code>${escapeHTML(account.id)}</code><br><code>${escapeHTML(account.wallet_address)}</code></div>
+                        <button class="${adminFreeze ? 'btn-sell' : 'btn-wallet'}" data-admin-account-action="${adminFreeze ? 'UNFREEZE' : 'FREEZE'}" data-admin-account-id="${escapeHTML(account.id)}">${adminFreeze ? 'Unfreeze account' : 'Freeze account'}</button>
+                    </div>
+                    <div class="admin-account-stats">
+                        <span>Status: <strong>${escapeHTML(account.status)}</strong></span>
+                        <span>Balance: <strong>$${Number(account.current_balance).toFixed(2)}</strong></span>
+                        <span>Risk balance: <strong>$${Number(account.risk_balance).toFixed(2)}</strong></span>
+                        <span>Equity: <strong>$${Number(account.current_equity).toFixed(2)}</strong></span>
+                        <span>Protected floor: <strong>$${mllCap.toFixed(2)}</strong></span>
+                        ${adminFreeze ? `<span class="admin-account-flag">Manual freeze: ${escapeHTML(account.admin_freeze_reason || '')}</span>` : ''}
+                        ${automaticPause ? '<span class="admin-account-flag">Withdrawal review pause active</span>' : ''}
+                        ${riskLock ? `<span class="admin-account-flag">${riskLock}</span>` : ''}
+                    </div>
+                    <details><summary>Review ${account.trades?.length || 0} trades</summary>${renderAdminTradeTable(account.trades || [])}</details>
+                </article>
+            `;
+        }
+
+        async function loadAdminUserSearch(query = adminUserSearchQuery) {
+            const container = document.getElementById('admin-user-search-results');
+            const feedback = document.getElementById('admin-user-search-feedback');
             if (!container) return;
+            adminUserSearchQuery = query.trim();
+            if (feedback) feedback.textContent = '';
+            if (adminUserSearchQuery.length < 2) {
+                container.innerHTML = '<p class="account-chart-empty">Enter at least 2 characters to search.</p>';
+                return;
+            }
+            container.innerHTML = '<p class="account-chart-empty">Searching users...</p>';
             try {
                 const authorization = await signedTradeAuthorization();
-                const response = await fetch('/api/admin/accounts', {
+                const response = await fetch('/api/admin/users/search', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(authorization)
+                    body: JSON.stringify({ ...authorization, query: adminUserSearchQuery })
                 });
-                const data = await readAdminApiResponse(response, '/api/admin/accounts');
-                if (!response.ok) throw new Error(data.error || 'Unable to load account reviews.');
-                if (!data.accounts?.length) {
-                    container.innerHTML = '<p class="account-chart-empty">No accounts found.</p>';
+                const data = await readAdminApiResponse(response, '/api/admin/users/search');
+                if (!response.ok) throw new Error(data.error || 'Unable to search user profiles.');
+                if (!data.users?.length) {
+                    container.innerHTML = '<p class="account-chart-empty">No matching users found.</p>';
                     return;
                 }
-                container.innerHTML = data.accounts.map(account => {
-                    const mllCap = Number(account.initial_balance) * (1 + Number(account.max_drawdown_pct) / 100);
-                    const riskLock = account.permanent_lock
-                        ? `Permanent risk lock: ${escapeHTML(account.lock_reason || 'MLL')}`
-                        : account.locked_until ? `Risk lock until ${escapeHTML(account.locked_until)}` : '';
-                    const adminFreeze = Number(account.admin_frozen) === 1;
-                    const automaticPause = Number(account.withdrawal_pending) === 1;
-                    return `
-                        <article class="admin-account-card">
-                            <div class="admin-account-heading">
-                                <div><strong>${escapeHTML(account.plan_name)}</strong> · <code>${escapeHTML(account.id)}</code><br><code>${escapeHTML(account.wallet_address)}</code></div>
-                                <button class="${adminFreeze ? 'btn-sell' : 'btn-wallet'}" data-admin-account-action="${adminFreeze ? 'UNFREEZE' : 'FREEZE'}" data-admin-account-id="${escapeHTML(account.id)}">${adminFreeze ? 'Unfreeze account' : 'Freeze account'}</button>
+                container.innerHTML = data.users.map(user => `
+                    <article class="admin-account-card">
+                        <div class="admin-account-heading">
+                            <div><strong>${escapeHTML(user.username ? `@${user.username}` : 'User without username')}</strong><br><code>${escapeHTML(user.wallet_address)}</code></div>
+                            <span>${Number(user.account_count)} account${Number(user.account_count) === 1 ? '' : 's'}</span>
+                        </div>
+                        <div class="admin-account-stats">
+                            <span>User access: <strong>${Number(user.admin_suspended) === 1 ? 'SUSPENDED' : 'ACTIVE'}</strong></span>
+                            ${Number(user.admin_suspended) === 1 ? `<span class="admin-account-flag">Suspension reason: ${escapeHTML(user.admin_suspend_reason || 'No reason recorded')}</span>` : ''}
+                            ${Number(user.new_ip_count) > 0 ? `<span class="admin-account-flag">⚠ ${Number(user.new_ip_count)} new-IP login warning${Number(user.new_ip_count) === 1 ? '' : 's'} in the last 180 days</span>` : ''}
+                            <button class="${Number(user.admin_suspended) === 1 ? 'btn-wallet' : 'btn-sell'}"
+                                data-admin-user-action="${Number(user.admin_suspended) === 1 ? 'RESTORE' : 'SUSPEND'}"
+                                data-admin-user-wallet="${escapeHTML(user.wallet_address)}">
+                                ${Number(user.admin_suspended) === 1 ? 'Restore user access' : 'Suspend user'}
+                            </button>
+                        </div>
+                        <details data-admin-user-wallet="${escapeHTML(user.wallet_address)}">
+                            <summary>Show account and login security details</summary>
+                            <div class="admin-user-accounts">
+                                <p class="account-chart-empty">Expand to load account details...</p>
                             </div>
-                            <div class="admin-account-stats">
-                                <span>Balance: <strong>$${Number(account.current_balance).toFixed(2)}</strong></span>
-                                <span>Risk balance: <strong>$${Number(account.risk_balance).toFixed(2)}</strong></span>
-                                <span>Equity: <strong>$${Number(account.current_equity).toFixed(2)}</strong></span>
-                                <span>Protected floor: <strong>$${mllCap.toFixed(2)}</strong></span>
-                                ${adminFreeze ? `<span class="admin-account-flag">Manual freeze: ${escapeHTML(account.admin_freeze_reason || '')}</span>` : ''}
-                                ${automaticPause ? '<span class="admin-account-flag">Withdrawal review pause active</span>' : ''}
-                                ${riskLock ? `<span class="admin-account-flag">${riskLock}</span>` : ''}
-                            </div>
-                            <details><summary>Review ${account.trades?.length || 0} trades</summary>${renderAdminTradeTable(account.trades || [])}</details>
-                        </article>
-                    `;
-                }).join('');
+                        </details>
+                    </article>
+                `).join('');
+                container.querySelectorAll('details[data-admin-user-wallet]').forEach(details => {
+                    details.addEventListener('toggle', () => {
+                        if (details.open && details.dataset.loaded !== 'true') {
+                            loadAdminUserAccounts(details.dataset.adminUserWallet, details);
+                        }
+                    });
+                });
                 container.onclick = event => {
                     const button = event.target.closest('[data-admin-account-action]');
                     if (button) adminAccountAction(button.dataset.adminAccountId, button.dataset.adminAccountAction);
+                    const userButton = event.target.closest('[data-admin-user-action]');
+                    if (userButton) adminUserAction(userButton.dataset.adminUserWallet, userButton.dataset.adminUserAction);
                 };
             } catch (err) {
                 console.error(err);
                 container.innerHTML = `<p class="account-chart-empty">${escapeHTML(err.message)}</p>`;
+            }
+        }
+
+        async function loadAdminUserAccounts(wallet, details) {
+            const container = details?.querySelector('.admin-user-accounts');
+            if (!container || details.dataset.loading === 'true') return;
+            details.dataset.loading = 'true';
+            container.innerHTML = '<p class="account-chart-empty">Loading account details...</p>';
+            try {
+                const authorization = await signedTradeAuthorization();
+                const response = await fetch('/api/admin/users/accounts', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ ...authorization, user_wallet: wallet })
+                });
+                const data = await readAdminApiResponse(response, '/api/admin/users/accounts');
+                if (!response.ok) throw new Error(data.error || "Unable to load this user's accounts.");
+                const accounts = data.accounts || [];
+                const live = accounts.filter(account => account.status === 'ACTIVE');
+                const archived = accounts.filter(account => account.status !== 'ACTIVE');
+                const loginIps = data.login_ips || [];
+                const newIpEvents = loginIps.filter(event => Number(event.is_new_ip) === 1);
+                const securityPanel = `
+                    <section class="admin-user-security">
+                        <h4>Login security · last 180 days</h4>
+                        ${newIpEvents.length
+                            ? newIpEvents.map(event => `<p class="admin-account-flag">New IP detected: <code>${escapeHTML(event.ip_address)}</code> · ${escapeHTML(new Date(event.created_at).toLocaleString())}</p>`).join('')
+                            : '<p>No new-IP warnings in the retention window.</p>'}
+                        <details>
+                            <summary>Recent login IPs (${loginIps.length})</summary>
+                            ${loginIps.length ? `<ul>${loginIps.map(event => `<li>${Number(event.is_new_ip) === 1 ? '<strong>New IP · </strong>' : ''}<code>${escapeHTML(event.ip_address)}</code> · ${escapeHTML(new Date(event.created_at).toLocaleString())}</li>`).join('')}</ul>` : '<p>No recorded logins in the retention window.</p>'}
+                        </details>
+                        <details>
+                            <summary>Admin suspension history (${(data.admin_actions || []).length})</summary>
+                            ${(data.admin_actions || []).length ? `<ul>${data.admin_actions.map(item => `<li><strong>${escapeHTML(item.action)}</strong> · ${escapeHTML(new Date(item.created_at).toLocaleString())} · by <code>${escapeHTML(item.admin_wallet)}</code>${item.reason ? `<br>${escapeHTML(item.reason)}` : ''}</li>`).join('')}</ul>` : '<p>No admin suspension actions recorded.</p>'}
+                        </details>
+                    </section>
+                `;
+                const renderGroup = (title, items) => `
+                    <section class="admin-user-account-group">
+                        <h4>${title} (${items.length})</h4>
+                        ${items.length ? items.map(renderAdminAccountCard).join('') : '<p class="account-chart-empty">No accounts in this group.</p>'}
+                    </section>
+                `;
+                container.innerHTML = accounts.length
+                    ? `${securityPanel}${renderGroup('Live accounts', live)}${renderGroup('Archived accounts', archived)}`
+                    : `${securityPanel}<p class="account-chart-empty">This user has no accounts.</p>`;
+                details.dataset.loaded = 'true';
+            } catch (err) {
+                console.error(err);
+                container.innerHTML = `<p class="support-feedback">${escapeHTML(err.message)}</p>`;
+            } finally {
+                details.dataset.loading = 'false';
+            }
+        }
+
+        const adminPlanFields = [
+            ['name', 'Plan name', 'text', '', ''],
+            ['base_price_usdt', 'List price before standard discount (USDT)', 'number', '0.01', '0.01'],
+            ['simulated_capital', 'Simulated capital', 'number', '0.01', '0.01'],
+            ['profit_target', 'Profit target', 'number', '0', '0.01'],
+            ['max_drawdown_pct', 'Max drawdown / MLL (%)', 'number', '0', '0.01'],
+            ['daily_loss_pct', 'Daily loss / DLL (%)', 'number', '0', '0.01'],
+            ['max_single_day_profit_pct', 'Max single-day profit / consistency (%)', 'number', '0', '0.01']
+        ];
+
+        function renderAdminPlanEditor(plan, standardDiscountPct) {
+            const fields = adminPlanFields.map(([name, label, type, min, step]) => `
+                <div class="form-group">
+                    <label>${label}</label>
+                    <input name="${name}" type="${type}" value="${escapeHTML(plan[name] ?? '')}" ${min ? `min="${min}"` : ''} ${step ? `step="${step}"` : ''} ${name === 'name' ? 'maxlength="100"' : ''} required>
+                </div>
+            `).join('');
+            const salePrice = Math.round(Number(plan.base_price_usdt) * (100 - Number(standardDiscountPct))) / 100;
+            return `
+                <article class="admin-plan-card">
+                    <h3>${escapeHTML(plan.name)} · ${Number(plan.active) === 1 ? 'Active' : 'Inactive'}</h3>
+                    <p class="support-note">Current price after ${Number(standardDiscountPct)}% standard discount: $${salePrice.toFixed(2)} USDT</p>
+                    <form class="admin-plan-form admin-plan-edit-form" data-admin-plan-id="${Number(plan.id)}">
+                        ${fields}
+                        <label class="admin-plan-active"><input name="active" type="checkbox" ${Number(plan.active) === 1 ? 'checked' : ''}> Active for sale</label>
+                        <button class="btn-wallet" type="submit">Save plan</button>
+                    </form>
+                </article>
+            `;
+        }
+
+        async function loadAdminPlans() {
+            const container = document.getElementById('admin-plan-list');
+            if (!container) return;
+            try {
+                const authorization = await signedTradeAuthorization();
+                const response = await fetch('/api/admin/plans/list', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(authorization)
+                });
+                const data = await readAdminApiResponse(response, '/api/admin/plans/list');
+                if (!response.ok) throw new Error(data.error || 'Unable to load account plans.');
+                container.innerHTML = data.plans?.length
+                    ? data.plans.map(plan => renderAdminPlanEditor(plan, data.standard_discount_pct ?? 90)).join('')
+                    : '<p class="account-chart-empty">No plans have been created.</p>';
+                container.querySelectorAll('.admin-plan-edit-form').forEach(form => {
+                    form.addEventListener('submit', event => {
+                        event.preventDefault();
+                        saveAdminPlan(form, Number(form.dataset.adminPlanId));
+                    });
+                });
+            } catch (err) {
+                console.error(err);
+                container.innerHTML = `<p class="support-feedback">${escapeHTML(err.message)}</p>`;
+            }
+        }
+
+        async function saveAdminPlan(form, planId = null) {
+            const feedback = document.getElementById('admin-plan-feedback');
+            const button = form.querySelector('button[type="submit"]');
+            if (feedback) feedback.textContent = '';
+            if (button) button.disabled = true;
+            const formValues = Object.fromEntries(new FormData(form));
+            const payload = {
+                ...formValues,
+                plan_id: planId,
+                active: Boolean(form.elements.namedItem('active')?.checked)
+            };
+            for (const [name] of adminPlanFields.slice(1)) payload[name] = Number(formValues[name]);
+            try {
+                const authorization = await signedTradeAuthorization();
+                const response = await fetch('/api/admin/plans/save', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ ...authorization, ...payload })
+                });
+                const data = await readAdminApiResponse(response, '/api/admin/plans/save');
+                if (!response.ok) throw new Error(data.error || 'Unable to save the plan.');
+                if (feedback) feedback.textContent = planId ? 'Plan updated.' : 'Plan created.';
+                if (!planId) form.reset();
+                await Promise.all([loadAdminPlans(), loadAdminPromoPlans()]);
+            } catch (err) {
+                console.error(err);
+                if (feedback) feedback.textContent = err.message;
+            } finally {
+                if (button) button.disabled = false;
+            }
+        }
+
+        async function loadAdminLevelTwoSettings() {
+            const input = document.getElementById('admin-level-two-pct');
+            if (!input) return;
+            try {
+                const authorization = await signedTradeAuthorization();
+                const response = await fetch('/api/admin/referrals/settings/load', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(authorization)
+                });
+                const data = await readAdminApiResponse(response, '/api/admin/referrals/settings/load');
+                if (!response.ok) throw new Error(data.error || 'Unable to load the level-2 commission rate.');
+                input.value = Number(data.level_two_pct ?? 2);
+            } catch (err) {
+                console.error(err);
+                const feedback = document.getElementById('admin-level-two-feedback');
+                if (feedback) feedback.textContent = err.message;
+            }
+        }
+
+        async function saveAdminLevelTwoRate(form) {
+            const feedback = document.getElementById('admin-level-two-feedback');
+            const button = form.querySelector('button[type="submit"]');
+            if (feedback) feedback.textContent = '';
+            if (button) button.disabled = true;
+            try {
+                const authorization = await signedTradeAuthorization();
+                const response = await fetch('/api/admin/referrals/settings/save', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ ...authorization, level_two_pct: Number(document.getElementById('admin-level-two-pct')?.value) })
+                });
+                const data = await readAdminApiResponse(response, '/api/admin/referrals/settings/save');
+                if (!response.ok) throw new Error(data.error || 'Unable to save the level-2 commission rate.');
+                if (feedback) feedback.textContent = `Level-2 rate saved at ${Number(data.level_two_pct)}%.`;
+            } catch (err) {
+                console.error(err);
+                if (feedback) feedback.textContent = err.message;
+            } finally {
+                if (button) button.disabled = false;
             }
         }
 
@@ -2827,7 +3092,7 @@ let connectedWallet = null;
         }
 
         async function loadAdminPromoManagement() {
-            await Promise.all([loadAdminPromoPlans(), loadAdminPromoCodes()]);
+            await Promise.all([loadAdminPromoPlans(), loadAdminPromoCodes(), loadAdminLevelTwoSettings()]);
         }
 
         async function loadAdminPromoPlans() {
@@ -2935,8 +3200,32 @@ let connectedWallet = null;
                 const data = await readAdminApiResponse(response, '/api/admin/accounts/action');
                 if (!response.ok) throw new Error(data.error || 'Unable to update account freeze.');
                 alert(data.message);
-                loadAdminAccounts();
+                if (adminUserSearchQuery) loadAdminUserSearch();
                 loadAdminWithdrawals();
+            } catch (err) {
+                console.error(err);
+                alert(err.message);
+            }
+        }
+
+        async function adminUserAction(wallet, action) {
+            const reason = action === 'SUSPEND' ? prompt('Why is this user being suspended?')?.trim() : '';
+            if (action === 'SUSPEND' && !reason) return;
+            const promptText = action === 'SUSPEND'
+                ? 'Suspend this user? They will retain sign-in and read access and may close existing trades, but purchases, new trades, and withdrawals will be blocked.'
+                : 'Restore this user? Any per-account freezes and risk locks will remain.';
+            if (!confirm(promptText)) return;
+            try {
+                const authorization = await signedTradeAuthorization();
+                const response = await fetch('/api/admin/users/action', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ ...authorization, user_wallet: wallet, action, reason })
+                });
+                const data = await readAdminApiResponse(response, '/api/admin/users/action');
+                if (!response.ok) throw new Error(data.error || 'Unable to update user suspension.');
+                alert(data.message);
+                if (adminUserSearchQuery) loadAdminUserSearch();
             } catch (err) {
                 console.error(err);
                 alert(err.message);
@@ -2955,7 +3244,7 @@ let connectedWallet = null;
                     body: JSON.stringify({ ...authorization, withdrawal_id: withdrawalId, action, type })
                 });
                 const data = await readAdminApiResponse(res, '/api/admin/withdrawals/action');
-                if (data.success) { alert(data.message); loadAdminWithdrawals(); loadAdminAccounts(); if (connectedWallet) loadUserAccounts(connectedWallet); }
+                if (data.success) { alert(data.message); loadAdminWithdrawals(); if (adminUserSearchQuery) loadAdminUserSearch(); if (connectedWallet) loadUserAccounts(connectedWallet); }
                 else alert("Error: " + data.error);
             } catch (err) { console.error(err); }
         }
@@ -3108,6 +3397,7 @@ let connectedWallet = null;
             if (!tbody) return;
             tbody.innerHTML = '';
             displayedOpenTrades = data.trades || [];
+            renderChartTradeOverlays(displayedOpenTrades);
 
             if (displayedOpenTrades.length === 0) {
                 tbody.innerHTML = '<tr><td colspan="9" style="text-align: center; color: #6b7280; padding: 24px;">No open positions for this account.</td></tr>';
@@ -3166,11 +3456,20 @@ let connectedWallet = null;
             const price = parseFloat(document.getElementById('order-price').value) || currentLivePrice;
             const sizeUsd = parseFloat(document.getElementById('order-size-usd').value);
             const leverage = parseInt(document.getElementById('order-leverage').value) || 1;
-            const sl = parseFloat(document.getElementById('order-sl').value) || null;
-            const tp = parseFloat(document.getElementById('order-tp').value) || null;
+            const amountMode = document.getElementById('order-sl-tp-amount-mode')?.checked === true;
+            const slValue = document.getElementById('order-sl').value;
+            const tpValue = document.getElementById('order-tp').value;
+            const sl = slValue === '' ? null : Number(slValue);
+            const tp = tpValue === '' ? null : Number(tpValue);
 
             if (!sizeUsd || sizeUsd <= 0 || sizeUsd > activeAccount.current_balance) {
                 setTradeFeedback('Please check position size and available balance.');
+                return;
+            }
+            if ([sl, tp].some(value => value !== null && (!Number.isFinite(value) || value <= 0))) {
+                setTradeFeedback(amountMode
+                    ? 'SL/TP dollar amounts must be positive numbers.'
+                    : 'SL/TP trigger prices must be positive numbers.');
                 return;
             }
 
@@ -3195,8 +3494,11 @@ let connectedWallet = null;
                         margin_used: sizeUsd,
                         leverage: leverage,
                         is_perp: leverage > 1,
-                        sl, 
-                        tp 
+                        sl: amountMode ? null : sl,
+                        tp: amountMode ? null : tp,
+                        sl_tp_mode: amountMode ? 'amount' : 'price',
+                        sl_amount: amountMode ? sl : null,
+                        tp_amount: amountMode ? tp : null
                     })
                 });
                 const data = await res.json();
@@ -3716,33 +4018,52 @@ let connectedWallet = null;
             try {
                 const res = await walletFetch(`/api/user/referrals?wallet=${encodeURIComponent(wallet)}`);
                 const data = await res.json();
+                if (!res.ok) throw new Error(data.error || 'Unable to load your referrals.');
                 const container = document.getElementById('ref-transactions-list');
-                if (!container) return;
-                container.replaceChildren();
-
-                if (!data.referrals || data.referrals.length === 0) {
-                    container.innerHTML = '<p class="workspace-empty-state">No sales recorded yet.</p>';
-                    return;
+                const referrals = Array.isArray(data.referrals) ? data.referrals : [];
+                if (container) {
+                    container.innerHTML = referrals.length ? referrals.map(ref => {
+                        const buyerName = ref.buyer_username ? `@${ref.buyer_username}` : 'Anonymous Trader';
+                        const dateStr = new Date(ref.created_at).toLocaleString();
+                        const level = Number(ref.referral_level) === 2 ? 2 : 1;
+                        return `
+                            <article class="battlepass-task profile-commission-card">
+                                <div class="profile-commission-main">
+                                    <strong>${escapeHTML(buyerName)}</strong>
+                                    <span>${escapeHTML(ref.plan_name)}</span>
+                                </div>
+                                <div class="profile-commission-details">
+                                    <strong>+$${Number(ref.commission_earned).toFixed(2)} USDT</strong>
+                                    <span>Level ${level} · ${Number(ref.commission_pct ?? 2)}% commission</span>
+                                    <small>${escapeHTML(dateStr)}</small>
+                                </div>
+                            </article>
+                        `;
+                    }).join('') : '<p class="workspace-empty-state">No sales recorded yet.</p>';
                 }
-
-                data.referrals.forEach(ref => {
-                    const buyerName = ref.buyer_username ? `@${ref.buyer_username}` : 'Anonymous Trader';
-                    const dateStr = new Date(ref.created_at).toLocaleString();
-                    container.insertAdjacentHTML('beforeend', `
-                        <article class="battlepass-task profile-commission-card">
-                            <div class="profile-commission-main">
-                                <strong>${escapeHTML(buyerName)}</strong>
-                                <span>${escapeHTML(ref.plan_name)}</span>
-                            </div>
-                            <div class="profile-commission-details">
-                                <strong>+$${Number(ref.commission_earned).toFixed(2)} USDT</strong>
-                                <span>${Number(ref.commission_pct ?? 2)}% commission</span>
-                                <small>${escapeHTML(dateStr)}</small>
-                            </div>
-                        </article>
-                    `);
+                const referees = Array.isArray(data.referees) ? data.referees : [];
+                const refereesHtml = referees.length ? referees.map(referee => `
+                    <article class="battlepass-task profile-commission-card">
+                        <div class="profile-commission-main">
+                            <strong>${escapeHTML(referee.username ? `@${referee.username}` : 'Trader')}</strong>
+                            <span>Direct referee</span>
+                        </div>
+                        <div class="profile-commission-details">
+                            <code>${escapeHTML(referee.wallet_address)}</code>
+                        </div>
+                    </article>
+                `).join('') : '<p class="workspace-empty-state">No referees yet.</p>';
+                ['profile-referees-list', 'promo-referees-list'].forEach(id => {
+                    const list = document.getElementById(id);
+                    if (list) list.innerHTML = refereesHtml;
                 });
-            } catch (err) { console.error(err); }
+                const levelTwoRate = document.getElementById('disp-level-two-pct');
+                if (levelTwoRate) levelTwoRate.textContent = `${Number(data.level_two_pct ?? 2)}%`;
+            } catch (err) {
+                console.error(err);
+                const container = document.getElementById('ref-transactions-list');
+                if (container) container.innerHTML = `<p class="support-feedback">${escapeHTML(err.message)}</p>`;
+            }
         }
 
         async function saveProfile() {
@@ -3907,6 +4228,18 @@ let connectedWallet = null;
             event.preventDefault();
             loadAdminCreatorSearch(document.getElementById('admin-creator-search')?.value.trim() || '');
         });
+        document.getElementById('admin-user-search-form')?.addEventListener('submit', event => {
+            event.preventDefault();
+            loadAdminUserSearch(document.getElementById('admin-user-search')?.value.trim() || '');
+        });
+        document.getElementById('admin-plan-create-form')?.addEventListener('submit', event => {
+            event.preventDefault();
+            saveAdminPlan(event.currentTarget);
+        });
+        document.getElementById('admin-level-two-form')?.addEventListener('submit', event => {
+            event.preventDefault();
+            saveAdminLevelTwoRate(event.currentTarget);
+        });
         document.getElementById('admin-maintenance-save')?.addEventListener('click', event => {
             saveAdminMaintenanceSettings(event.currentTarget);
         });
@@ -3930,6 +4263,13 @@ let connectedWallet = null;
             const button = event.target.closest('[data-user-ticket-reply]');
             const card = button?.closest('[data-ticket-id]');
             if (button && card) submitUserTicketReply(button.dataset.userTicketReply, card);
+        });
+        document.getElementById('refresh-user-tickets')?.addEventListener('click', async event => {
+            const button = event.currentTarget;
+            if (!connectedWallet) return;
+            button.disabled = true;
+            await loadUserTickets(connectedWallet);
+            button.disabled = false;
         });
         document.getElementById('battlepass-profile-form')?.addEventListener('submit', saveBattlePassProfileImage);
         document.getElementById('battlepass-share')?.addEventListener('click', shareBattlePassProfile);

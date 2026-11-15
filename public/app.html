@@ -115,6 +115,7 @@
                         <div class="card-title">
                             <div class="chart-heading-group">
                                 <span id="chart-title">Live Market Chart</span>
+                                <span class="chart-trade-overlay-note">Open trades: entry, SL &amp; TP levels</span>
                                 <span class="market-hours-status" aria-label="Crypto markets trade 24/7/365" title="Crypto markets trade continuously. Exchange or platform maintenance may temporarily affect access.">
                                     <span class="market-hours-status-dot" aria-hidden="true"></span>
                                     24/7 TRADING LIVE
@@ -222,13 +223,20 @@
                             </div>
                         </div>
 
-                        <div class="form-group">
-                            <label>Stop Loss (SL)</label>
-                            <input type="number" id="order-sl" placeholder="Optional">
+                        <div class="form-group order-protection-group">
+                            <label class="order-protection-toggle" for="order-sl-tp-amount-mode">
+                                <input type="checkbox" id="order-sl-tp-amount-mode" onchange="toggleStopAmountMode(this.checked)">
+                                Enter SL/TP as dollar P&amp;L amounts
+                            </label>
+                            <p id="order-sl-tp-mode-help" class="order-protection-help">Unchecked: enter the stop-loss and take-profit trigger prices.</p>
                         </div>
                         <div class="form-group">
-                            <label>Take Profit (TP)</label>
-                            <input type="number" id="order-tp" placeholder="Optional">
+                            <label id="order-sl-label" for="order-sl">Stop Loss trigger price (SL)</label>
+                            <input type="number" id="order-sl" placeholder="Optional" min="0" step="any">
+                        </div>
+                        <div class="form-group">
+                            <label id="order-tp-label" for="order-tp">Take Profit trigger price (TP)</label>
+                            <input type="number" id="order-tp" placeholder="Optional" min="0" step="any">
                         </div>
 
                         <div class="order-actions">
@@ -429,6 +437,7 @@
                             <p style="margin: 4px 0;"><strong>Username:</strong> <span id="disp-username" style="color: #c084fc; font-weight: 600;">-</span></p>
                             <p style="margin: 4px 0;"><strong>Your Promo Code:</strong> <code id="disp-code" style="background: rgba(5, 7, 11, 0.9); padding: 4px 10px; border-radius: 6px; color: #34d399; border: 1px solid rgba(52, 211, 153, 0.2);">-</code></p>
                             <p class="profile-referral-rate-row"><span>Your referral commission</span><span id="disp-referral-pct" class="profile-referral-rate">10%</span></p>
+                            <p class="profile-referral-rate-row"><span>Level-2 commission</span><span id="disp-level-two-pct" class="profile-referral-rate">2%</span></p>
                             </div>
                         </div>
                         <button class="btn-share-x" onclick="shareCreatorCodeOnX()">Share Promo Code on X</button>
@@ -452,6 +461,10 @@
                     <div id="ref-transactions-list" class="profile-commission-list">
                         <p class="workspace-empty-state">No sales recorded yet.</p>
                     </div>
+                    <div class="card-title profile-history-heading">Your referees</div>
+                    <div id="profile-referees-list" class="profile-commission-list">
+                        <p class="workspace-empty-state">No referees yet.</p>
+                    </div>
                 </div>
             </div>
             </section>
@@ -464,6 +477,11 @@
                     <button id="claim-free-account" class="btn-wallet" type="button">Claim code</button>
                 </div>
                 <p id="free-account-feedback" class="support-feedback" role="status" aria-live="polite"></p>
+                <div class="card-title profile-history-heading">Your referees</div>
+                <p class="support-note">You earn the level-2 commission rate shown on this profile from eligible purchases made by your referees' referrals.</p>
+                <div id="promo-referees-list" class="profile-commission-list">
+                    <p class="workspace-empty-state">No referees yet.</p>
+                </div>
             </div>
             </section>
             <section id="profile-creator-panel" class="profile-section-panel" role="tabpanel" aria-labelledby="profile-creator-tab" hidden>
@@ -541,6 +559,7 @@
                     <button class="btn-wallet" type="submit">Create support ticket</button>
                     <p id="ticket-form-feedback" class="support-feedback" role="status" aria-live="polite"></p>
                 </form>
+                <button id="refresh-user-tickets" class="btn-wallet" type="button">Refresh ticket replies</button>
                 <div id="user-ticket-list" class="support-card-list">
                     <p class="account-chart-empty">Connect your wallet to view tickets.</p>
                 </div>
@@ -652,10 +671,37 @@
                 </div>
             </div>
             <div class="card admin-account-review">
-                <div class="card-title">Account review and manual freeze controls</div>
-                <p class="admin-account-note">A pending withdrawal automatically pauses new trades. Resolving the final pending request releases that automatic pause; manual administrator freezes remain separate from DLL/MLL risk locks.</p>
-                <div id="admin-account-list" class="admin-account-list">
-                    <p class="account-chart-empty">Loading accounts...</p>
+                <div class="card-title">Find a user and review their accounts</div>
+                <p class="admin-account-note">Search by username or wallet to suspend/restore user access and review accounts. A suspension preserves sign-in, read access, and existing-trade closing, but blocks purchases, new trades, and withdrawals. Expand a user for account controls, recent login IPs and new-IP warnings retained for 180 days. Per-account freezes remain separate from DLL/MLL risk locks.</p>
+                <form id="admin-user-search-form" class="admin-search-form">
+                    <div class="form-group">
+                        <label for="admin-user-search">Username or wallet address</label>
+                        <input id="admin-user-search" type="search" minlength="2" maxlength="100" required placeholder="Search username or wallet">
+                    </div>
+                    <button class="btn-wallet" type="submit">Search users</button>
+                </form>
+                <p id="admin-user-search-feedback" class="support-feedback" role="status" aria-live="polite"></p>
+                <div id="admin-user-search-results" class="admin-account-list">
+                    <p class="account-chart-empty">Search for a username or wallet to review its accounts.</p>
+                </div>
+            </div>
+            <div class="card admin-plan-management">
+                <div class="card-title">Plans and accounts for sale</div>
+                <p class="support-note">Create or update the plans users can buy. Deactivate a plan to remove it from sale without changing accounts that already use it.</p>
+                <form id="admin-plan-create-form" class="admin-plan-form">
+                    <div class="form-group"><label for="admin-plan-name">Plan name</label><input id="admin-plan-name" name="name" type="text" maxlength="100" required></div>
+                    <div class="form-group"><label for="admin-plan-base-price">List price before standard discount (USDT)</label><input id="admin-plan-base-price" name="base_price_usdt" type="number" min="0.01" step="0.01" required></div>
+                    <div class="form-group"><label for="admin-plan-capital">Simulated capital</label><input id="admin-plan-capital" name="simulated_capital" type="number" min="0.01" step="0.01" required></div>
+                    <div class="form-group"><label for="admin-plan-target">Profit target</label><input id="admin-plan-target" name="profit_target" type="number" min="0" step="0.01" required></div>
+                    <div class="form-group"><label for="admin-plan-drawdown">Max drawdown / MLL (%)</label><input id="admin-plan-drawdown" name="max_drawdown_pct" type="number" min="0" max="100" step="0.01" required></div>
+                    <div class="form-group"><label for="admin-plan-daily-loss">Daily loss / DLL (%)</label><input id="admin-plan-daily-loss" name="daily_loss_pct" type="number" min="0" max="100" step="0.01" required></div>
+                    <div class="form-group"><label for="admin-plan-consistency">Max single-day profit / consistency (%)</label><input id="admin-plan-consistency" name="max_single_day_profit_pct" type="number" min="0" max="100" step="0.01" required></div>
+                    <label class="admin-plan-active"><input name="active" type="checkbox" checked> Active for sale</label>
+                    <button class="btn-wallet" type="submit">Create plan</button>
+                </form>
+                <p id="admin-plan-feedback" class="support-feedback" role="status" aria-live="polite"></p>
+                <div id="admin-plan-list" class="admin-account-list">
+                    <p class="account-chart-empty">Loading plans...</p>
                 </div>
             </div>
             <div class="card admin-support-review">
@@ -673,6 +719,18 @@
             </div>
             </div>
             <div id="admin-creators-panel" class="admin-section-panel" role="tabpanel" hidden>
+                <div class="card">
+                    <div class="card-title">Level-2 referral commission</div>
+                    <p class="support-note">This global rate is paid to a referee's referrer on eligible purchases, in addition to the direct referral commission.</p>
+                    <form id="admin-level-two-form" class="admin-search-form">
+                        <div class="form-group">
+                            <label for="admin-level-two-pct">Level-2 commission (%)</label>
+                            <input id="admin-level-two-pct" type="number" min="0" max="100" step="0.01" required>
+                        </div>
+                        <button class="btn-wallet" type="submit">Save level-2 rate</button>
+                    </form>
+                    <p id="admin-level-two-feedback" class="support-feedback" role="status" aria-live="polite"></p>
+                </div>
                 <div class="card admin-creator-applications-card">
                     <div class="card-title">Creator applications</div>
                     <p class="support-note">Review community details and approve creators with a custom referral bonus. Changes apply to future referrals.</p>
@@ -817,7 +875,6 @@
     </main>
 
     <script src="https://unpkg.com/lightweight-charts@4.2.3/dist/lightweight-charts.standalone.production.js"></script>
-    <script type="text/javascript" src="https://s3.tradingview.com/tv.js"></script>
     <script src="/js/app.js" defer></script>
 </body>
 </html>

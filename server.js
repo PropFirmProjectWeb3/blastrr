@@ -17,6 +17,7 @@ const {
   getTradeMargin
 } = require('./riskRules');
 const { getProtectedPayoutBalance, getAvailableGrossWithdrawal, splitWithdrawal } = require('./payoutRules');
+const { resolveStopTargetPrices } = require('./tradeRules');
 
 const app = express();
 const PORT = process.env.PORT || 4480;
@@ -110,18 +111,33 @@ function createRateLimiter(maxRequests = 40, windowMs = 60000) {
 const sensitiveLimiter = createRateLimiter(30, 60000);
 
 function seedPlans() {
-  const syncNextPlan = (index) => {
-    if (index === defaultPlans.length) {
-      const whalePlan = defaultPlans.find(plan => plan.name === 'Whale $250k');
-      if (!whalePlan || whalePlan.simulated_capital !== 250000) {
-        console.error('Unable to correct untouched Whale accounts because the configured capital is unexpected.');
+  const initializeRewards = () => db.run(
+    `INSERT OR IGNORE INTO battlepass_plan_rewards (plan_id, xp_reward, points_reward)
+     SELECT id, 1000, 100 FROM plans WHERE active = 1`,
+    rewardErr => {
+      if (rewardErr) return console.error('Unable to initialize battle pass plan rewards:', rewardErr.message);
+      console.log(`Initialized missing plans from config/plans.json.`);
+    }
+  );
+  const correctUntouchedWhaleAccounts = () => {
+    const defaultWhalePlan = defaultPlans.find(plan => plan.name === 'Whale $250k');
+    if (!defaultWhalePlan || defaultWhalePlan.simulated_capital !== 250000) {
+      console.error('Unable to correct untouched Whale accounts because the configured capital is unexpected.');
+      return initializeRewards();
+    }
+    db.get('SELECT id, simulated_capital FROM plans WHERE name = ? ORDER BY id LIMIT 1', [defaultWhalePlan.name], (lookupErr, whalePlan) => {
+      if (lookupErr) {
+        console.error('Unable to look up the Whale plan:', lookupErr.message);
         return;
       }
-      return db.run(
+      if (!whalePlan || Number(whalePlan.simulated_capital) !== defaultWhalePlan.simulated_capital) {
+        return initializeRewards();
+      }
+      db.run(
         `UPDATE accounts
          SET initial_balance = ?, current_balance = ?, current_equity = ?,
              high_water_mark = ?, daily_starting_balance = ?
-         WHERE plan_id = (SELECT id FROM plans WHERE name = ? ORDER BY id LIMIT 1)
+         WHERE plan_id = ?
            AND status = 'ACTIVE' AND COALESCE(permanent_lock, 0) = 0
            AND lock_reason IS NULL AND COALESCE(admin_frozen, 0) = 0
            AND initial_balance = 250050 AND current_balance = 250050
@@ -130,68 +146,62 @@ function seedPlans() {
            AND NOT EXISTS (SELECT 1 FROM trades WHERE trades.account_id = accounts.id)
            AND NOT EXISTS (SELECT 1 FROM withdrawals WHERE withdrawals.account_id = accounts.id)`,
         [
-          whalePlan.simulated_capital,
-          whalePlan.simulated_capital,
-          whalePlan.simulated_capital,
-          whalePlan.simulated_capital,
-          whalePlan.simulated_capital,
-          whalePlan.name
+          defaultWhalePlan.simulated_capital,
+          defaultWhalePlan.simulated_capital,
+          defaultWhalePlan.simulated_capital,
+          defaultWhalePlan.simulated_capital,
+          defaultWhalePlan.simulated_capital,
+          whalePlan.id
         ],
         function(migrationErr) {
           if (migrationErr) return console.error('Unable to correct untouched Whale account balances:', migrationErr.message);
-          if (this.changes) console.log(`Corrected ${this.changes} untouched Whale account balance(s) to $${whalePlan.simulated_capital}.`);
-          db.run(
-            `INSERT OR IGNORE INTO battlepass_plan_rewards (plan_id, xp_reward, points_reward)
-             SELECT id, 1000, 100 FROM plans WHERE active = 1`,
-            (rewardErr) => {
-              if (rewardErr) return console.error('Unable to initialize battle pass plan rewards:', rewardErr.message);
-              console.log(`Synchronized ${defaultPlans.length} plan definitions from config/plans.json.`);
-            }
-          );
-        }
-      );
-      return;
-    }
-    const plan = defaultPlans[index];
-    db.get("SELECT id FROM plans WHERE name = ? ORDER BY id LIMIT 1", [plan.name], (lookupErr, existing) => {
-      if (lookupErr) return console.error('Unable to look up configured plan', lookupErr.message);
-      const values = [
-        plan.base_price_usdt,
-        plan.price_usdt,
-        plan.simulated_capital,
-        plan.profit_target,
-        plan.max_drawdown_pct,
-        plan.daily_loss_pct,
-        plan.max_single_day_profit_pct
-      ];
-      if (existing) {
-        db.run(
-          `UPDATE plans SET base_price_usdt = ?, price_usdt = ?, simulated_capital = ?,
-           profit_target = ?, max_drawdown_pct = ?, daily_loss_pct = ?, max_single_day_profit_pct = ?, active = 1
-           WHERE id = ?`,
-          [...values, existing.id],
-          function(updateErr) {
-            if (updateErr) return console.error(`Unable to sync plan ${plan.name}`, updateErr.message);
-            syncNextPlan(index + 1);
-          }
-        );
-        return;
-      }
-      db.run(
-        `INSERT INTO plans (name, base_price_usdt, price_usdt, simulated_capital, profit_target,
-         max_drawdown_pct, daily_loss_pct, max_single_day_profit_pct, active)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1)`,
-        [plan.name, ...values],
-        (insertErr) => {
-          if (insertErr) return console.error(`Unable to seed plan ${plan.name}`, insertErr.message);
-          syncNextPlan(index + 1);
+          if (this.changes) console.log(`Corrected ${this.changes} untouched Whale account balance(s) to $${defaultWhalePlan.simulated_capital}.`);
+          initializeRewards();
         }
       );
     });
   };
-  db.run('UPDATE plans SET active = 0', (deactivateErr) => {
-    if (deactivateErr) return console.error('Unable to retire unconfigured plans', deactivateErr.message);
-    syncNextPlan(0);
+  const finishPlanSeed = () => db.run(
+    'UPDATE plan_seed_state SET seeded = 1 WHERE id = 1',
+    seedErr => {
+      if (seedErr) return console.error('Unable to mark the initial plan seed complete:', seedErr.message);
+      correctUntouchedWhaleAccounts();
+    }
+  );
+  const addMissingPlan = index => {
+    if (index >= defaultPlans.length) return finishPlanSeed();
+    const plan = defaultPlans[index];
+    db.get('SELECT id FROM plans WHERE name = ? COLLATE NOCASE ORDER BY id LIMIT 1', [plan.name], (lookupErr, existing) => {
+      if (lookupErr) return console.error('Unable to look up configured plan', lookupErr.message);
+      if (existing) return addMissingPlan(index + 1);
+      db.run(
+        `INSERT INTO plans (name, base_price_usdt, price_usdt, simulated_capital, profit_target,
+         max_drawdown_pct, daily_loss_pct, max_single_day_profit_pct, active)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1)`,
+        [
+          plan.name,
+          plan.base_price_usdt,
+          plan.price_usdt,
+          plan.simulated_capital,
+          plan.profit_target,
+          plan.max_drawdown_pct,
+          plan.daily_loss_pct,
+          plan.max_single_day_profit_pct
+        ],
+        insertErr => {
+          if (insertErr) return console.error(`Unable to seed plan ${plan.name}`, insertErr.message);
+          addMissingPlan(index + 1);
+        }
+      );
+    });
+  };
+  db.get('SELECT seeded FROM plan_seed_state WHERE id = 1', [], (stateErr, state) => {
+    if (stateErr || !state) {
+      console.error('Unable to load initial plan seed state:', stateErr?.message || 'Seed state is unavailable.');
+      return;
+    }
+    if (Number(state.seeded) === 1) return correctUntouchedWhaleAccounts();
+    addMissingPlan(0);
   });
 }
 
@@ -200,6 +210,9 @@ setTimeout(seedPlans, 1000);
 const tradeChallenges = new Map();
 const walletSessions = new Map();
 const WALLET_SESSION_DURATION_MS = 12 * 60 * 60 * 1000;
+const LOGIN_IP_RETENTION_DAYS = 180;
+setTimeout(cleanupExpiredLoginIpEvents, 5000);
+setInterval(cleanupExpiredLoginIpEvents, 24 * 60 * 60 * 1000);
 const marketPriceCache = new Map();
 // Resolve retired symbols only for existing open trades; new orders use markets from markets.json.
 const legacyTradeMarkets = new Map([
@@ -365,6 +378,72 @@ function requireWalletSession(req, res, next) {
   }
   req.walletAddress = session.walletAddress;
   next();
+}
+
+function requireUserNotSuspended(req, res, next) {
+  const wallet = req.walletAddress || req.body?.wallet_address;
+  if (typeof wallet !== 'string' || !ethers.isAddress(wallet)) {
+    return res.status(401).json({ error: 'A valid wallet session is required.' });
+  }
+  db.get(
+    'SELECT admin_suspended, admin_suspend_reason FROM users WHERE LOWER(wallet_address) = LOWER(?)',
+    [wallet],
+    (err, user) => {
+      if (err) return res.status(500).json({ error: 'Unable to verify user account access.' });
+      if (Number(user?.admin_suspended) === 1) {
+        return res.status(403).json({
+          error: `This user account is suspended by an administrator${user.admin_suspend_reason ? `: ${user.admin_suspend_reason}` : '.'}`,
+          user_suspended: true
+        });
+      }
+      next();
+    }
+  );
+}
+
+function recordWalletLogin(wallet, ipAddress, callback) {
+  db.serialize(() => {
+    db.run('BEGIN IMMEDIATE', beginErr => {
+      if (beginErr) return callback(beginErr);
+      const rollback = err => db.run('ROLLBACK', () => callback(err));
+      db.run(
+        `DELETE FROM user_login_ip_events
+         WHERE created_at < datetime('now', ?)`,
+        [`-${LOGIN_IP_RETENTION_DAYS} days`],
+        cleanupErr => {
+          if (cleanupErr) return rollback(cleanupErr);
+          db.get(
+            `SELECT 1 FROM user_login_ip_events
+             WHERE LOWER(wallet_address) = LOWER(?) AND ip_address = ? LIMIT 1`,
+            [wallet, ipAddress],
+            (lookupErr, previousLogin) => {
+              if (lookupErr) return rollback(lookupErr);
+              const isNewIp = previousLogin ? 0 : 1;
+              db.run(
+                `INSERT INTO user_login_ip_events (wallet_address, ip_address, is_new_ip)
+                 VALUES (?, ?, ?)`,
+                [wallet, ipAddress, isNewIp],
+                insertErr => {
+                  if (insertErr) return rollback(insertErr);
+                  db.run('COMMIT', commitErr => commitErr ? rollback(commitErr) : callback(null, { isNewIp }));
+                }
+              );
+            }
+          );
+        }
+      );
+    });
+  });
+}
+
+function cleanupExpiredLoginIpEvents() {
+  db.run(
+    `DELETE FROM user_login_ip_events WHERE created_at < datetime('now', ?)`,
+    [`-${LOGIN_IP_RETENTION_DAYS} days`],
+    err => {
+      if (err) console.error('Unable to expire old login IP records:', err.message);
+    }
+  );
 }
 
 function lockAccount(accountId, breach, callback) {
@@ -694,6 +773,39 @@ function requireAdminWallet(req, res, next) {
   );
 }
 
+function loadAdminUserSecurity(wallet, callback) {
+  db.get(
+    `SELECT wallet_address, username, admin_suspended, admin_suspend_reason,
+            admin_suspended_by, admin_suspended_at
+     FROM users WHERE LOWER(wallet_address) = LOWER(?)`,
+    [wallet],
+    (userErr, user) => {
+      if (userErr) return callback(userErr);
+      if (!user) return callback(new Error('User not found.'));
+      db.all(
+        `SELECT ip_address, is_new_ip, created_at
+         FROM user_login_ip_events
+         WHERE LOWER(wallet_address) = LOWER(?) AND created_at >= datetime('now', '-180 days')
+         ORDER BY created_at DESC LIMIT 20`,
+        [wallet],
+        (loginErr, loginIps) => {
+          if (loginErr) return callback(loginErr);
+          db.all(
+            `SELECT admin_wallet, action, reason, created_at
+             FROM user_admin_actions WHERE LOWER(wallet_address) = LOWER(?)
+             ORDER BY created_at DESC LIMIT 20`,
+            [wallet],
+            (actionErr, adminActions) => {
+              if (actionErr) return callback(actionErr);
+              callback(null, { user, login_ips: loginIps || [], admin_actions: adminActions || [] });
+            }
+          );
+        }
+      );
+    }
+  );
+}
+
 function getBattlePassLevel(xp) {
   return Math.min(12, Math.floor(Math.max(0, Number(xp) || 0) / 10000));
 }
@@ -865,8 +977,16 @@ app.post('/api/auth/wallet-session', sensitiveLimiter, requireTradeSignature, (r
   }
   const token = crypto.randomBytes(32).toString('hex');
   const expiresAt = now + WALLET_SESSION_DURATION_MS;
-  walletSessions.set(token, { walletAddress: req.body.wallet_address.toLowerCase(), expiresAt });
-  res.json({ token, expires_at: expiresAt });
+  const wallet = req.body.wallet_address.toLowerCase();
+  const ipAddress = req.ip || 'unknown';
+  recordWalletLogin(wallet, ipAddress, (loginErr, login) => {
+    if (loginErr) {
+      console.error('Unable to record wallet login IP:', loginErr.message);
+      return res.status(500).json({ error: 'Unable to record login security details.' });
+    }
+    walletSessions.set(token, { walletAddress: wallet, expiresAt });
+    res.json({ token, expires_at: expiresAt, new_ip: login.isNewIp });
+  });
 });
 
 app.get('/api/user/disclaimer-consent', requireWalletSession, (req, res) => {
@@ -909,6 +1029,99 @@ app.get('/api/plans', (req, res) => {
         standard_discount_pct: discountPct
       });
     });
+  });
+});
+
+app.post('/api/admin/plans/list', sensitiveLimiter, requireTradeSignature, requireAdminWallet, (req, res) => {
+  db.get('SELECT standard_discount_pct FROM battlepass_settings WHERE id = 1', [], (settingsErr, settings) => {
+    if (settingsErr) return res.status(500).json({ error: 'Unable to load the standard discount.' });
+    const discountPct = Number(settings?.standard_discount_pct ?? 90);
+    db.all('SELECT * FROM plans ORDER BY active DESC, id', [], (err, plans) => {
+      if (err) return res.status(500).json({ error: 'Unable to load account plans.' });
+      res.json({ plans: plans || [], standard_discount_pct: discountPct });
+    });
+  });
+});
+
+app.post('/api/admin/plans/save', sensitiveLimiter, requireTradeSignature, requireAdminWallet, (req, res) => {
+  const body = req.body || {};
+  const name = typeof body.name === 'string' ? body.name.trim() : '';
+  const planId = body.plan_id == null ? null : Number(body.plan_id);
+  const active = body.active === true || body.active === 1 ? 1
+    : body.active === false || body.active === 0 ? 0 : null;
+  const fields = {
+    base_price_usdt: Number(body.base_price_usdt),
+    simulated_capital: Number(body.simulated_capital),
+    profit_target: Number(body.profit_target),
+    max_drawdown_pct: Number(body.max_drawdown_pct),
+    daily_loss_pct: Number(body.daily_loss_pct),
+    max_single_day_profit_pct: Number(body.max_single_day_profit_pct)
+  };
+  const values = Object.values(fields);
+  if (name.length < 3 || name.length > 100 ||
+      (planId !== null && (!Number.isInteger(planId) || planId < 1)) ||
+      active === null ||
+      values.some(value => !Number.isFinite(value)) ||
+      fields.base_price_usdt <= 0 ||
+      fields.simulated_capital <= 0 ||
+      fields.profit_target < 0 ||
+      fields.max_drawdown_pct < 0 || fields.max_drawdown_pct > 100 ||
+      fields.daily_loss_pct < 0 || fields.daily_loss_pct > 100 ||
+      fields.max_single_day_profit_pct < 0 || fields.max_single_day_profit_pct > 100) {
+    return res.status(400).json({ error: 'Enter a plan name, valid prices and capital, and valid risk percentages from 0 to 100.' });
+  }
+  db.get('SELECT standard_discount_pct FROM battlepass_settings WHERE id = 1', [], (settingsErr, settings) => {
+    if (settingsErr) return res.status(500).json({ error: 'Unable to load the standard discount.' });
+    const discountPct = Math.max(0, Math.min(100, Number(settings?.standard_discount_pct ?? 90)));
+    const salePrice = Math.round(fields.base_price_usdt * (100 - discountPct)) / 100;
+    db.get(
+      `SELECT id FROM plans WHERE name = ? COLLATE NOCASE AND (? IS NULL OR id != ?) LIMIT 1`,
+      [name, planId, planId],
+      (duplicateErr, duplicate) => {
+        if (duplicateErr) return res.status(500).json({ error: 'Unable to check for duplicate plan names.' });
+        if (duplicate) return res.status(409).json({ error: 'A plan with that name already exists.' });
+        const valuesWithSalePrice = [
+          fields.base_price_usdt,
+          salePrice,
+          fields.simulated_capital,
+          fields.profit_target,
+          fields.max_drawdown_pct,
+          fields.daily_loss_pct,
+          fields.max_single_day_profit_pct
+        ];
+        if (planId === null) {
+          return db.run(
+            `INSERT INTO plans (name, base_price_usdt, price_usdt, simulated_capital, profit_target,
+             max_drawdown_pct, daily_loss_pct, max_single_day_profit_pct, active)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            [name, ...valuesWithSalePrice, active],
+            function(insertErr) {
+              if (insertErr) return res.status(500).json({ error: 'Unable to create the account plan.' });
+              const insertedPlanId = this.lastID;
+              db.run(
+                'INSERT OR IGNORE INTO battlepass_plan_rewards (plan_id, xp_reward, points_reward) VALUES (?, 1000, 100)',
+                [insertedPlanId],
+                rewardErr => {
+                  if (rewardErr) return res.status(500).json({ error: 'Plan was created but its battle pass rewards could not be initialized.' });
+                  res.status(201).json({ success: true, plan_id: insertedPlanId });
+                }
+              );
+            }
+          );
+        }
+        db.run(
+          `UPDATE plans SET name = ?, base_price_usdt = ?, price_usdt = ?, simulated_capital = ?,
+           profit_target = ?, max_drawdown_pct = ?, daily_loss_pct = ?, max_single_day_profit_pct = ?, active = ?
+           WHERE id = ?`,
+          [name, ...valuesWithSalePrice, active, planId],
+          function(updateErr) {
+            if (updateErr) return res.status(500).json({ error: 'Unable to update the account plan.' });
+            if (this.changes !== 1) return res.status(404).json({ error: 'Account plan not found.' });
+            res.json({ success: true, plan_id: planId });
+          }
+        );
+      }
+    );
   });
 });
 
@@ -1350,8 +1563,9 @@ app.get('/api/user/profile', requireWalletSession, (req, res) => {
     if (err) return res.status(500).json({ error: err.message });
     
     db.all(
-      `SELECT COUNT(id) as total_referrals, SUM(commission_earned) as total_earned 
-       FROM referrals WHERE LOWER(referrer_wallet) = LOWER(?)`, 
+      `SELECT COUNT(DISTINCT CASE WHEN level = 1 THEN referee_wallet END) AS total_referrals,
+              SUM(commission_earned) AS total_earned
+       FROM referrals WHERE LOWER(referrer_wallet) = LOWER(?)`,
       [wallet], 
       (err2, stats) => {
         if (err2) return res.status(500).json({ error: 'Unable to load referral totals.' });
@@ -2054,6 +2268,30 @@ app.post('/api/admin/referrals/commission', sensitiveLimiter, requireTradeSignat
   );
 });
 
+app.post('/api/admin/referrals/settings/load', sensitiveLimiter, requireTradeSignature, requireAdminWallet, (req, res) => {
+  db.get('SELECT level_two_pct FROM referral_settings WHERE id = 1', [], (err, settings) => {
+    if (err) return res.status(500).json({ error: 'Unable to load referral commission settings.' });
+    res.json({ level_two_pct: Number(settings?.level_two_pct ?? 2) });
+  });
+});
+
+app.post('/api/admin/referrals/settings/save', sensitiveLimiter, requireTradeSignature, requireAdminWallet, (req, res) => {
+  const percentage = Number(req.body?.level_two_pct);
+  if (!Number.isFinite(percentage) || percentage < 0 || percentage > 100) {
+    return res.status(400).json({ error: 'Enter a level-2 commission rate from 0 to 100%.' });
+  }
+  const normalizedPercentage = Math.round(percentage * 100) / 100;
+  db.run(
+    `INSERT INTO referral_settings (id, level_two_pct) VALUES (1, ?)
+     ON CONFLICT(id) DO UPDATE SET level_two_pct = excluded.level_two_pct`,
+    [normalizedPercentage],
+    err => {
+      if (err) return res.status(500).json({ error: 'Unable to save the level-2 commission rate.' });
+      res.json({ success: true, level_two_pct: normalizedPercentage });
+    }
+  );
+});
+
 app.post('/api/admin/promo-codes/list', sensitiveLimiter, requireTradeSignature, requireAdminWallet, (req, res) => {
   db.all(
     `SELECT c.code, c.created_at, c.claimed_by, c.claimed_at, p.name AS plan_name
@@ -2092,15 +2330,32 @@ app.post('/api/admin/battlepass/settings', sensitiveLimiter, requireTradeSignatu
   if (!Number.isFinite(discountPct) || discountPct < 0 || discountPct > 100) {
     return res.status(400).json({ error: 'The standard discount must be between 0 and 100%.' });
   }
-  db.run(
-    'UPDATE battlepass_settings SET standard_discount_pct = ? WHERE id = 1',
-    [Math.round(discountPct * 100) / 100],
-    function(updateErr) {
-      if (updateErr) return res.status(500).json({ error: 'Unable to update the standard discount.' });
-      if (this.changes !== 1) return res.status(500).json({ error: 'Battle pass settings are unavailable.' });
-      res.json({ success: true, standard_discount_pct: Math.round(discountPct * 100) / 100 });
-    }
-  );
+  const normalizedDiscountPct = Math.round(discountPct * 100) / 100;
+  db.serialize(() => {
+    db.run('BEGIN IMMEDIATE', beginErr => {
+      if (beginErr) return res.status(500).json({ error: 'Unable to start the standard discount update.' });
+      const rollback = error => db.run('ROLLBACK', () => res.status(500).json({ error }));
+      db.run(
+        'UPDATE battlepass_settings SET standard_discount_pct = ? WHERE id = 1',
+        [normalizedDiscountPct],
+        function(updateErr) {
+          if (updateErr) return rollback('Unable to update the standard discount.');
+          if (this.changes !== 1) return rollback('Battle pass settings are unavailable.');
+          db.run(
+            'UPDATE plans SET price_usdt = ROUND(base_price_usdt * (100 - ?) / 100, 2)',
+            [normalizedDiscountPct],
+            priceErr => {
+              if (priceErr) return rollback('Unable to synchronize plan sale prices.');
+              db.run('COMMIT', commitErr => {
+                if (commitErr) return rollback('Unable to commit the standard discount.');
+                res.json({ success: true, standard_discount_pct: normalizedDiscountPct });
+              });
+            }
+          );
+        }
+      );
+    });
+  });
 });
 
 app.post('/api/admin/battlepass/settings/get', sensitiveLimiter, requireTradeSignature, requireAdminWallet, (req, res) => {
@@ -2264,7 +2519,8 @@ app.get('/api/user/referrals', requireWalletSession, (req, res) => {
   }
 
   db.all(
-    `SELECT r.created_at, r.paid_amount, r.commission_earned, r.commission_pct, p.name as plan_name, u.username as buyer_username
+    `SELECT r.created_at, r.paid_amount, r.commission_earned, r.commission_pct, r.level AS referral_level,
+            p.name AS plan_name, u.username AS buyer_username
      FROM referrals r
      JOIN plans p ON r.plan_id = p.id
      LEFT JOIN users u ON LOWER(r.referee_wallet) = LOWER(u.wallet_address)
@@ -2273,7 +2529,23 @@ app.get('/api/user/referrals', requireWalletSession, (req, res) => {
     [wallet],
     (err, rows) => {
       if (err) return res.status(500).json({ error: err.message });
-      res.json({ referrals: rows || [] });
+      db.all(
+        `SELECT wallet_address, username
+         FROM users WHERE LOWER(referred_by) = LOWER(?)
+         ORDER BY username COLLATE NOCASE, wallet_address`,
+        [wallet],
+        (refereesErr, referees) => {
+          if (refereesErr) return res.status(500).json({ error: 'Unable to load your referees.' });
+          db.get('SELECT level_two_pct FROM referral_settings WHERE id = 1', [], (settingsErr, settings) => {
+            if (settingsErr) return res.status(500).json({ error: 'Unable to load referral commission settings.' });
+            res.json({
+              referrals: rows || [],
+              referees: referees || [],
+              level_two_pct: Number(settings?.level_two_pct ?? 2)
+            });
+          });
+        }
+      );
     }
   );
 });
@@ -2472,7 +2744,7 @@ app.get('/api/accounts/details', requireWalletSession, (req, res) => {
 });
 
 // --- SECURE PURCHASE ENDPOINT (WITH MULTI-CHAIN ON-CHAIN VERIFICATION) ---
-app.post('/api/accounts/purchase', sensitiveLimiter, requireWalletSession, async (req, res) => {
+app.post('/api/accounts/purchase', sensitiveLimiter, requireWalletSession, requireUserNotSuspended, async (req, res) => {
   const { wallet_address, plan_id, tx_hash, chain_id } = req.body;
   const promoCode = typeof req.body?.promo_code === 'string' ? req.body.promo_code.trim().toUpperCase() : '';
   if (req.body?.disclaimer_version !== DISCLAIMER_VERSION ||
@@ -2490,12 +2762,14 @@ app.post('/api/accounts/purchase', sensitiveLimiter, requireWalletSession, async
     db.get(sql, params, (err, row) => err ? reject(err) : resolve(row));
   });
   try {
-    const [plan, settings] = await Promise.all([
+    const [plan, settings, referralSettings] = await Promise.all([
       dbGet('SELECT * FROM plans WHERE id = ? AND active = 1', [Number(plan_id)]),
-      dbGet('SELECT standard_discount_pct FROM battlepass_settings WHERE id = 1')
+      dbGet('SELECT standard_discount_pct FROM battlepass_settings WHERE id = 1'),
+      dbGet('SELECT level_two_pct FROM referral_settings WHERE id = 1')
     ]);
     if (!plan) return res.status(404).json({ error: 'Plan not found.' });
     const standardDiscountPct = Math.max(0, Math.min(100, Number(settings?.standard_discount_pct ?? 90)));
+    const levelTwoCommissionPct = Math.max(0, Math.min(100, Number(referralSettings?.level_two_pct ?? 2)));
     let rewardCode = null;
     let referrerWallet = null;
     let referralCommissionPct = 10;
@@ -2555,12 +2829,20 @@ app.post('/api/accounts/purchase', sensitiveLimiter, requireWalletSession, async
             db.run('BEGIN IMMEDIATE', (beginErr) => {
               if (beginErr) return res.status(500).json({ error: 'Unable to start account provisioning.' });
               const rollback = (status, error) => db.run('ROLLBACK', () => res.status(status).json({ error }));
-              db.run(
-                `INSERT INTO purchases (tx_hash, chain_id, wallet_address, account_id)
-                 VALUES (?, ?, ?, ?)`,
-                [normalizedTxHash, purchaseChainId, wallet_address, accountId],
-                (purchaseErr) => {
-                  if (purchaseErr) return rollback(409, 'This transaction or discount code has already been used.');
+              db.get(
+                'SELECT admin_suspended, admin_suspend_reason FROM users WHERE LOWER(wallet_address) = LOWER(?)',
+                [wallet_address],
+                (userErr, user) => {
+                  if (userErr) return rollback(500, 'Unable to verify user account access.');
+                  if (Number(user?.admin_suspended) === 1) {
+                    return rollback(403, `This user account is suspended by an administrator${user.admin_suspend_reason ? `: ${user.admin_suspend_reason}` : '.'}`);
+                  }
+                  db.run(
+                    `INSERT INTO purchases (tx_hash, chain_id, wallet_address, account_id)
+                     VALUES (?, ?, ?, ?)`,
+                    [normalizedTxHash, purchaseChainId, wallet_address, accountId],
+                    (purchaseErr) => {
+                      if (purchaseErr) return rollback(409, 'This transaction or discount code has already been used.');
                   const provisionAccount = () => db.run(
                     `INSERT INTO accounts (id, wallet_address, plan_id, initial_balance, current_balance,
                        current_equity, high_water_mark, daily_starting_balance, risk_day, status)
@@ -2572,19 +2854,8 @@ app.post('/api/accounts/purchase', sensitiveLimiter, requireWalletSession, async
                     ],
                     (accountErr) => {
                       if (accountErr) return rollback(500, 'Unable to provision the purchased account.');
-                      const commitPurchase = () => db.run('COMMIT', (commitErr) => {
+                      const finishPurchase = () => db.run('COMMIT', (commitErr) => {
                         if (commitErr) return rollback(500, 'Unable to commit account provisioning.');
-                        if (referrerWallet && referrerWallet.toLowerCase() !== wallet_address.toLowerCase()) {
-                          const commissionEarned = finalPrice * referralCommissionPct / 100;
-                          db.run(
-                            `INSERT INTO referrals (referrer_wallet, referee_wallet, plan_id, paid_amount, commission_earned, commission_pct)
-                             VALUES (?, ?, ?, ?, ?, ?)`,
-                            [referrerWallet, wallet_address, Number(plan_id), finalPrice, commissionEarned, referralCommissionPct],
-                            referralErr => {
-                              if (referralErr) console.error('Unable to record referral commission:', referralErr.message);
-                            }
-                          );
-                        }
                         res.json({
                           success: true,
                           account_id: accountId,
@@ -2593,7 +2864,66 @@ app.post('/api/accounts/purchase', sensitiveLimiter, requireWalletSession, async
                           message: isFreeRedemption ? 'Free battle pass account provisioned successfully.' : 'Payment verified and account provisioned successfully.'
                         });
                       });
-                      if (isFreeRedemption) return commitPurchase();
+                      const recordReferralCommissions = () => {
+                        if (!referrerWallet || referrerWallet.toLowerCase() === wallet_address.toLowerCase()) {
+                          return finishPurchase();
+                        }
+                        db.run(
+                          `UPDATE users SET referred_by = ?
+                           WHERE LOWER(wallet_address) = LOWER(?)
+                             AND (referred_by IS NULL OR TRIM(referred_by) = '')`,
+                          [referrerWallet, wallet_address],
+                          attributionErr => {
+                            if (attributionErr) return rollback(500, 'Unable to save referral attribution.');
+                            db.run(
+                              `INSERT INTO referrals
+                               (referrer_wallet, referee_wallet, plan_id, paid_amount, commission_earned, commission_pct, level)
+                               VALUES (?, ?, ?, ?, ?, ?, 1)`,
+                              [
+                                referrerWallet,
+                                wallet_address,
+                                Number(plan_id),
+                                finalPrice,
+                                finalPrice * referralCommissionPct / 100,
+                                referralCommissionPct
+                              ],
+                              referralErr => {
+                                if (referralErr) return rollback(500, 'Unable to record the direct referral commission.');
+                                db.get(
+                                  'SELECT referred_by FROM users WHERE LOWER(wallet_address) = LOWER(?)',
+                                  [referrerWallet],
+                                  (parentErr, parent) => {
+                                    if (parentErr) return rollback(500, 'Unable to load level-2 referral attribution.');
+                                    const secondLevelWallet = parent?.referred_by;
+                                    if (!secondLevelWallet ||
+                                        secondLevelWallet.toLowerCase() === wallet_address.toLowerCase() ||
+                                        secondLevelWallet.toLowerCase() === referrerWallet.toLowerCase()) {
+                                      return finishPurchase();
+                                    }
+                                    db.run(
+                                      `INSERT INTO referrals
+                                       (referrer_wallet, referee_wallet, plan_id, paid_amount, commission_earned, commission_pct, level)
+                                       VALUES (?, ?, ?, ?, ?, ?, 2)`,
+                                      [
+                                        secondLevelWallet,
+                                        wallet_address,
+                                        Number(plan_id),
+                                        finalPrice,
+                                        finalPrice * levelTwoCommissionPct / 100,
+                                        levelTwoCommissionPct
+                                      ],
+                                      levelTwoErr => levelTwoErr
+                                        ? rollback(500, 'Unable to record the level-2 referral commission.')
+                                        : finishPurchase()
+                                    );
+                                  }
+                                );
+                              }
+                            );
+                          }
+                        );
+                      };
+                      if (isFreeRedemption) return recordReferralCommissions();
                       db.run('INSERT OR IGNORE INTO battlepass_users (wallet_address) VALUES (?)', [wallet_address], (battlePassErr) => {
                         if (battlePassErr) return rollback(500, 'Unable to prepare battle pass purchase rewards.');
                         db.run(
@@ -2608,7 +2938,7 @@ app.post('/api/accounts/purchase', sensitiveLimiter, requireWalletSession, async
                               [`bpe_${crypto.randomBytes(10).toString('hex')}`, wallet_address, normalizedTxHash, xpAward, pointsAward],
                               (eventErr) => eventErr
                                 ? rollback(500, 'Unable to record battle pass purchase rewards.')
-                                : commitPurchase()
+                                : recordReferralCommissions()
                             );
                           }
                         );
@@ -2626,6 +2956,8 @@ app.post('/api/accounts/purchase', sensitiveLimiter, requireWalletSession, async
                       provisionAccount();
                     }
                   );
+                    }
+                  );
                 }
               );
             });
@@ -2640,7 +2972,7 @@ app.post('/api/accounts/purchase', sensitiveLimiter, requireWalletSession, async
 });
 
 // --- SECURE WITHDRAWAL REQUEST ENDPOINT ---
-app.post('/api/withdrawals/request', sensitiveLimiter, requireTradeSignature, (req, res) => {
+app.post('/api/withdrawals/request', sensitiveLimiter, requireTradeSignature, requireUserNotSuspended, (req, res) => {
     const { account_id, wallet_address, amount } = req.body;
     const amountValue = Math.round(Number(amount) * 100) / 100;
     const userIp = req.ip;
@@ -2654,13 +2986,18 @@ app.post('/api/withdrawals/request', sensitiveLimiter, requireTradeSignature, (r
       db.run('BEGIN IMMEDIATE', (beginErr) => {
         if (beginErr) return res.status(500).json({ success: false, error: 'Unable to start withdrawal request.' });
         db.get(`
-            SELECT a.*, p.name as plan_name, p.max_drawdown_pct
+            SELECT a.*, p.name as plan_name, p.max_drawdown_pct,
+                   COALESCE(u.admin_suspended, 0) AS user_suspended, u.admin_suspend_reason
             FROM accounts a 
             JOIN plans p ON a.plan_id = p.id 
+            LEFT JOIN users u ON LOWER(u.wallet_address) = LOWER(a.wallet_address)
             WHERE a.id = ? AND LOWER(a.wallet_address) = LOWER(?)
         `, [account_id, wallet_address], (accountErr, account) => {
           if (accountErr) return rollback(500, 'Unable to load account.');
           if (!account) return rollback(404, 'Account not found or wallet mismatch.');
+          if (Number(account.user_suspended) === 1) {
+            return rollback(403, `This user account is suspended by an administrator${account.admin_suspend_reason ? `: ${account.admin_suspend_reason}` : '.'}`);
+          }
           if (Number(account.admin_frozen) === 1) return rollback(403, 'This account is frozen by an administrator.');
           if (account.status !== 'ACTIVE') return rollback(400, 'Account is not active.');
 
@@ -2764,50 +3101,129 @@ app.post('/api/admin/withdrawals', sensitiveLimiter, requireTradeSignature, requ
   );
 });
 
-app.post('/api/admin/accounts', sensitiveLimiter, requireTradeSignature, requireAdminWallet, (req, res) => {
+app.post('/api/admin/users/search', sensitiveLimiter, requireTradeSignature, requireAdminWallet, (req, res) => {
+  const query = typeof req.body?.query === 'string' ? req.body.query.trim() : '';
+  if (query.length < 2 || query.length > 100 || !/^[a-z0-9_]+$/i.test(query)) {
+    return res.status(400).json({ error: 'Enter at least 2 letters, numbers, or underscores to search by username or wallet.' });
+  }
   db.all(
-    `SELECT a.id, a.wallet_address, a.plan_id, a.initial_balance, a.current_balance, a.current_equity,
-     a.high_water_mark, a.daily_starting_balance, a.status, a.lock_reason, a.locked_until,
-     a.permanent_lock, a.admin_frozen, a.admin_freeze_reason, p.name AS plan_name,
-     p.max_drawdown_pct, p.daily_loss_pct,
-     EXISTS(SELECT 1 FROM withdrawals w WHERE w.account_id = a.id AND w.status = 'PENDING') AS withdrawal_pending
-     FROM accounts a JOIN plans p ON a.plan_id = p.id ORDER BY a.created_at DESC`,
-    [],
-    (err, accounts) => {
-      if (err) return res.status(500).json({ error: 'Unable to load account management list.' });
-      const rows = accounts || [];
-      const loadNext = (index) => {
-        if (index >= rows.length) return res.json({ accounts: rows });
-        const row = rows[index];
-        loadAccountWithLiveRisk(row.id, (riskErr, liveAccount) => {
-          if (riskErr) return res.status(503).json({ error: `Unable to calculate live risk for account ${row.id}.` });
-          refreshAccountLock(liveAccount, (lockErr, lock) => {
-            if (lockErr) return res.status(500).json({ error: `Unable to apply risk lock for account ${row.id}.` });
-            Object.assign(row, {
-              risk_balance: getRiskBalance(liveAccount),
-              status: liveAccount.status,
-              lock_reason: liveAccount.lock_reason,
-              locked_until: liveAccount.locked_until,
-              permanent_lock: liveAccount.permanent_lock,
-              risk_lock: lock || getActiveLock(liveAccount),
-              open_trades: liveAccount.open_trades
-            });
-            db.all(
-              `SELECT id, symbol, side, entry_price, size_usd, pnl, status, created_at, closed_at
-               FROM trades WHERE account_id = ? ORDER BY created_at DESC`,
-              [row.id],
-              (tradeErr, trades) => {
-                if (tradeErr) return res.status(500).json({ error: 'Unable to load account trade review.' });
-                row.trades = trades || [];
-                loadNext(index + 1);
-              }
-            );
-          });
-        });
-      };
-      loadNext(0);
+    `SELECT u.wallet_address, u.username, u.created_at,
+            COALESCE(u.admin_suspended, 0) AS admin_suspended, u.admin_suspend_reason,
+            (SELECT COUNT(*) FROM user_login_ip_events li
+             WHERE LOWER(li.wallet_address) = LOWER(u.wallet_address) AND li.is_new_ip = 1
+               AND li.created_at >= datetime('now', '-180 days')) AS new_ip_count,
+            (SELECT COUNT(*) FROM accounts a WHERE LOWER(a.wallet_address) = LOWER(u.wallet_address)) AS account_count
+     FROM users u
+     WHERE instr(LOWER(COALESCE(u.username, '')), LOWER(?)) > 0
+        OR instr(LOWER(u.wallet_address), LOWER(?)) > 0
+     ORDER BY CASE WHEN LOWER(u.username) = LOWER(?) THEN 0 ELSE 1 END,
+              u.username COLLATE NOCASE, u.wallet_address
+     LIMIT 25`,
+    [query, query, query],
+    (err, users) => {
+      if (err) return res.status(500).json({ error: 'Unable to search user profiles.' });
+      res.json({ users: users || [] });
     }
   );
+});
+
+app.post('/api/admin/users/action', sensitiveLimiter, requireTradeSignature, requireAdminWallet, (req, res) => {
+  const { user_wallet: wallet, action } = req.body;
+  const reason = typeof req.body.reason === 'string' ? req.body.reason.trim() : '';
+  if (typeof wallet !== 'string' || !ethers.isAddress(wallet) ||
+      !['SUSPEND', 'RESTORE'].includes(action) ||
+      (action === 'SUSPEND' && (!reason || reason.length > 500))) {
+    return res.status(400).json({ error: 'Choose a valid user, action, and a suspension reason (up to 500 characters).' });
+  }
+  const suspended = action === 'SUSPEND' ? 1 : 0;
+  db.serialize(() => {
+    db.run('BEGIN IMMEDIATE', beginErr => {
+      if (beginErr) return res.status(500).json({ error: 'Unable to start user suspension update.' });
+      const rollback = (status, error) => db.run('ROLLBACK', () => res.status(status).json({ error }));
+      db.run(
+        `UPDATE users SET admin_suspended = ?, admin_suspend_reason = ?, admin_suspended_by = ?,
+           admin_suspended_at = CASE WHEN ? = 1 THEN CURRENT_TIMESTAMP ELSE NULL END
+         WHERE LOWER(wallet_address) = LOWER(?)`,
+        [suspended, suspended ? reason : null, suspended ? req.body.wallet_address : null, suspended, wallet],
+        function(updateErr) {
+          if (updateErr) return rollback(500, 'Unable to update user suspension.');
+          if (this.changes !== 1) return rollback(404, 'User not found.');
+          db.run(
+            `INSERT INTO user_admin_actions (wallet_address, admin_wallet, action, reason)
+             VALUES (?, ?, ?, ?)`,
+            [wallet.toLowerCase(), req.body.wallet_address.toLowerCase(), action, suspended ? reason : null],
+            insertErr => {
+              if (insertErr) return rollback(500, 'Unable to record the user suspension audit event.');
+              db.run('COMMIT', commitErr => {
+                if (commitErr) return rollback(500, 'Unable to commit user suspension update.');
+                res.json({
+                  success: true,
+                  message: suspended
+                    ? 'User suspended. Account purchases, new trades, and withdrawals are disabled; sign-in, viewing, and closing existing trades remain available.'
+                    : 'User suspension removed. Per-account freezes and risk locks remain in effect.'
+                });
+              });
+            }
+          );
+        }
+      );
+    });
+  });
+});
+
+app.post('/api/admin/users/accounts', sensitiveLimiter, requireTradeSignature, requireAdminWallet, (req, res) => {
+  const wallet = req.body?.user_wallet;
+  if (typeof wallet !== 'string' || !ethers.isAddress(wallet)) {
+    return res.status(400).json({ error: 'Choose a valid user wallet.' });
+  }
+  loadAdminUserSecurity(wallet, (securityErr, security) => {
+    if (securityErr) return res.status(securityErr.message === 'User not found.' ? 404 : 500).json({ error: "Unable to load this user's security details." });
+    db.all(
+      `SELECT a.id, a.wallet_address, a.plan_id, a.initial_balance, a.current_balance, a.current_equity,
+       a.high_water_mark, a.daily_starting_balance, a.status, a.lock_reason, a.locked_until,
+       a.permanent_lock, a.admin_frozen, a.admin_freeze_reason, a.created_at, p.name AS plan_name,
+       p.max_drawdown_pct, p.daily_loss_pct,
+       EXISTS(SELECT 1 FROM withdrawals w WHERE w.account_id = a.id AND w.status = 'PENDING') AS withdrawal_pending
+       FROM accounts a JOIN plans p ON a.plan_id = p.id
+       WHERE LOWER(a.wallet_address) = LOWER(?)
+       ORDER BY CASE WHEN a.status = 'ACTIVE' THEN 0 ELSE 1 END, a.created_at DESC`,
+      [wallet],
+      (err, accounts) => {
+        if (err) return res.status(500).json({ error: "Unable to load this user's accounts." });
+        const rows = accounts || [];
+        const loadNext = index => {
+          if (index >= rows.length) return res.json({ accounts: rows, ...security });
+          const row = rows[index];
+          loadAccountWithLiveRisk(row.id, (riskErr, liveAccount) => {
+            if (riskErr) return res.status(503).json({ error: `Unable to calculate live risk for account ${row.id}.` });
+            refreshAccountLock(liveAccount, (lockErr, lock) => {
+              if (lockErr) return res.status(500).json({ error: `Unable to apply risk lock for account ${row.id}.` });
+              Object.assign(row, {
+                risk_balance: getRiskBalance(liveAccount),
+                status: liveAccount.status,
+                lock_reason: liveAccount.lock_reason,
+                locked_until: liveAccount.locked_until,
+                permanent_lock: liveAccount.permanent_lock,
+                risk_lock: lock || getActiveLock(liveAccount),
+                open_trades: liveAccount.open_trades
+              });
+              db.all(
+                `SELECT id, symbol, side, entry_price, size_usd, pnl, status, created_at, closed_at
+                 FROM trades WHERE account_id = ? ORDER BY created_at DESC`,
+                [row.id],
+                (tradeErr, trades) => {
+                  if (tradeErr) return res.status(500).json({ error: 'Unable to load account trade review.' });
+                  row.trades = trades || [];
+                  loadNext(index + 1);
+                }
+              );
+            });
+          });
+        };
+        loadNext(0);
+      }
+      );
+  });
 });
 
 app.post('/api/admin/accounts/action', sensitiveLimiter, requireTradeSignature, requireAdminWallet, (req, res) => {
@@ -2927,16 +3343,24 @@ app.post('/api/admin/withdrawals/action', sensitiveLimiter, requireTradeSignatur
   });
 });
 
-app.post('/api/trades/execute', sensitiveLimiter, requireWalletSession, (req, res) => {
+app.post('/api/trades/execute', sensitiveLimiter, requireWalletSession, requireUserNotSuspended, (req, res) => {
   const { account_id, symbol, side, price, size_usd, margin_used, leverage, sl, tp, wallet_address } = req.body;
+  const slTpMode = req.body?.sl_tp_mode || 'price';
+  const slAmount = req.body?.sl_amount == null ? null : Number(req.body.sl_amount);
+  const tpAmount = req.body?.tp_amount == null ? null : Number(req.body.tp_amount);
   const market = markets.find(item => item.symbol === symbol);
   const numericFields = [price, size_usd, margin_used, leverage];
   if (!account_id || !market || market.enabled === false || !['BUY', 'SELL'].includes(side) ||
+      !['price', 'amount'].includes(slTpMode) ||
       numericFields.some(value => !Number.isFinite(Number(value)) || Number(value) <= 0) ||
       !Number.isInteger(Number(leverage)) || Number(leverage) > 50 ||
       Math.abs(Number(size_usd) - Number(margin_used) * Number(leverage)) > 0.01 ||
       (sl != null && (!Number.isFinite(Number(sl)) || Number(sl) <= 0)) ||
-      (tp != null && (!Number.isFinite(Number(tp)) || Number(tp) <= 0))) {
+      (tp != null && (!Number.isFinite(Number(tp)) || Number(tp) <= 0)) ||
+      (slTpMode === 'amount' && (
+        (slAmount != null && (!Number.isFinite(slAmount) || slAmount <= 0)) ||
+        (tpAmount != null && (!Number.isFinite(tpAmount) || tpAmount <= 0))
+      ))) {
     return res.status(400).json({ error: 'Invalid trade parameters.' });
   }
 
@@ -2993,38 +3417,72 @@ app.post('/api/trades/execute', sensitiveLimiter, requireWalletSession, (req, re
         if (margin > account.current_balance) {
           return res.status(400).json({ error: `Insufficient available balance ($${account.current_balance.toFixed(2)} available).` });
         }
-
         getAuthoritativePrice(market).then((marketPrice) => {
           const slippage = market.source === 'BITGET_PERP' ? marketPrice * 0.0005 : 5;
           const executionPrice = marketPrice + (side === 'BUY' ? slippage : -slippage);
-          if (executionPrice <= 0 ||
-              (side === 'BUY' && ((sl && Number(sl) >= executionPrice) || (tp && Number(tp) <= executionPrice))) ||
-              (side === 'SELL' && ((sl && Number(sl) <= executionPrice) || (tp && Number(tp) >= executionPrice)))) {
-            return res.status(400).json({ error: 'Stop loss, take profit, or execution price is invalid for this side.' });
-          }
-
           const units = Number(size_usd) / executionPrice;
+          let levels;
+          try {
+            levels = resolveStopTargetPrices({
+              executionPrice,
+              units,
+              side,
+              mode: slTpMode,
+              sl,
+              tp,
+              slAmount,
+              tpAmount
+            });
+          } catch (levelError) {
+            return res.status(400).json({ error: levelError.message });
+          }
+          const { sl: stopLoss, tp: takeProfit } = levels;
+
           const tradeId = `trd_${crypto.randomBytes(8).toString('hex')}`;
           db.serialize(() => {
             db.run('BEGIN IMMEDIATE');
             db.run(
               `UPDATE accounts SET current_balance = current_balance - ?
                WHERE id = ? AND current_balance >= ? AND status = 'ACTIVE' AND admin_frozen = 0
-               AND NOT EXISTS (SELECT 1 FROM withdrawals WHERE account_id = ? AND status = 'PENDING')`,
+               AND NOT EXISTS (SELECT 1 FROM withdrawals WHERE account_id = ? AND status = 'PENDING')
+               AND NOT EXISTS (SELECT 1 FROM users u WHERE LOWER(u.wallet_address) = LOWER(accounts.wallet_address)
+                               AND COALESCE(u.admin_suspended, 0) = 1)`,
               [margin, account_id, margin, account_id],
               function(updateErr) {
-                if (updateErr || this.changes !== 1) {
-                  return db.run('ROLLBACK', () => res.status(409).json({ error: 'Account balance or status changed. Refresh and retry.' }));
+                if (updateErr) {
+                  return db.run('ROLLBACK', () => res.status(500).json({ error: 'Unable to reserve account balance.' }));
+                }
+                if (this.changes !== 1) {
+                  return db.get(
+                    'SELECT admin_suspend_reason FROM users WHERE LOWER(wallet_address) = LOWER(?) AND admin_suspended = 1',
+                    [account.wallet_address],
+                    (suspensionErr, suspendedUser) => db.run('ROLLBACK', () => {
+                      if (suspensionErr) return res.status(500).json({ error: 'Unable to verify user account access.' });
+                      if (suspendedUser) {
+                        return res.status(403).json({
+                          error: `This user account is suspended by an administrator${suspendedUser.admin_suspend_reason ? `: ${suspendedUser.admin_suspend_reason}` : '.'}`,
+                          user_suspended: true
+                        });
+                      }
+                      res.status(409).json({ error: 'Account balance or status changed. Refresh and retry.' });
+                    })
+                  );
                 }
                 db.run(
                   `INSERT INTO trades (id, account_id, symbol, side, entry_price, size_usd, units, sl, tp, status, leverage)
                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'OPEN', ?)`,
-                  [tradeId, account_id, symbol, side, executionPrice, margin, units, sl || null, tp || null, leverage],
+                  [tradeId, account_id, symbol, side, executionPrice, margin, units, stopLoss, takeProfit, leverage],
                   (insertErr) => {
                     if (insertErr) return db.run('ROLLBACK', () => res.status(500).json({ error: 'Unable to create trade.' }));
                     db.run('COMMIT', (commitErr) => {
                       if (commitErr) return res.status(500).json({ error: 'Unable to commit trade.' });
-                      res.json({ success: true, trade_id: tradeId, execution_price: executionPrice });
+                      res.json({
+                        success: true,
+                        trade_id: tradeId,
+                        execution_price: executionPrice,
+                        sl: stopLoss,
+                        tp: takeProfit
+                      });
                     });
                   }
                 );

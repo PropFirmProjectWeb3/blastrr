@@ -113,7 +113,7 @@ test('trading terminal displays spot stats and puts account selection first in t
   assert.match(appJs, /function initializeMarketPriceTicker\(\)/);
   assert.match(appJs, /market\.source === 'BINANCE_SPOT'/);
   assert.match(appJs, /wss:\/\/stream\.binance\.com:9443\/stream\?streams=/);
-  assert.match(appJs, /ticker\.s/);
+  assert.match(appJs, /ticker\?\.s/);
   assert.match(appJs, /ticker\.c/);
   assert.match(appJs, /ticker\.P/);
   const marketBarStart = appHtml.indexOf('<div class="chart-market-bar"');
@@ -242,11 +242,10 @@ test('trade entry uses metric cards, defaults to spot leverage, and scales the c
   assert.match(appJs, /liquidation-price-label/);
 });
 
-test('TradingView chart and order buttons use matching candle and brand colors with subtle glows', () => {
-  assert.match(appJs, /"studies":\s*\["MAExp@tv-basicstudies"\]/);
-  assert.match(appJs, /"moving average exponential\.plot\.color":\s*"#b7bdc5"/);
-  assert.match(appJs, /"mainSeriesProperties\.candleStyle\.upColor":\s*"#72f0c3"/);
-  assert.match(appJs, /"mainSeriesProperties\.candleStyle\.downColor":\s*"#ff638e"/);
+test('TradingView Lightweight Chart and order buttons use matching candle and brand colors', () => {
+  assert.match(appJs, /liveMarketChart\.addCandlestickSeries/);
+  assert.match(appJs, /upColor: '#34d399'/);
+  assert.match(appJs, /downColor: '#f87171'/);
   assert.match(appCss, /\.order-actions \.btn-buy\s*\{[^}]*#72f0c3/);
   assert.match(appCss, /\.order-actions \.btn-sell\s*\{[^}]*#c084fc/);
   assert.match(appCss, /\.order-actions button\.btn-buy:not\(\.nav-tab\):not\(\.admin-section-tab\)\s*\{[^}]*rgba\(114, 240, 195, 0\.2\)[^}]*color: #72f0c3[^}]*rgba\(114, 240, 195, 0\.08\)/);
@@ -406,21 +405,27 @@ test('chart account selector excludes risk-locked accounts and clears when none 
   assert.match(appJs, /isRiskLockedAccount\(account\)/);
 });
 
-test('Binance spot and Bitget perp markets use direct browser prices and trusted server pricing', () => {
+test('market charts and prices use Binance and Bitget data with trade overlays', () => {
   assert.match(appJs, /setInterval\(\(\) => fetchPrice\(pair, type, source, generation\), 1000\)/);
   assert.match(appJs, /https:\/\/api\.binance\.com\/api\/v3\/ticker\/24hr\?symbol=/);
   assert.match(appJs, /https:\/\/api\.bitget\.com\/api\/v2\/mix\/market\/ticker\?productType=USDT-FUTURES&symbol=/);
   assert.match(appJs, /https:\/\/api\.bitget\.com\/api\/v2\/mix\/market\/candles\?productType=USDT-FUTURES/);
+  assert.match(appJs, /https:\/\/api\.binance\.com\/api\/v3\/klines\?symbol=/);
+  assert.match(appJs, /https:\/\/fapi\.binance\.com\/fapi\/v1\/klines\?symbol=/);
+  assert.match(appJs, /function renderChartTradeOverlays\(trades\)/);
+  assert.match(appJs, /liveMarketCandleSeries\.createPriceLine/);
+  assert.match(appJs, /liveMarketCandleSeries\.setMarkers/);
+  assert.match(appHtml, /Open trades: entry, SL &amp; TP levels/);
   assert.match(appJs, /data\?\.code !== '00000'/);
   assert.match(appJs, /ticker\?\.symbol !== pair/);
   assert.match(appJs, /price = Number\(ticker\.markPrice\)/);
-  assert.match(appJs, /function updateLiveMarketChart\(ticker\)/);
+  assert.match(appJs, /function updateLiveMarketChart\(pair, priceValue, timestampValue\)/);
   assert.match(appJs, /liveMarketCandleSeries\.update/);
-  assert.match(appJs, /initLiveMarketChart\(opt\.dataset\.pair\)/);
+  assert.match(appJs, /initLiveMarketChart\(opt\.dataset\.pair, opt\.dataset\.source\)/);
   assert.match(appJs, /Charts by TradingView/);
   assert.match(appHtml, /lightweight-charts@4\.2\.3\/dist\/lightweight-charts\.standalone\.production\.js/);
   assert.doesNotMatch(appJs, /\/api\/market\/price/);
-  assert.doesNotMatch(appJs, /fapi\.binance\.com|api\.bybit\.com|api\.nasdaq\.com/);
+  assert.doesNotMatch(appJs, /api\.bybit\.com|api\.nasdaq\.com/);
   assert.match(serverJs, /api\.binance\.com\/api\/v3\/ticker\/price\?symbol=/);
   assert.match(serverJs, /api\.bitget\.com\/api\/v2\/mix\/market\/ticker\?productType=USDT-FUTURES&symbol=/);
   assert.match(serverJs, /parsed\.code !== '00000'/);

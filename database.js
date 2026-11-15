@@ -22,8 +22,31 @@ function initTables() {
       discount_code TEXT UNIQUE,
       referral_pct REAL NOT NULL DEFAULT 2,
       referred_by TEXT,
+      admin_suspended INTEGER NOT NULL DEFAULT 0,
+      admin_suspend_reason TEXT,
+      admin_suspended_by TEXT,
+      admin_suspended_at DATETIME,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     )`);
+
+    db.run(`CREATE TABLE IF NOT EXISTS user_login_ip_events (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      wallet_address TEXT NOT NULL,
+      ip_address TEXT NOT NULL,
+      is_new_ip INTEGER NOT NULL DEFAULT 0,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    )`);
+    db.run('CREATE INDEX IF NOT EXISTS idx_user_login_ip_events_wallet_created ON user_login_ip_events(wallet_address, created_at DESC)');
+
+    db.run(`CREATE TABLE IF NOT EXISTS user_admin_actions (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      wallet_address TEXT NOT NULL,
+      admin_wallet TEXT NOT NULL,
+      action TEXT NOT NULL CHECK(action IN ('SUSPEND', 'RESTORE')),
+      reason TEXT,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    )`);
+    db.run('CREATE INDEX IF NOT EXISTS idx_user_admin_actions_wallet_created ON user_admin_actions(wallet_address, created_at DESC)');
 
     db.run(`CREATE TABLE IF NOT EXISTS creator_applications (
       wallet_address TEXT PRIMARY KEY,
@@ -150,7 +173,18 @@ function initTables() {
       paid_amount REAL,
       commission_earned REAL,
       commission_pct REAL DEFAULT 2,
+      level INTEGER NOT NULL DEFAULT 1,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    )`);
+
+    db.run(`CREATE TABLE IF NOT EXISTS referral_settings (
+      id INTEGER PRIMARY KEY CHECK(id = 1),
+      level_two_pct REAL NOT NULL DEFAULT 2
+    )`);
+
+    db.run(`CREATE TABLE IF NOT EXISTS plan_seed_state (
+      id INTEGER PRIMARY KEY CHECK(id = 1),
+      seeded INTEGER NOT NULL DEFAULT 0
     )`);
 
     db.run(`CREATE TABLE IF NOT EXISTS promo_codes (
@@ -297,6 +331,8 @@ function initTables() {
     db.run('CREATE INDEX IF NOT EXISTS idx_promo_codes_created_at ON promo_codes(created_at DESC)');
     db.run('CREATE INDEX IF NOT EXISTS idx_battlepass_claims_wallet ON battlepass_task_claims(wallet_address, created_at DESC)');
     db.run('CREATE INDEX IF NOT EXISTS idx_battlepass_events_wallet ON battlepass_events(wallet_address, created_at DESC)');
+    db.run('INSERT OR IGNORE INTO referral_settings (id, level_two_pct) VALUES (1, 2)');
+    db.run('INSERT OR IGNORE INTO plan_seed_state (id, seeded) VALUES (1, 0)');
 
     db.run(
       'INSERT OR IGNORE INTO battlepass_settings (id, standard_discount_pct) VALUES (1, 90)'
@@ -445,11 +481,47 @@ function initTables() {
         console.error('Unable to inspect users schema', err.message);
         return;
       }
-      if (!columns.some(column => column.name === 'referral_pct')) {
-        db.run('ALTER TABLE users ADD COLUMN referral_pct REAL NOT NULL DEFAULT 2', (alterErr) => {
-          if (alterErr) console.error('Unable to add users.referral_pct', alterErr.message);
+      const existing = new Set(columns.map(column => column.name));
+      const additions = [
+        ['referral_pct', 'REAL NOT NULL DEFAULT 2'],
+        ['referred_by', 'TEXT'],
+        ['admin_suspended', 'INTEGER NOT NULL DEFAULT 0'],
+        ['admin_suspend_reason', 'TEXT'],
+        ['admin_suspended_by', 'TEXT'],
+        ['admin_suspended_at', 'DATETIME']
+      ].filter(([name]) => !existing.has(name));
+      const addNextColumn = index => {
+        if (index >= additions.length) {
+          db.run('CREATE INDEX IF NOT EXISTS idx_users_referred_by ON users(referred_by)');
+          db.run(
+            `UPDATE users
+             SET referred_by = (
+               SELECT r.referrer_wallet FROM referrals r
+               WHERE LOWER(r.referee_wallet) = LOWER(users.wallet_address)
+                 AND r.referrer_wallet IS NOT NULL
+               ORDER BY r.created_at, r.id LIMIT 1
+             )
+             WHERE referred_by IS NULL AND EXISTS (
+               SELECT 1 FROM referrals r
+               WHERE LOWER(r.referee_wallet) = LOWER(users.wallet_address)
+                 AND r.referrer_wallet IS NOT NULL
+             )`,
+            backfillErr => {
+              if (backfillErr) console.error('Unable to backfill first-touch referral attribution', backfillErr.message);
+            }
+          );
+          return;
+        }
+        const [name, type] = additions[index];
+        db.run(`ALTER TABLE users ADD COLUMN ${name} ${type}`, alterErr => {
+          if (alterErr) {
+            console.error(`Unable to add users.${name}`, alterErr.message);
+            return;
+          }
+          addNextColumn(index + 1);
         });
-      }
+      };
+      addNextColumn(0);
     });
 
     db.all("PRAGMA table_info(referrals)", (err, columns) => {
@@ -457,11 +529,27 @@ function initTables() {
         console.error('Unable to inspect referrals schema', err.message);
         return;
       }
-      if (!columns.some(column => column.name === 'commission_pct')) {
-        db.run('ALTER TABLE referrals ADD COLUMN commission_pct REAL DEFAULT 2', (alterErr) => {
-          if (alterErr) console.error('Unable to add referrals.commission_pct', alterErr.message);
+      const existing = new Set(columns.map(column => column.name));
+      const additions = [
+        ['commission_pct', 'REAL DEFAULT 2'],
+        ['level', 'INTEGER NOT NULL DEFAULT 1']
+      ].filter(([name]) => !existing.has(name));
+      const addNextColumn = index => {
+        if (index >= additions.length) {
+          db.run('CREATE INDEX IF NOT EXISTS idx_referrals_referrer_level_created ON referrals(referrer_wallet, level, created_at DESC)');
+          db.run('CREATE INDEX IF NOT EXISTS idx_referrals_referee_level_created ON referrals(referee_wallet, level, created_at)');
+          return;
+        }
+        const [name, type] = additions[index];
+        db.run(`ALTER TABLE referrals ADD COLUMN ${name} ${type}`, alterErr => {
+          if (alterErr) {
+            console.error(`Unable to add referrals.${name}`, alterErr.message);
+            return;
+          }
+          addNextColumn(index + 1);
         });
-      }
+      };
+      addNextColumn(0);
     });
 
     db.all("PRAGMA table_info(accounts)", (err, columns) => {

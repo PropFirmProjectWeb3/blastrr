@@ -31,9 +31,14 @@ test('ticket endpoints enforce wallet ownership, account ownership, and admin au
   assert.match(serverJs, /app\.post\('\/api\/user\/tickets\/:ticketId\/reply', sensitiveLimiter, requireWalletSession/);
   assert.match(serverJs, /app\.post\('\/api\/admin\/tickets', sensitiveLimiter, requireTradeSignature, requireAdminWallet/);
   assert.match(serverJs, /app\.post\('\/api\/admin\/tickets\/action', sensitiveLimiter, requireTradeSignature, requireAdminWallet/);
+  assert.match(serverJs, /INSERT INTO support_ticket_messages \(ticket_id, author_role, author_name, body\)[\s\S]*?'ADMIN', 'Blastrr Support'/);
+  assert.match(serverJs, /app\.get\('\/api\/user\/tickets'[\s\S]*?attachTicketMessages\(tickets \|\| \[\]/);
   assert.match(serverJs, /ticket\.status === 'CLOSED'/);
   assert.match(serverJs, /SET status = 'OPEN'/);
   assert.match(serverJs, /'NEEDS_INFO'/);
+  assert.match(appJs, /if \(panelId === 'profile-support-panel' && connectedWallet\) loadUserTickets\(connectedWallet\)/);
+  assert.match(appHtml, /id="refresh-user-tickets"/);
+  assert.match(appJs, /refresh-user-tickets'\)\?\.addEventListener\('click'/);
 });
 
 test('review submission and moderation are wallet-bound and admin-protected', () => {

@@ -164,8 +164,8 @@ test('admin can toggle maintenance for each public page and set an outage messag
 });
 
 test('trading terminal HTML loads its external stylesheet and application script', () => {
-  assert.match(appHtml, /href="\/css\/app\.css\?v=20261115-unified-ui"/);
-  assert.match(appHtml, /src="\/js\/app\.js\?v=20261115-unified-ui" defer/);
+  assert.match(appHtml, /href="\/css\/app\.css\?v=20261115-open-trade-format"/);
+  assert.match(appHtml, /src="\/js\/app\.js\?v=20261115-open-trade-format" defer/);
   assert.doesNotMatch(appHtml, /<style[\s>]/i);
   assert.doesNotMatch(appHtml, /<script>\s*[\s\S]*?\bfunction\s/m);
   assert.match(appHtml, /id="nav-menu"/);
@@ -469,6 +469,15 @@ test('live market PnL feeds server-side risk checks and active trade responses',
   assert.match(serverJs, /COALESCE\(permanent_lock, 0\) = 1 AND \? = 0/);
   assert.match(appJs, /acc\.lock_reason === 'MLL' \|\| Number\(acc\.permanent_lock\) === 1/);
   assert.match(appJs, /Number\.isFinite\(Number\(trd\.live_pnl\)\)/);
+});
+
+test('open trades use whole-dollar values and display submitted dollar SL/TP amounts', () => {
+  assert.match(appJs, /const formatOpenTradeValue = value => Number\(value\)\.toLocaleString\(undefined, \{ maximumFractionDigits: 0 \}\)/);
+  assert.match(appJs, /const stop = trd\.sl_tp_mode === 'amount' \? trd\.sl_amount : trd\.sl/);
+  assert.match(appJs, /const target = trd\.sl_tp_mode === 'amount' \? trd\.tp_amount : trd\.tp/);
+  assert.match(appJs, /SL: \$\{formatProtectionValue\(stop\)\} \/ TP: \$\{formatProtectionValue\(target\)\}/);
+  assert.match(appJs, /pnl\.toLocaleString\(undefined, \{ maximumFractionDigits: 0 \}\)/);
+  assert.match(appCss, /#open-trades-list \.open-trade-value \{ white-space: nowrap; \}/);
 });
 
 test('chart account selector excludes risk-locked accounts and clears when none are selectable', () => {

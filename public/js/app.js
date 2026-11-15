@@ -4398,6 +4398,10 @@ let connectedWallet = null;
                 return;
             }
 
+            const formatOpenTradeValue = value => Number(value).toLocaleString(undefined, { maximumFractionDigits: 0 });
+            const formatProtectionValue = value => value == null
+                ? 'None'
+                : `$${formatOpenTradeValue(value)}`;
             displayedOpenTrades.forEach(trd => {
                 const currentPrice = trd.current_price || currentLivePrice || trd.entry_price;
                 const priceDiff = trd.side === 'BUY' ? (currentPrice - trd.entry_price) : (trd.entry_price - currentPrice);
@@ -4406,6 +4410,8 @@ let connectedWallet = null;
                 const leverageDisplay = trd.leverage && trd.leverage > 1 ? `${trd.leverage}x Perp` : '1x Spot';
                 const margin = Number(trd.size_usd);
                 const notional = Number(trd.units) * Number(trd.entry_price);
+                const stop = trd.sl_tp_mode === 'amount' ? trd.sl_amount : trd.sl;
+                const target = trd.sl_tp_mode === 'amount' ? trd.tp_amount : trd.tp;
 
                 tbody.innerHTML += `
                     <tr>
@@ -4413,10 +4419,10 @@ let connectedWallet = null;
                         <td>${trd.symbol}</td>
                         <td><span style="color: ${trd.side === 'BUY' ? '#34d399' : '#ef4444'}; font-weight: bold;">${trd.side}</span></td>
                         <td>${leverageDisplay}</td>
-                        <td>$${trd.entry_price.toFixed(2)}</td>
-                        <td>$${margin.toLocaleString()} / $${notional.toLocaleString()}</td>
-                        <td>SL: ${trd.sl || 'None'} / TP: ${trd.tp || 'None'}</td>
-                        <td><span data-trade-pnl="${trd.id}" style="color: ${pnlColor}; font-weight: bold;">$${pnl.toFixed(2)}</span></td>
+                        <td class="open-trade-value">$${formatOpenTradeValue(trd.entry_price)}</td>
+                        <td class="open-trade-value">$${formatOpenTradeValue(margin)} / $${formatOpenTradeValue(notional)}</td>
+                        <td class="open-trade-value">SL: ${formatProtectionValue(stop)} / TP: ${formatProtectionValue(target)}</td>
+                        <td class="open-trade-value"><span data-trade-pnl="${trd.id}" style="color: ${pnlColor}; font-weight: bold;">$${formatOpenTradeValue(pnl)}</span></td>
                         <td><button class="btn-sell" style="padding:5px 10px; font-size:11px;" onclick="closeTrade('${trd.id}', ${currentPrice})">Close Early</button></td>
                     </tr>
                 `;
@@ -4439,7 +4445,7 @@ let connectedWallet = null;
                 const pnlCell = Array.from(tbody.querySelectorAll('[data-trade-pnl]'))
                     .find(cell => cell.dataset.tradePnl === trade.id);
                 if (!pnlCell) continue;
-                pnlCell.textContent = `$${pnl.toFixed(2)}`;
+                pnlCell.textContent = `$${pnl.toLocaleString(undefined, { maximumFractionDigits: 0 })}`;
                 pnlCell.style.color = pnl >= 0 ? '#34d399' : '#ef4444';
             }
         }

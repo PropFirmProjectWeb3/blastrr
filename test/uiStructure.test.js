@@ -164,8 +164,8 @@ test('admin can toggle maintenance for each public page and set an outage messag
 });
 
 test('trading terminal HTML loads its external stylesheet and application script', () => {
-  assert.match(appHtml, /href="\/css\/app\.css\?v=20261115-chart-indicators"/);
-  assert.match(appHtml, /src="\/js\/app\.js\?v=20261115-chart-indicators" defer/);
+  assert.match(appHtml, /href="\/css\/app\.css\?v=20261115-multi-account-checkout"/);
+  assert.match(appHtml, /src="\/js\/app\.js\?v=20261115-multi-account-checkout" defer/);
   assert.doesNotMatch(appHtml, /<style[\s>]/i);
   assert.doesNotMatch(appHtml, /<script>\s*[\s\S]*?\bfunction\s/m);
   assert.match(appHtml, /id="nav-menu"/);
@@ -181,7 +181,13 @@ test('trading terminal HTML loads its external stylesheet and application script
 test('trading terminal displays a responsive 24/7 crypto market status card', () => {
   assert.match(appHtml, /<div class="chart-heading-group">[\s\S]*?id="chart-title"[\s\S]*?class="market-hours-status" aria-label="Crypto markets trade 24\/7\/365"/);
   assert.match(appHtml, /24\/7 TRADING LIVE/);
+  assert.match(appHtml, /id="chart-pair-label" class="chart-pair-label"/);
+  assert.doesNotMatch(appHtml, /Open trades: entry, SL &amp; TP levels/);
+  assert.match(appHtml, /class="chart-controls" aria-label="Chart controls"/);
+  assert.match(appJs, /selectedMarketLabel\.split\(\/\\s\+\/\)\[0\]\.replace\(\/\\\/USDT\$\/i, '\/USD'\)/);
   assert.match(appCss, /\.chart-heading-group\s*\{[^}]*display:\s*flex/);
+  assert.match(appCss, /\.chart-controls\s*\{[^}]*flex-wrap:\s*nowrap[^}]*overflow-x:\s*auto/);
+  assert.match(appCss, /#chart-indicator-select\s*\{[^}]*width:\s*148px/);
   assert.match(appCss, /\.market-hours-status\s*\{[^}]*border-radius:\s*999px/);
   assert.doesNotMatch(appHtml, /<aside class="market-hours-status"/);
 });
@@ -261,7 +267,7 @@ test('TradingView Lightweight Chart and order buttons use matching candle and br
   assert.match(appHtml, /<option value="MACD">MACD<\/option>/);
   assert.match(appHtml, /<option value="VOLUME">Volume<\/option>/);
   assert.match(appHtml, /id="chart-active-indicators"/);
-  assert.match(appHtml, /src="\/js\/chartIndicators\.js\?v=20261115-chart-indicators" defer/);
+  assert.match(appHtml, /src="\/js\/chartIndicators\.js\?v=20261115-multi-account-checkout" defer/);
   assert.match(appJs, /granularity=\$\{timeframeConfig\.bitget\}/);
   assert.match(appJs, /interval=\$\{timeframeConfig\.binance\}/);
   assert.match(appJs, /function refreshChartIndicators\(\)/);
@@ -311,9 +317,16 @@ test('terminal stays black and locked until a signed wallet session is establish
   assert.match(appJs, /if \(!res\.ok\) throw new Error\('Unable to load wallet accounts\.'\)[\s\S]*?if \(!Array\.isArray\(data\.accounts\)\) throw new Error\('The wallet account list is unavailable\.'\)[\s\S]*?return true;[\s\S]*?return false;/);
   assert.match(appJs, /scrollArea\.scrollTop \+ scrollArea\.clientHeight >= scrollArea\.scrollHeight - 4/);
   assert.match(appJs, /accepted_terms: true,[\s\S]*?simulated_funds: true/);
-  assert.match(appJs, /async function buyPlan\(planId, priceUsdt\)[\s\S]*?requestPurchaseDisclaimer\(\)[\s\S]*?completePlanPurchase\(planId, amount\)/);
+  assert.match(appJs, /async function buyPlan\(planId, priceUsdt\)[\s\S]*?const quantity = Number\(document\.getElementById\(`plan-quantity-\$\{planId\}`\)/);
+  assert.match(appJs, /requestPurchaseDisclaimer\(\)[\s\S]*?completePlanPurchase\(planId, amount, quantity\)/);
   assert.match(appJs, /walletSessionOwner !== owner \|\| walletSessionExpiresAt <= Date\.now\(\)/);
-  assert.match(appJs, /async function completePlanPurchase\(planId, amount\)[\s\S]*?Confirm purchase for \$\$\{amount\} USDT[\s\S]*?toTokenUnits\(amount, chainConfig\.decimals\)/);
+  assert.match(appJs, /async function completePlanPurchase\(planId, amount, quantity = 1\)[\s\S]*?Confirm purchase of \$\{quantity\} account[\s\S]*?toTokenUnits\(amount, chainConfig\.decimals\)/);
+  assert.match(appJs, /updatePlanPurchaseTotal\(planId, unitPrice\)/);
+  assert.match(appJs, /quantity < 1 \|\| quantity > 10/);
+  assert.match(serverJs, /const quantity = Number\(req\.body\?\.quantity \?\? 1\)/);
+  assert.match(serverJs, /verifyMultiChainPurchase\(tx_hash, Number\(chain_id\), wallet_address, totalPrice, TREASURY_WALLET\)/);
+  assert.match(serverJs, /INSERT INTO purchases \(tx_hash, chain_id, wallet_address, account_id, quantity\)/);
+  assert.match(serverJs, /account_ids: accountIds/);
   assert.match(appJs, /disclaimer_version: DISCLAIMER_VERSION,[\s\S]*?terms_accepted: true,[\s\S]*?simulated_funds_acknowledged: true/);
   assert.match(serverJs, /app\.get\('\/api\/user\/disclaimer-consent', requireWalletSession/);
   assert.match(serverJs, /app\.post\('\/api\/user\/disclaimer-consent', sensitiveLimiter, requireWalletSession/);
@@ -355,10 +368,13 @@ test('accounts, leaderboard, and profile use responsive Battle Pass-style cards'
   assert.match(appJs, /class="battlepass-task profile-commission-card"/);
   assert.match(appCss, /\.account-card\s*\{[^}]*border: 1px solid rgba\(203, 213, 225, 0\.095\)[^}]*background: rgba\(4, 3, 7, 0\.82\)/);
   assert.match(appCss, /\.leaderboard-card-list\s*\{[^}]*grid-template-columns: minmax\(0, 1fr\)/);
-  assert.match(appCss, /\.leaderboard-card \{ display: grid; grid-template-columns: minmax\(220px, 0\.9fr\) minmax\(0, 1\.4fr\) auto/);
-  assert.match(appCss, /@media \(max-width: 700px\)[\s\S]*?\.leaderboard-card \{ grid-template-columns: minmax\(0, 1fr\)/);
+  assert.match(appCss, /\.leaderboard-card \{ display: grid; grid-template-columns: minmax\(220px, 1\.05fr\) minmax\(190px, 0\.9fr\) minmax\(450px, 2fr\) auto/);
+  assert.match(appCss, /\.leaderboard-metric \{ display: flex; align-items: baseline;[^}]*white-space: nowrap/);
+  assert.match(appCss, /\.leaderboard-card-stats > div \{ display: flex; align-items: center; justify-content: space-between/);
+  assert.match(appCss, /@media \(max-width: 700px\)[\s\S]*?\.leaderboard-card \{ grid-template-columns: minmax\(0, 1fr\) auto/);
   assert.match(appCss, /\.battlepass-task\s*\{[\s\S]*?border: 1px solid var\(--surface-border\)[\s\S]*?background: rgba\(5, 7, 11, 0\.38\)/);
-  assert.match(appCss, /@media \(max-width: 700px\)[\s\S]*?\.leaderboard-card-stats \{ grid-template-columns: repeat\(2, minmax\(0, 1fr\)\)/);
+  assert.match(appCss, /@media \(max-width: 700px\)[\s\S]*?\.leaderboard-card-stats \{ gap: 5px/);
+  assert.match(appJs, /<div class="leaderboard-metric">[\s\S]*?<small>\$\{badgeText\}<\/small>[\s\S]*?<\/div>\s*<div class="leaderboard-card-stats">/);
   const leaderboardStart = appHtml.indexOf('<section id="leaderboardView"');
   const leaderboardEnd = appHtml.indexOf('</section>', leaderboardStart);
   const leaderboardHtml = appHtml.slice(leaderboardStart, leaderboardEnd);
@@ -457,7 +473,7 @@ test('market charts and prices use Binance and Bitget data with trade overlays',
   assert.match(appJs, /function renderChartTradeOverlays\(trades\)/);
   assert.match(appJs, /liveMarketCandleSeries\.createPriceLine/);
   assert.match(appJs, /liveMarketCandleSeries\.setMarkers/);
-  assert.match(appHtml, /Open trades: entry, SL &amp; TP levels/);
+  assert.doesNotMatch(appHtml, /Open trades: entry, SL &amp; TP levels/);
   assert.match(appJs, /data\?\.code !== '00000'/);
   assert.match(appJs, /ticker\?\.symbol !== pair/);
   assert.match(appJs, /price = Number\(ticker\.markPrice\)/);

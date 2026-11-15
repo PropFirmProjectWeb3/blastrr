@@ -591,6 +591,12 @@ let connectedWallet = null;
 
         async function initLiveMarketChart(pair, source) {
             disposeLiveMarketChart();
+            const selectedMarketLabel = document.getElementById('order-symbol')?.selectedOptions?.[0]?.textContent?.trim();
+            const pairLabel = selectedMarketLabel
+                ? selectedMarketLabel.split(/\s+/)[0].replace(/\/USDT$/i, '/USD')
+                : String(pair || '').replace(/\.P$/i, '').replace(/USDT$/i, '/USD');
+            const chartPairLabel = document.getElementById('chart-pair-label');
+            if (chartPairLabel) chartPairLabel.textContent = pairLabel || 'Selected market';
             const container = document.getElementById('tradingview-widget-container');
             if (!container) return;
             container.replaceChildren();
@@ -1983,10 +1989,10 @@ let connectedWallet = null;
                                     ${isUser ? '<small class="leaderboard-you">Your profile</small>' : ''}
                                 </div>
                             </div>
-                            <div class="leaderboard-metric">
-                                <strong style="color: ${metricColor}">$${Number(row.metric_value).toFixed(2)} USDT</strong>
-                                <small>${badgeText}</small>
-                            </div>
+                        </div>
+                        <div class="leaderboard-metric">
+                            <strong style="color: ${metricColor}">$${Number(row.metric_value).toFixed(2)} USDT</strong>
+                            <small>${badgeText}</small>
                         </div>
                         <div class="leaderboard-card-stats">
                             <div><small>Promo code</small><code>${escapeHTML(row.discount_code)}</code></div>
@@ -4539,6 +4545,7 @@ let connectedWallet = null;
                 const dailyLossLimit = `$${(capital * Number(plan.daily_loss_pct) / 100).toLocaleString()}`;
                 const maxDrawdown = `$${(capital * Number(plan.max_drawdown_pct) / 100).toLocaleString()}`;
                 const isFeatured = plan.name.replace(/\s+\$[\d,]+.*$/, '') === 'Pro';
+                const initialTotal = `$${displayPrice.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} USDT`;
 
                 container.innerHTML += `
                     <article class="card purchase-plan-card${isFeatured ? ' is-featured' : ''}">
@@ -4562,10 +4569,34 @@ let connectedWallet = null;
                             <div class="purchase-plan-rule"><span>Profit consistency</span><strong>${Number(plan.max_single_day_profit_pct)}% max single-day profit</strong></div>
                             <div class="purchase-plan-rule"><span>Trading availability</span><strong>24/7/365</strong></div>
                         </div>
-                        <button class="btn-wallet" style="width:100%; padding:12px;" onclick="buyPlan(${Number(plan.id)}, ${displayPrice})">Buy Plan (${price})</button>
+                        <div class="purchase-plan-quantity">
+                            <label for="plan-quantity-${Number(plan.id)}">Quantity</label>
+                            <input id="plan-quantity-${Number(plan.id)}" type="number" min="1" max="10" step="1" value="1" inputmode="numeric" oninput="updatePlanPurchaseTotal(${Number(plan.id)}, ${displayPrice})">
+                            <span>Up to 10 accounts per checkout</span>
+                        </div>
+                        <p class="purchase-plan-total">Checkout total <strong id="plan-total-${Number(plan.id)}">${initialTotal}</strong></p>
+                        <button id="plan-buy-${Number(plan.id)}" class="btn-wallet purchase-plan-buy" onclick="buyPlan(${Number(plan.id)}, ${displayPrice})">Buy 1 account · ${initialTotal}</button>
                     </article>
                 `;
             });
+        }
+
+        function updatePlanPurchaseTotal(planId, unitPrice) {
+            const input = document.getElementById(`plan-quantity-${planId}`);
+            const total = document.getElementById(`plan-total-${planId}`);
+            const button = document.getElementById(`plan-buy-${planId}`);
+            if (!input || !total || !button) return;
+            const quantity = Number(input.value);
+            if (!Number.isInteger(quantity) || quantity < 1 || quantity > 10) {
+                total.textContent = 'Enter a quantity from 1 to 10';
+                button.disabled = true;
+                return;
+            }
+            const amount = Math.round(Number(unitPrice) * quantity * 100) / 100;
+            const formattedAmount = `$${amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} USDT`;
+            total.textContent = formattedAmount;
+            button.textContent = `Buy ${quantity} account${quantity === 1 ? '' : 's'} · ${formattedAmount}`;
+            button.disabled = false;
         }
 
         async function applyPromo() {
@@ -5069,7 +5100,12 @@ let connectedWallet = null;
 
         async function buyPlan(planId, priceUsdt) {
             if (!connectedWallet) { alert("Connect wallet first!"); return; }
-            const amount = Number(priceUsdt);
+            const quantity = Number(document.getElementById(`plan-quantity-${planId}`)?.value || 1);
+            if (!Number.isInteger(quantity) || quantity < 1 || quantity > 10) {
+                alert("Choose a quantity from 1 to 10 accounts.");
+                return;
+            }
+            const amount = Math.round(Number(priceUsdt) * quantity * 100) / 100;
             if (!Number.isFinite(amount) || amount < 0) { alert("Invalid plan price."); return; }
             const owner = connectedWallet.toLowerCase();
             if (!dashboardAuthenticated || !walletSessionToken ||
@@ -5078,11 +5114,12 @@ let connectedWallet = null;
                 return;
             }
             if (!await requestPurchaseDisclaimer() || connectedWallet?.toLowerCase() !== owner) return;
-            await completePlanPurchase(planId, amount);
+            await completePlanPurchase(planId, amount, quantity);
         }
 
-        async function completePlanPurchase(planId, amount) {
+        async function completePlanPurchase(planId, amount, quantity = 1) {
             if (amount === 0) {
+                if (quantity > 1) { alert("Free or fully discounted purchases are limited to one account per checkout."); return; }
                 if (!confirm('Confirm this free account purchase?')) return;
                 try {
                     const response = await walletFetch('/api/accounts/purchase', {
@@ -5091,6 +5128,7 @@ let connectedWallet = null;
                         body: JSON.stringify({
                             wallet_address: connectedWallet,
                             plan_id: Number(planId),
+                            quantity,
                             promo_code: activePromoCode,
                             disclaimer_version: DISCLAIMER_VERSION,
                             terms_accepted: true,
@@ -5124,7 +5162,7 @@ let connectedWallet = null;
                 return;
             }
 
-            if (!confirm(`Confirm purchase for $${amount} USDT on ${chainConfig.name}?`)) return;
+            if (!confirm(`Confirm purchase of ${quantity} account${quantity === 1 ? '' : 's'} for $${amount.toFixed(2)} USDT on ${chainConfig.name}?`)) return;
 
             try {
                 const paddedRecipient = TREASURY_WALLET.toLowerCase().replace('0x', '').padStart(64, '0');
@@ -5149,6 +5187,7 @@ let connectedWallet = null;
                     body: JSON.stringify({ 
                         wallet_address: connectedWallet, 
                         plan_id: planId, 
+                        quantity,
                         tx_hash: txHash, 
                         chain_id: selectedChainId,
                         promo_code: activePromoCode,
@@ -5160,7 +5199,7 @@ let connectedWallet = null;
                 const data = await res.json();
 
                 if (data.success) {
-                    alert("Payment verified on-chain! Account provisioned successfully.");
+                    alert(data.message || `${quantity} account${quantity === 1 ? '' : 's'} provisioned successfully.`);
                     loadUserAccounts(connectedWallet);
                     switchView('tradeView');
                 } else {

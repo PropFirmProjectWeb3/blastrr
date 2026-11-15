@@ -7,7 +7,7 @@
     <link rel="icon" type="image/png" href="/favicon.png">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link rel="stylesheet" href="/css/app.css?v=20261115-chart-indicators">
+    <link rel="stylesheet" href="/css/app.css?v=20261115-multi-account-checkout">
 </head>
 <body class="auth-locked">
     <section id="wallet-login-gate" class="wallet-login-gate" aria-labelledby="wallet-login-title">
@@ -113,16 +113,16 @@
             <div class="trade-grid">
                 <div>
                     <div class="card">
-                        <div class="card-title">
+                        <div class="card-title chart-card-heading">
                             <div class="chart-heading-group">
                                 <span id="chart-title">Live Market Chart</span>
-                                <span class="chart-trade-overlay-note">Open trades: entry, SL &amp; TP levels</span>
+                                <span id="chart-pair-label" class="chart-pair-label">BTC/USD</span>
                                 <span class="market-hours-status" aria-label="Crypto markets trade 24/7/365" title="Crypto markets trade continuously. Exchange or platform maintenance may temporarily affect access.">
                                     <span class="market-hours-status-dot" aria-hidden="true"></span>
                                     24/7 TRADING LIVE
                                 </span>
                             </div>
-                            <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                            <div class="chart-controls" aria-label="Chart controls">
                                 <label class="chart-control-label" for="chart-timeframe">Interval</label>
                                 <select id="chart-timeframe" class="chart-control-select" aria-label="Chart timeframe">
                                     <option value="1m">1m</option>
@@ -149,7 +149,7 @@
                                     <option value="OBV">On-balance volume</option>
                                 </select>
                                 <button id="chart-indicator-add" class="chart-indicator-add" type="button">Add</button>
-                                <button class="btn-wallet" style="padding: 5px 10px; font-size: 11px;" onclick="manualRefreshData()">Refresh</button>
+                                <button class="btn-wallet chart-refresh-button" onclick="manualRefreshData()">Refresh</button>
                             </div>
                         </div>
                         <div id="chart-active-indicators" class="chart-active-indicators" aria-label="Active chart indicators"></div>
@@ -965,7 +965,7 @@
     </main>
 
     <script src="https://unpkg.com/lightweight-charts@4.2.3/dist/lightweight-charts.standalone.production.js"></script>
-    <script src="/js/chartIndicators.js?v=20261115-chart-indicators" defer></script>
-    <script src="/js/app.js?v=20261115-chart-indicators" defer></script>
+    <script src="/js/chartIndicators.js?v=20261115-multi-account-checkout" defer></script>
+    <script src="/js/app.js?v=20261115-multi-account-checkout" defer></script>
 </body>
 </html>

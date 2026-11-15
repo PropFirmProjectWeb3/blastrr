@@ -27,8 +27,8 @@ test('creator referral rates default to 2%, are admin-adjustable, and apply to n
   assert.match(serverJs, /parent\?\.level_two_pct_override \?\? levelTwoCommissionPct/);
   assert.match(serverJs, /referralPct < 0 \|\| referralPct > 100/);
   assert.match(serverJs, /UPDATE users SET referred_by = \?[\s\S]*?referred_by IS NULL/);
-  assert.match(serverJs, /finalPrice \* referralCommissionPct \/ 100/);
-  assert.match(serverJs, /finalPrice \* secondLevelCommissionPct \/ 100/);
+  assert.match(serverJs, /totalPrice \* referralCommissionPct \/ 100/);
+  assert.match(serverJs, /totalPrice \* secondLevelCommissionPct \/ 100/);
   assert.match(serverJs, /commission_pct, level\)[\s\S]*?VALUES \(\?, \?, \?, \?, \?, \?, 1\)/);
   assert.match(serverJs, /commission_pct, level\)[\s\S]*?VALUES \(\?, \?, \?, \?, \?, \?, 2\)/);
   assert.match(serverJs, /COUNT\(DISTINCT CASE WHEN level = 1 THEN referee_wallet END\)/);

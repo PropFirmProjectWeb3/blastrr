@@ -2931,6 +2931,8 @@ app.put('/api/accounts/:accountId/journal', sensitiveLimiter, requireWalletSessi
 // --- SECURE PURCHASE ENDPOINT (WITH MULTI-CHAIN ON-CHAIN VERIFICATION) ---
 app.post('/api/accounts/purchase', sensitiveLimiter, requireWalletSession, requireUserNotSuspended, async (req, res) => {
   const { wallet_address, plan_id, tx_hash, chain_id } = req.body;
+  const quantity = Number(req.body?.quantity ?? 1);
+  const maxPurchaseQuantity = 10;
   const promoCode = typeof req.body?.promo_code === 'string' ? req.body.promo_code.trim().toUpperCase() : '';
   if (req.body?.disclaimer_version !== DISCLAIMER_VERSION ||
       req.body?.terms_accepted !== true ||
@@ -2939,8 +2941,9 @@ app.post('/api/accounts/purchase', sensitiveLimiter, requireWalletSession, requi
   }
   if (typeof wallet_address !== 'string' || !ethers.isAddress(wallet_address) ||
       !Number.isInteger(Number(plan_id)) || Number(plan_id) <= 0 ||
+      !Number.isInteger(quantity) || quantity < 1 || quantity > maxPurchaseQuantity ||
       (req.body?.promo_code != null && (typeof req.body.promo_code !== 'string' || req.body.promo_code.length > 32))) {
-    return res.status(400).json({ error: 'Missing required purchase parameters.' });
+    return res.status(400).json({ error: `Provide a valid plan and a quantity from 1 to ${maxPurchaseQuantity}.` });
   }
 
   const dbGet = (sql, params = []) => new Promise((resolve, reject) => {
@@ -2982,7 +2985,11 @@ app.post('/api/accounts/purchase', sensitiveLimiter, requireWalletSession, requi
 
     const totalDiscountPct = Math.min(100, standardDiscountPct + bonusDiscountPct);
     const finalPrice = Math.round(Number(plan.base_price_usdt) * (100 - totalDiscountPct)) / 100;
+    const totalPrice = Math.round(finalPrice * quantity * 100) / 100;
     const isFreeRedemption = finalPrice === 0;
+    if (isFreeRedemption && quantity > 1) {
+      return res.status(400).json({ error: 'Free or fully discounted purchases are limited to one account per checkout.' });
+    }
     let normalizedTxHash;
     let purchaseChainId = 0;
     if (!isFreeRedemption) {
@@ -2990,7 +2997,7 @@ app.post('/api/accounts/purchase', sensitiveLimiter, requireWalletSession, requi
           !Number.isInteger(Number(chain_id))) {
         return res.status(400).json({ error: 'A valid payment transaction and network are required.' });
       }
-      const verification = await verifyMultiChainPurchase(tx_hash, Number(chain_id), wallet_address, finalPrice, TREASURY_WALLET);
+      const verification = await verifyMultiChainPurchase(tx_hash, Number(chain_id), wallet_address, totalPrice, TREASURY_WALLET);
       if (!verification.success) return res.status(400).json({ error: verification.error });
       normalizedTxHash = tx_hash.toLowerCase();
       purchaseChainId = Number(chain_id);
@@ -3008,9 +3015,10 @@ app.post('/api/accounts/purchase', sensitiveLimiter, requireWalletSession, requi
         [Number(plan_id)],
         (rewardErr, planReward) => {
           if (rewardErr) return res.status(500).json({ error: 'Unable to load plan battle pass rewards.' });
-          const xpAward = Number(planReward?.xp_reward ?? 1000);
-          const pointsAward = Number(planReward?.points_reward ?? 100);
-          const accountId = `acc_${crypto.randomBytes(8).toString('hex')}`;
+          const xpAward = Number(planReward?.xp_reward ?? 1000) * quantity;
+          const pointsAward = Number(planReward?.points_reward ?? 100) * quantity;
+          const accountIds = Array.from({ length: quantity }, () => `acc_${crypto.randomBytes(8).toString('hex')}`);
+          const accountId = accountIds[0];
           db.serialize(() => {
             db.run('BEGIN IMMEDIATE', (beginErr) => {
               if (beginErr) return res.status(500).json({ error: 'Unable to start account provisioning.' });
@@ -3024,30 +3032,40 @@ app.post('/api/accounts/purchase', sensitiveLimiter, requireWalletSession, requi
                     return rollback(403, `This user account is suspended by an administrator${user.admin_suspend_reason ? `: ${user.admin_suspend_reason}` : '.'}`);
                   }
                   db.run(
-                    `INSERT INTO purchases (tx_hash, chain_id, wallet_address, account_id)
-                     VALUES (?, ?, ?, ?)`,
-                    [normalizedTxHash, purchaseChainId, wallet_address, accountId],
+                    `INSERT INTO purchases (tx_hash, chain_id, wallet_address, account_id, quantity)
+                     VALUES (?, ?, ?, ?, ?)`,
+                    [normalizedTxHash, purchaseChainId, wallet_address, accountId, quantity],
                     (purchaseErr) => {
                       if (purchaseErr) return rollback(409, 'This transaction or discount code has already been used.');
-                  const provisionAccount = () => db.run(
-                    `INSERT INTO accounts (id, wallet_address, plan_id, initial_balance, current_balance,
-                       current_equity, high_water_mark, daily_starting_balance, risk_day, status)
-                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'ACTIVE')`,
-                    [
-                      accountId, wallet_address, Number(plan_id), plan.simulated_capital,
-                      plan.simulated_capital, plan.simulated_capital, plan.simulated_capital,
-                      plan.simulated_capital, new Date().toISOString().slice(0, 10)
-                    ],
-                    (accountErr) => {
-                      if (accountErr) return rollback(500, 'Unable to provision the purchased account.');
+                  const provisionAccounts = (index, onComplete) => {
+                    if (index >= accountIds.length) return onComplete();
+                    db.run(
+                      `INSERT INTO accounts (id, wallet_address, plan_id, initial_balance, current_balance,
+                         current_equity, high_water_mark, daily_starting_balance, risk_day, status)
+                       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'ACTIVE')`,
+                      [
+                        accountIds[index], wallet_address, Number(plan_id), plan.simulated_capital,
+                        plan.simulated_capital, plan.simulated_capital, plan.simulated_capital,
+                        plan.simulated_capital, new Date().toISOString().slice(0, 10)
+                      ],
+                      accountErr => accountErr
+                        ? rollback(500, 'Unable to provision all purchased accounts.')
+                        : provisionAccounts(index + 1, onComplete)
+                    );
+                  };
+                  const completeProvisioning = () => provisionAccounts(0, () => {
                       const finishPurchase = () => db.run('COMMIT', (commitErr) => {
                         if (commitErr) return rollback(500, 'Unable to commit account provisioning.');
                         res.json({
                           success: true,
                           account_id: accountId,
+                          account_ids: accountIds,
+                          quantity,
                           xp_awarded: isFreeRedemption ? 0 : xpAward,
                           points_awarded: isFreeRedemption ? 0 : pointsAward,
-                          message: isFreeRedemption ? 'Free battle pass account provisioned successfully.' : 'Payment verified and account provisioned successfully.'
+                          message: isFreeRedemption
+                            ? 'Free battle pass account provisioned successfully.'
+                            : `${quantity} account${quantity === 1 ? '' : 's'} provisioned; payment verified successfully.`
                         });
                       });
                       const recordReferralCommissions = () => {
@@ -3069,8 +3087,8 @@ app.post('/api/accounts/purchase', sensitiveLimiter, requireWalletSession, requi
                                 referrerWallet,
                                 wallet_address,
                                 Number(plan_id),
-                                finalPrice,
-                                finalPrice * referralCommissionPct / 100,
+                                totalPrice,
+                                totalPrice * referralCommissionPct / 100,
                                 referralCommissionPct
                               ],
                               referralErr => {
@@ -3095,8 +3113,8 @@ app.post('/api/accounts/purchase', sensitiveLimiter, requireWalletSession, requi
                                         secondLevelWallet,
                                         wallet_address,
                                         Number(plan_id),
-                                        finalPrice,
-                                        finalPrice * secondLevelCommissionPct / 100,
+                                        totalPrice,
+                                        totalPrice * secondLevelCommissionPct / 100,
                                         secondLevelCommissionPct
                                       ],
                                       levelTwoErr => levelTwoErr
@@ -3130,9 +3148,8 @@ app.post('/api/accounts/purchase', sensitiveLimiter, requireWalletSession, requi
                           }
                         );
                       });
-                    }
-                  );
-                  if (!rewardCode) return provisionAccount();
+                    });
+                  if (!rewardCode) return completeProvisioning();
                   db.run(
                     `UPDATE battlepass_reward_codes SET redeemed_at = CURRENT_TIMESTAMP
                      WHERE code = ? AND LOWER(wallet_address) = LOWER(?) AND redeemed_at IS NULL`,
@@ -3140,7 +3157,7 @@ app.post('/api/accounts/purchase', sensitiveLimiter, requireWalletSession, requi
                     function(redeemErr) {
                       if (redeemErr) return rollback(500, 'Unable to redeem the battle pass discount code.');
                       if (this.changes !== 1) return rollback(409, 'This battle pass discount code has already been used.');
-                      provisionAccount();
+                      completeProvisioning();
                     }
                   );
                     }

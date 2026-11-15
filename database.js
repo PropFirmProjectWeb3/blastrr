@@ -109,6 +109,7 @@ function initTables() {
       chain_id INTEGER NOT NULL,
       wallet_address TEXT NOT NULL,
       account_id TEXT NOT NULL,
+      quantity INTEGER NOT NULL DEFAULT 1,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     )`);
 
@@ -632,6 +633,20 @@ function initTables() {
         });
       };
       addNextColumn(0);
+    });
+
+    db.all("PRAGMA table_info(purchases)", (err, columns) => {
+      if (err) {
+        console.error('Unable to inspect purchases schema', err.message);
+        return;
+      }
+      if (columns.some(column => column.name === 'quantity')) return;
+      db.run(
+        'ALTER TABLE purchases ADD COLUMN quantity INTEGER NOT NULL DEFAULT 1',
+        alterErr => {
+          if (alterErr) console.error('Unable to add purchases.quantity', alterErr.message);
+        }
+      );
     });
 
     db.all("PRAGMA table_info(accounts)", (err, columns) => {

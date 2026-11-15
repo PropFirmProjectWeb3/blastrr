@@ -10,7 +10,7 @@ test('all supported-chain purchases use the same treasury recipient in the clien
   const treasury = '0xFBD3B9bA404f590b9A7b35B72104bEff9DEa5503';
   assert.match(serverJs, new RegExp(`const TREASURY_WALLET = '${treasury}'`));
   assert.match(appJs, new RegExp(`const TREASURY_WALLET = "${treasury}"`));
-  assert.match(serverJs, /verifyMultiChainPurchase\(tx_hash, Number\(chain_id\), wallet_address, finalPrice, TREASURY_WALLET\)/);
+  assert.match(serverJs, /verifyMultiChainPurchase\(tx_hash, Number\(chain_id\), wallet_address, totalPrice, TREASURY_WALLET\)/);
   assert.match(appJs, /const paddedRecipient = TREASURY_WALLET\.toLowerCase\(\)/);
 });
 

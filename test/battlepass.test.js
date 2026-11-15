@@ -75,7 +75,13 @@ test('profile rewards and level discounts are wallet-bound and checkout applies 
   assert.match(serverJs, /app\.post\('\/api\/accounts\/purchase', sensitiveLimiter, requireWalletSession/);
   assert.match(serverJs, /const totalDiscountPct = Math\.min\(100, standardDiscountPct \+ bonusDiscountPct\)/);
   assert.match(serverJs, /xp_awarded: isFreeRedemption \? 0 : xpAward/);
+  assert.match(serverJs, /const totalPrice = Math\.round\(finalPrice \* quantity \* 100\) \/ 100/);
+  assert.match(serverJs, /if \(isFreeRedemption && quantity > 1\)/);
+  assert.match(serverJs, /paid_amount, commission_earned, commission_pct, level\)[\s\S]*?totalPrice/);
+  assert.match(databaseJs, /quantity INTEGER NOT NULL DEFAULT 1/);
   assert.match(appJs, /standardDiscountPct \+ \(activePromoCode \? battlePassDiscountBonusPct : 0\)/);
+  assert.match(appJs, /type="number" min="1" max="10" step="1" value="1"/);
+  assert.match(appJs, /toLocaleString\(undefined, \{ minimumFractionDigits: 2, maximumFractionDigits: 2 \}\)/);
   assert.match(appJs, /compactBattlePassXp/);
 });
 

@@ -1733,6 +1733,39 @@
             border-color: rgba(192, 132, 252, 0.085) !important;
             box-shadow: 0 0 1.2px rgba(168, 85, 247, 0.038), inset 0 0 0.8px rgba(168, 85, 247, 0.006) !important;
         }
+        :root { --home-card-line: rgba(180, 190, 200, 0.1); }
+        .nav-dropdown-menu { border-color: rgba(180, 190, 200, 0.16); }
+        .nav-tab:hover, .nav-tab:focus-visible, .nav-tab.active, .nav-tab.admin-tab.active,
+        .nav-dropdown.has-active > .nav-dropdown-trigger {
+            border-color: rgba(180, 190, 200, 0.26);
+            box-shadow: none;
+        }
+        .nav-dropdown-menu .nav-tab.active { background: rgba(180, 190, 200, 0.08); }
+        .admin-section-tab:hover, .admin-section-tab:focus-visible, .admin-section-tab.active {
+            border-color: rgba(180, 190, 200, 0.28);
+            box-shadow: none;
+        }
+        .purchase-plan-card.dashboard-tile.is-featured { border-color: rgba(180, 190, 200, 0.16); }
+        .purchase-plan-card.dashboard-tile.is-featured::before { opacity: 0; }
+        .leaderboard-card.is-current-user { border-color: rgba(180, 190, 200, 0.16); }
+        .wallet-login-button { border-color: rgba(180, 190, 200, 0.2); box-shadow: none; }
+        .wallet-login-button:hover:not(:disabled), .wallet-login-button:focus-visible {
+            border-color: rgba(200, 210, 220, 0.48);
+            box-shadow: 0 0 8px rgba(180, 190, 200, 0.14);
+        }
+        .wallet-select:hover, .wallet-select:focus-visible, .wallet-select[aria-expanded="true"] {
+            border-color: rgba(180, 190, 200, 0.3);
+            box-shadow: none;
+        }
+        #wallet-menu .wallet-menu-account:hover:not(:disabled),
+        #wallet-menu .wallet-menu-account:focus-visible,
+        #wallet-menu .wallet-menu-account:active,
+        #wallet-menu .wallet-menu-action:hover:not(:disabled),
+        #wallet-menu .wallet-menu-action:focus-visible,
+        #wallet-menu .wallet-menu-action:active {
+            border-color: rgba(180, 190, 200, 0.26) !important;
+            box-shadow: 0 0 6px rgba(180, 190, 200, 0.08) !important;
+        }
         .admin-hedging-alert-list { display: grid; gap: 10px; }
         .admin-hedging-alert { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; padding: 14px; border: 1px solid rgba(248, 113, 113, 0.2); border-left: 3px solid rgba(248, 113, 113, 0.7); border-radius: 10px; background: rgba(50, 17, 22, 0.16); }
         .admin-hedging-alert > div { display: grid; gap: 5px; min-width: 0; }

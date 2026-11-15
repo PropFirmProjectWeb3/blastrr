@@ -164,7 +164,7 @@ test('admin can toggle maintenance for each public page and set an outage messag
 });
 
 test('trading terminal HTML loads its external stylesheet and application script', () => {
-  assert.match(appHtml, /href="\/css\/app\.css\?v=20261115-hedge-account-alerts"/);
+  assert.match(appHtml, /href="\/css\/app\.css\?v=20261115-neutral-borders"/);
   assert.match(appHtml, /src="\/js\/app\.js\?v=20261115-hedge-account-alerts" defer/);
   assert.doesNotMatch(appHtml, /<style[\s>]/i);
   assert.doesNotMatch(appHtml, /<script>\s*[\s\S]*?\bfunction\s/m);
@@ -227,9 +227,10 @@ test('homepage display font remains distinctive while the app uses the neutral d
   assert.match(appCss, /body, button, input, select, textarea \{[\s\S]*?font-family: Inter/);
 });
 
-test('homepage navigation hover and active states stay transparent with a purple glow', () => {
-  assert.match(landingHtml, /\.navlinks a:hover,\.navlinks a:focus-visible,\.navlinks a:active,\.navlinks a\[aria-current="page"\]\{color:#fff;background:transparent;border-color:rgba\(168,85,247,\.85\);box-shadow:0 0 12px rgba\(168,85,247,\.5\)/);
-  assert.match(landingHtml, /\.navright>\.btn:hover,\.navright>\.btn:focus-visible,\.navright>\.btn:active,\.menu-toggle:hover[\s\S]*?background:transparent;border:1px solid rgba\(168,85,247,\.85\);color:#fff;box-shadow:0 0 12px rgba\(168,85,247,\.5\)/);
+test('homepage navigation uses neutral outlines for hover and active states', () => {
+  assert.match(landingHtml, /\.navlinks a:hover,\.navlinks a:focus-visible,\.navlinks a:active,\.navlinks a\[aria-current="page"\][\s\S]*?border-color:rgba\(180,190,200,\.32\);box-shadow:none/);
+  assert.match(landingHtml, /button,input\[type="button"\],input\[type="submit"\],input\[type="reset"\],\.btn\{background:transparent!important;background-image:none!important;border:1px solid rgba\(180,190,200,\.2\)!important;color:#f8fafc!important;box-shadow:none!important/);
+  assert.match(landingHtml, /button:hover:not\(:disabled\)[\s\S]*?border-color:rgba\(200,210,220,\.42\)!important;box-shadow:none!important/);
 });
 
 test('homepage focuses on crypto markets without promoting derivatives products', () => {
@@ -415,12 +416,12 @@ test('homepage shows five users for every leaderboard category and hides during 
   assert.match(maintenanceJs, /homeLeaderboardSection\.hidden = Number\(page\?\.is_offline\) === 1 \|\|[\s\S]*?Number\(leaderboardPage\?\.is_offline\) === 1/);
 });
 
-test('homepage buttons keep purple styling while terminal buttons use restrained neutral borders', () => {
+test('homepage and terminal buttons use restrained neutral borders', () => {
   const terminalButtonRule = /button:not\(\.nav-tab\):not\(\.admin-section-tab\), input\[type="button"\], input\[type="submit"\], input\[type="reset"\], \.btn\s*\{[\s\S]*?background: transparent !important;[\s\S]*?border: 1px solid rgba\(180, 190, 200, 0\.2\) !important;[\s\S]*?box-shadow: 0 0 4px rgba\(180, 190, 200, 0\.06\) !important/;
   assert.match(appCss, terminalButtonRule);
   assert.match(appCss, /border-color: rgba\(200, 210, 220, 0\.48\) !important;[\s\S]*?box-shadow: 0 0 8px rgba\(180, 190, 200, 0\.14\) !important/);
   assert.match(appCss, /\.nav-tab \{[\s\S]*?background: transparent;[\s\S]*?border-color: transparent;/);
-  assert.match(landingHtml, /button,input\[type="button"\],input\[type="submit"\],input\[type="reset"\],\.btn\{background:transparent!important;[\s\S]*?border:1px solid rgba\(168,85,247,\.78\)!important;[\s\S]*?box-shadow:0 0 12px rgba\(168,85,247,\.28\)/);
+  assert.match(landingHtml, /button,input\[type="button"\],input\[type="submit"\],input\[type="reset"\],\.btn\{background:transparent!important;background-image:none!important;border:1px solid rgba\(180,190,200,\.2\)!important;color:#f8fafc!important;box-shadow:none!important/);
 });
 
 test('NullNet checkout uses the correct chain ID and matching wallet and verification RPC settings', () => {
@@ -487,6 +488,15 @@ test('purple glow around workspace boxes and buttons is reduced to a faint accen
   assert.match(appCss, /\.wallet-login-button \{ box-shadow: 0 0 1\.6px rgba\(168, 85, 247, 0\.028\); \}/);
   assert.match(appCss, /\.purchase-plan-card\.dashboard-tile\.is-featured::before \{ opacity: 0\.1; \}/);
   assert.match(appCss, /box-shadow: 0 0 1\.2px rgba\(168, 85, 247, 0\.038\), inset 0 0 0\.8px rgba\(168, 85, 247, 0\.006\) !important/);
+});
+
+test('app and homepage remove purple borders from navigation, buttons, and main cards', () => {
+  assert.match(appCss, /:root \{ --home-card-line: rgba\(180, 190, 200, 0\.1\); \}/);
+  assert.match(appCss, /\.nav-tab:hover,[\s\S]*?border-color: rgba\(180, 190, 200, 0\.26\);[\s\S]*?box-shadow: none;/);
+  assert.match(appCss, /\.admin-section-tab:hover,[\s\S]*?border-color: rgba\(180, 190, 200, 0\.28\);[\s\S]*?box-shadow: none;/);
+  assert.match(appCss, /\.purchase-plan-card\.dashboard-tile\.is-featured \{ border-color: rgba\(180, 190, 200, 0\.16\); \}/);
+  assert.match(landingHtml, /\.visual,\.launch-strip,\.plan\.featured,\.plan:hover,\.public-review-card\{border-color:rgba\(180,190,200,\.16\)\}/);
+  assert.match(landingHtml, /\.eyebrow,\.chain-pill,\.ticker-icon,\.tag,\.mini-stat,\.bull,\.promo-code,\.network,\.metric,\.step,\.feature,\.faq-item,\.testimonial,\.cta-band\{border-color:rgba\(180,190,200,\.14\)\}/);
 });
 
 test('chart account selector excludes risk-locked accounts and clears when none are selectable', () => {

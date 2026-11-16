@@ -5175,7 +5175,10 @@ let connectedWallet = null;
                         <div><strong>Performance bonus</strong><span>Paid ${escapeHTML(dateText)}</span></div>
                         <strong class="withdrawal-certificate-amount">$${Number(certificate.amount || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} USDT</strong>
                         <canvas class="withdrawal-certificate-preview" width="480" height="300" role="img" aria-label="Performance bonus certificate for ${escapeHTML(username)}"></canvas>
-                        <button class="battlepass-secondary-button" type="button" data-withdrawal-certificate>Download JPG</button>
+                        <div class="withdrawal-certificate-actions">
+                            <button class="battlepass-secondary-button" type="button" data-share-withdrawal-certificate>Share on X</button>
+                            <button class="battlepass-secondary-button" type="button" data-withdrawal-certificate>Download JPG</button>
+                        </div>
                     </article>`;
                 }).join('');
                 await Promise.all([...list.querySelectorAll('.withdrawal-certificate-preview')].map(canvas => {
@@ -5342,13 +5345,20 @@ let connectedWallet = null;
 
         async function downloadWithdrawalCertificate(event) {
             const button = event.target.closest('[data-withdrawal-certificate]');
-            if (!button) return;
-            const card = button.closest('.withdrawal-certificate-card');
+            const shareButton = event.target.closest('[data-share-withdrawal-certificate]');
+            const actionButton = shareButton || button;
+            if (!actionButton) return;
+            const card = actionButton.closest('.withdrawal-certificate-card');
             const preview = card?.querySelector('.withdrawal-certificate-preview');
             const feedback = document.getElementById('withdrawal-certificates-feedback');
             if (!card || !preview) return;
-            button.disabled = true;
-            if (feedback) feedback.textContent = 'Preparing JPG…';
+            actionButton.disabled = true;
+            let shareWindow;
+            if (shareButton) {
+                const text = 'My performance bonus certificate from @Blastrr. #Blastrr';
+                shareWindow = window.open(`https://x.com/intent/post?text=${encodeURIComponent(text)}`, '_blank', 'noopener,noreferrer');
+            }
+            if (feedback) feedback.textContent = shareButton ? 'Preparing your certificate and X post…' : 'Preparing JPG…';
             try {
                 const canvas = document.createElement('canvas');
                 canvas.width = 1600;
@@ -5367,12 +5377,17 @@ let connectedWallet = null;
                 link.download = `blastrr-performance-bonus-certificate-${card.dataset.certificateId}.jpg`;
                 link.click();
                 setTimeout(() => URL.revokeObjectURL(imageUrl), 1000);
-                if (feedback) feedback.textContent = 'Certificate downloaded as JPG.';
+                if (feedback) {
+                    feedback.textContent = shareButton
+                        ? 'Certificate downloaded. Attach the JPG to your X post.'
+                        : 'Certificate downloaded as JPG.';
+                }
             } catch (error) {
                 console.error(error);
+                if (shareWindow) shareWindow.close();
                 if (feedback) feedback.textContent = error.message || 'Unable to prepare the JPG certificate.';
             } finally {
-                button.disabled = false;
+                actionButton.disabled = false;
             }
         }
 

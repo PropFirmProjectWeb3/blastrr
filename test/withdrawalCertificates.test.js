@@ -21,7 +21,7 @@ test('users can only retrieve their own approved withdrawal certificates', () =>
 });
 
 test('profile achievements list approved certificates and download branded JPGs', () => {
-  assert.match(appHtml, /src="\/js\/app\.js\?v=20261116-certificate-grid" defer/);
+  assert.match(appHtml, /src="\/js\/app\.js\?v=20261116-certificate-share" defer/);
   assert.match(appHtml, /id="profile-achievements-tab"[^>]*>Achievements<\/button>/);
   assert.match(appHtml, /id="profile-achievements-panel"[^>]*role="tabpanel"/);
   assert.match(appHtml, /id="withdrawal-certificates-list"/);
@@ -30,6 +30,9 @@ test('profile achievements list approved certificates and download branded JPGs'
   assert.match(appJs, /walletFetch\('\/api\/user\/withdrawal-certificates'\)/);
   assert.match(appJs, /Your certificate will appear here after a withdrawal is marked paid/);
   assert.match(appJs, /data-withdrawal-certificate/);
+  assert.match(appJs, /data-share-withdrawal-certificate/);
+  assert.match(appJs, /https:\/\/x\.com\/intent\/post\?text=/);
+  assert.match(appJs, /Attach the JPG to your X post/);
   assert.match(appJs, /class="withdrawal-certificate-preview" width="480" height="300"/);
   assert.match(appJs, /async function renderWithdrawalCertificate\(canvas, certificate\)/);
   assert.match(appJs, /return renderWithdrawalCertificate\(canvas,/);
@@ -47,11 +50,12 @@ test('profile achievements list approved certificates and download branded JPGs'
 });
 
 test('leaderboard exclusion checkbox keeps native dimensions and styling', () => {
-  assert.match(appHtml, /href="\/css\/app\.css\?v=20261116-certificate-grid"/);
+  assert.match(appHtml, /href="\/css\/app\.css\?v=20261116-certificate-share"/);
   assert.match(appCss, /\.leaderboard-toolbar input:not\(\[type="checkbox"\]\)/);
   assert.match(appCss, /\.leaderboard-toolbar \.leaderboard-exclude-control input\[type="checkbox"\]/);
   assert.match(appCss, /\.leaderboard-toolbar input:not\(\[type="checkbox"\]\) \{/);
   assert.match(appCss, /\.withdrawal-certificate-list \{ display: grid; grid-template-columns: repeat\(3, minmax\(0, 1fr\)\)/);
   assert.match(appCss, /@media \(max-width: 900px\).*repeat\(2, minmax\(0, 1fr\)\)/);
   assert.match(appCss, /@media \(max-width: 600px\).*grid-template-columns: minmax\(0, 1fr\)/);
+  assert.match(appCss, /\.withdrawal-certificate-card > \.withdrawal-certificate-actions/);
 });

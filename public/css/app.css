@@ -640,9 +640,11 @@
         .market-chat-author-wrap { position: relative; width: fit-content; }
         .market-chat-message-author { position: relative; padding: 0; border: 0; background: none; color: #c4b5fd; cursor: pointer; font: inherit; font-size: 11px; font-weight: 700; }
         .market-chat-player-card { position: absolute; z-index: 4; bottom: calc(100% + 7px); left: 0; display: flex; width: 230px; align-items: center; gap: 10px; padding: 10px; visibility: hidden; opacity: 0; transform: translateY(3px); border: 1px solid rgba(167, 139, 250, 0.28); border-radius: 9px; background: #111214; box-shadow: 0 12px 30px rgba(0, 0, 0, 0.55); transition: opacity 0.12s ease, transform 0.12s ease, visibility 0.12s; text-align: left; pointer-events: none; }
+        .market-chat-player-card { width: 290px; }
         .market-chat-author-wrap:hover .market-chat-player-card, .market-chat-message-author:focus-visible .market-chat-player-card, .market-chat-author-wrap:focus-within .market-chat-player-card { visibility: visible; opacity: 1; transform: translateY(0); }
         .market-chat-player-card > img, .market-chat-player-avatar-fallback { display: grid; width: 38px; height: 38px; flex: 0 0 38px; place-items: center; border: 1px solid rgba(196, 181, 253, 0.25); border-radius: 50%; background: #211532; color: #ddd6fe; font-size: 15px; font-weight: 800; object-fit: cover; }
         .market-chat-player-details { display: grid; gap: 3px; min-width: 0; }
+        .market-chat-player-details small { line-height: 1.4; overflow-wrap: anywhere; }
         .market-chat-player-details strong { overflow: hidden; color: #f3f4f6; font-size: 11px; text-overflow: ellipsis; }
         .market-chat-player-details small, .market-chat-player-rank { color: #a5aab3; font-size: 9px; }
         .market-chat-player-rank { color: #c4b5fd; }
@@ -863,6 +865,10 @@
         .leaderboard-toolbar input { width: min(100%, 380px); min-height: 42px; padding: 10px 13px; border: 1px solid rgba(203, 213, 225, 0.13); border-radius: 9px; background: rgba(4, 3, 7, 0.82); color: #f3f4f6; font: inherit; font-size: 13px; }
         .leaderboard-toolbar input:focus { border-color: rgba(167, 139, 250, 0.56); outline: none; box-shadow: 0 0 0 3px rgba(167, 139, 250, 0.12); }
         .leaderboard-my-rank { padding: 8px 11px; border: 1px solid rgba(167, 139, 250, 0.24); border-radius: 999px; background: rgba(88, 42, 133, 0.15); color: #d8b4fe; font-size: 12px; font-weight: 700; }
+        .leaderboard-exclude-control { display: inline-flex; align-items: center; gap: 8px; color: #cbd5e1; font-size: 12px; cursor: pointer; }
+        .leaderboard-exclude-control input { width: 16px; height: 16px; margin: 0; accent-color: #a78bfa; }
+        .leaderboard-exclude-control input:disabled { cursor: not-allowed; }
+        .leaderboard-preference-feedback { color: #94a3b8; font-size: 11px; }
         .leaderboard-card-list { display: grid; grid-template-columns: minmax(0, 1fr); gap: 8px; }
         .leaderboard-card { display: grid; grid-template-columns: minmax(220px, 1.05fr) minmax(190px, 0.9fr) minmax(450px, 2fr) auto; align-items: center; min-width: 0; gap: 18px; padding: 10px 14px; }
         .leaderboard-card.is-current-user { border-color: rgba(52, 211, 153, 0.3); }

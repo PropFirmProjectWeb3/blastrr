@@ -230,6 +230,7 @@ let connectedWallet = null;
             document.getElementById('disclaimer-cancel-purchase')?.addEventListener('click', () => resolvePurchaseDisclaimer(false));
             document.getElementById('market-chat-form')?.addEventListener('submit', postMarketChatMessage);
             document.getElementById('market-chat-popout')?.addEventListener('click', openMarketChatInNewTab);
+            document.getElementById('leaderboard-exclude-self')?.addEventListener('change', saveLeaderboardPreference);
             document.getElementById('chart-timeframe')?.addEventListener('change', reloadLiveMarketChart);
             document.getElementById('chart-indicator-add')?.addEventListener('click', addChartIndicator);
             document.getElementById('chart-indicator-select')?.addEventListener('change', renderActiveChartIndicators);
@@ -868,7 +869,13 @@ let connectedWallet = null;
                                     ${escapeHTML(username)}
                                     <span class="market-chat-player-card" role="tooltip">
                                         ${avatar}
-                                        <span class="market-chat-player-details"><strong>${escapeHTML(username)}</strong><small>Level ${Number(message.battlepass_level) || 0} · ${Number(message.battlepass_xp || 0).toLocaleString()} XP</small><span class="market-chat-player-rank">BlastrrPass player</span></span>
+                                        <span class="market-chat-player-details">
+                                            <strong>${escapeHTML(username)}</strong>
+                                            <small>Rank: ${Number(message.battlepass_level) ? `Level ${Number(message.battlepass_level)}` : 'Unranked'} · ${Number(message.battlepass_xp || 0).toLocaleString()} XP · ${Number(message.battlepass_points || 0).toLocaleString()} points</small>
+                                            <span class="market-chat-player-rank">Title: BlastrrPass player</span>
+                                            <small>Total payouts: $${Number(message.total_payouts || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} USDT</small>
+                                            <small>Referral code: ${escapeHTML(message.referral_code || '—')}</small>
+                                        </span>
                                     </span>
                                 </button>
                             </span>
@@ -1957,6 +1964,32 @@ let connectedWallet = null;
                 const data = await res.json();
                 renderLeaderboardTable(data.leaderboard || []);
             } catch (err) { alert(err.message || 'Unable to execute trade.'); }
+        }
+
+        async function saveLeaderboardPreference(event) {
+            const checkbox = event.currentTarget;
+            const previousValue = !checkbox.checked;
+            const feedback = document.getElementById('leaderboard-preference-feedback');
+            checkbox.disabled = true;
+            if (feedback) feedback.textContent = 'Saving preference…';
+            try {
+                const response = await walletFetch('/api/user/leaderboard-preference', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ hidden: checkbox.checked })
+                });
+                const data = await response.json();
+                if (!response.ok) throw new Error(data.error || 'Unable to save leaderboard preference.');
+                if (feedback) feedback.textContent = checkbox.checked
+                    ? 'Your profile is now excluded from rankings.'
+                    : 'Your profile will appear in rankings when eligible.';
+                loadLeaderboard(currentLeaderboardMode);
+            } catch (error) {
+                checkbox.checked = previousValue;
+                if (feedback) feedback.textContent = error.message || 'Unable to save leaderboard preference.';
+            } finally {
+                checkbox.disabled = !currentUserProfile;
+            }
         }
 
         function renderLeaderboardTable(dataRows) {
@@ -4733,6 +4766,11 @@ let connectedWallet = null;
 
                 if (data.user) {
                     currentUserProfile = data.user;
+                    const leaderboardPreference = document.getElementById('leaderboard-exclude-self');
+                    if (leaderboardPreference) {
+                        leaderboardPreference.checked = Number(data.user.leaderboard_hidden) === 1;
+                        leaderboardPreference.disabled = false;
+                    }
                     if (setupBox) setupBox.style.display = 'none';
                     if (dispBox) dispBox.style.display = 'block';
                     if (editBtn) editBtn.style.display = 'inline-block';
@@ -4762,6 +4800,11 @@ let connectedWallet = null;
                     loadReferralTransactions(wallet);
                 } else {
                     currentUserProfile = null;
+                    const leaderboardPreference = document.getElementById('leaderboard-exclude-self');
+                    if (leaderboardPreference) {
+                        leaderboardPreference.checked = false;
+                        leaderboardPreference.disabled = true;
+                    }
                     if (setupBox) setupBox.style.display = 'block';
                     if (dispBox) dispBox.style.display = 'none';
                     if (editBtn) editBtn.style.display = 'none';

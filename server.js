@@ -1539,7 +1539,10 @@ app.get('/api/leaderboard', (req, res) => {
       LEFT JOIN battlepass_users b ON LOWER(b.wallet_address) = LOWER(u.wallet_address)
       JOIN accounts a ON LOWER(u.wallet_address) = LOWER(a.wallet_address)
       JOIN trades t ON a.id = t.account_id
-      WHERE t.status = 'CLOSED' AND u.username IS NOT NULL AND strftime('%Y-%m-%d', t.closed_at) = strftime('%Y-%m-%d', 'now')
+      WHERE t.status = 'CLOSED' AND u.username IS NOT NULL AND COALESCE(u.leaderboard_hidden, 0) = 0
+        AND strftime('%Y-%m-%d', t.closed_at) = strftime('%Y-%m-%d', 'now')
+        AND EXISTS (SELECT 1 FROM accounts positive_account WHERE LOWER(positive_account.wallet_address) = LOWER(u.wallet_address)
+                    AND positive_account.status = 'ACTIVE' AND COALESCE(positive_account.current_balance, 0) > 0)
       GROUP BY u.wallet_address
       ORDER BY metric_value DESC
       LIMIT ${limit};
@@ -1551,7 +1554,10 @@ app.get('/api/leaderboard', (req, res) => {
       LEFT JOIN battlepass_users b ON LOWER(b.wallet_address) = LOWER(u.wallet_address)
       JOIN accounts a ON LOWER(u.wallet_address) = LOWER(a.wallet_address)
       JOIN trades t ON a.id = t.account_id
-      WHERE t.status = 'CLOSED' AND u.username IS NOT NULL AND strftime('%Y-%m', t.closed_at) = strftime('%Y-%m', 'now')
+      WHERE t.status = 'CLOSED' AND u.username IS NOT NULL AND COALESCE(u.leaderboard_hidden, 0) = 0
+        AND strftime('%Y-%m', t.closed_at) = strftime('%Y-%m', 'now')
+        AND EXISTS (SELECT 1 FROM accounts positive_account WHERE LOWER(positive_account.wallet_address) = LOWER(u.wallet_address)
+                    AND positive_account.status = 'ACTIVE' AND COALESCE(positive_account.current_balance, 0) > 0)
       GROUP BY u.wallet_address
       ORDER BY metric_value DESC
       LIMIT ${limit};
@@ -1566,7 +1572,9 @@ app.get('/api/leaderboard', (req, res) => {
         UNION ALL
         SELECT wallet_address, amount FROM referral_withdrawals WHERE status = 'PAID'
       ) w ON LOWER(u.wallet_address) = LOWER(w.wallet_address)
-      WHERE u.username IS NOT NULL
+      WHERE u.username IS NOT NULL AND COALESCE(u.leaderboard_hidden, 0) = 0
+        AND EXISTS (SELECT 1 FROM accounts positive_account WHERE LOWER(positive_account.wallet_address) = LOWER(u.wallet_address)
+                    AND positive_account.status = 'ACTIVE' AND COALESCE(positive_account.current_balance, 0) > 0)
       GROUP BY u.wallet_address
       ORDER BY metric_value DESC
       LIMIT ${limit};
@@ -1579,6 +1587,21 @@ app.get('/api/leaderboard', (req, res) => {
     if (err) return res.status(500).json({ error: err.message });
     res.json({ leaderboard: rows || [], mode });
   });
+});
+
+app.post('/api/user/leaderboard-preference', sensitiveLimiter, requireWalletSession, (req, res) => {
+  if (typeof req.body?.hidden !== 'boolean') {
+    return res.status(400).json({ error: 'Choose whether your profile should be excluded from leaderboard rankings.' });
+  }
+  db.run(
+    'UPDATE users SET leaderboard_hidden = ? WHERE LOWER(wallet_address) = LOWER(?)',
+    [req.body.hidden ? 1 : 0, req.walletAddress],
+    function (err) {
+      if (err) return res.status(500).json({ error: 'Unable to save your leaderboard preference.' });
+      if (this.changes !== 1) return res.status(404).json({ error: 'Set up your profile before changing this preference.' });
+      res.json({ success: true, leaderboard_hidden: req.body.hidden });
+    }
+  );
 });
 
 app.get('/api/maintenance/status', (req, res) => {
@@ -4417,8 +4440,11 @@ app.get('/api/chat/messages', (req, res) => {
   db.all(
     `SELECT c.id,
        COALESCE(NULLIF(u.username, ''), 'Trader') AS username,
-       COALESCE(b.xp, 0) AS battlepass_xp, b.profile_image_url,
-       c.body, c.created_at
+     COALESCE(NULLIF(u.discount_code, ''), '') AS referral_code,
+     COALESCE(b.xp, 0) AS battlepass_xp, COALESCE(b.points, 0) AS battlepass_points, b.profile_image_url,
+     COALESCE((SELECT SUM(w.amount) FROM withdrawals w WHERE LOWER(w.wallet_address) = LOWER(c.wallet_address) AND w.status = 'PAID'), 0)
+       + COALESCE((SELECT SUM(rw.amount) FROM referral_withdrawals rw WHERE LOWER(rw.wallet_address) = LOWER(c.wallet_address) AND rw.status = 'PAID'), 0) AS total_payouts,
+     c.body, c.created_at
      FROM public_chat_messages c
      LEFT JOIN users u ON LOWER(u.wallet_address) = LOWER(c.wallet_address)
      LEFT JOIN battlepass_users b ON LOWER(b.wallet_address) = LOWER(c.wallet_address)
@@ -4491,7 +4517,10 @@ app.post('/api/chat/messages', sensitiveLimiter, requireWalletSession, requireUs
         db.get(
           `SELECT c.id,
              COALESCE(NULLIF(u.username, ''), 'Trader') AS username,
-             COALESCE(b.xp, 0) AS battlepass_xp, b.profile_image_url,
+             COALESCE(NULLIF(u.discount_code, ''), '') AS referral_code,
+             COALESCE(b.xp, 0) AS battlepass_xp, COALESCE(b.points, 0) AS battlepass_points, b.profile_image_url,
+             COALESCE((SELECT SUM(w.amount) FROM withdrawals w WHERE LOWER(w.wallet_address) = LOWER(c.wallet_address) AND w.status = 'PAID'), 0)
+               + COALESCE((SELECT SUM(rw.amount) FROM referral_withdrawals rw WHERE LOWER(rw.wallet_address) = LOWER(c.wallet_address) AND rw.status = 'PAID'), 0) AS total_payouts,
              c.body, c.created_at
            FROM public_chat_messages c
            LEFT JOIN users u ON LOWER(u.wallet_address) = LOWER(c.wallet_address)

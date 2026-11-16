@@ -571,7 +571,8 @@ function initTables() {
         ['admin_suspended', 'INTEGER NOT NULL DEFAULT 0'],
         ['admin_suspend_reason', 'TEXT'],
         ['admin_suspended_by', 'TEXT'],
-        ['admin_suspended_at', 'DATETIME']
+        ['admin_suspended_at', 'DATETIME'],
+        ['leaderboard_hidden', 'INTEGER NOT NULL DEFAULT 0']
       ].filter(([name]) => !existing.has(name));
       const addNextColumn = index => {
         if (index >= additions.length) {

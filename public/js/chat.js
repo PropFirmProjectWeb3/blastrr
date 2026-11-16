@@ -40,7 +40,13 @@
                         ${escapeHTML(username)}
                         <span class="chat-player-card" role="tooltip">
                             ${avatar}
-                            <span class="chat-player-details"><strong>${escapeHTML(username)}</strong><small>Level ${Number(message.battlepass_level) || 0} · ${Number(message.battlepass_xp || 0).toLocaleString()} XP</small><span class="chat-player-rank">BlastrrPass player</span></span>
+                            <span class="chat-player-details">
+                                <strong>${escapeHTML(username)}</strong>
+                                <small>Rank: ${Number(message.battlepass_level) ? `Level ${Number(message.battlepass_level)}` : 'Unranked'} · ${Number(message.battlepass_xp || 0).toLocaleString()} XP · ${Number(message.battlepass_points || 0).toLocaleString()} points</small>
+                                <span class="chat-player-rank">Title: BlastrrPass player</span>
+                                <small>Total payouts: $${Number(message.total_payouts || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} USDT</small>
+                                <small>Referral code: ${escapeHTML(message.referral_code || '—')}</small>
+                            </span>
                         </span>
                     </button>
                 </span>

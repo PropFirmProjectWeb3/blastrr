@@ -27,10 +27,11 @@ body { min-width: 320px; min-height: 100vh; margin: 0; background: radial-gradie
 .chat-message { display: grid; grid-template-columns: minmax(0, auto) 1fr; align-items: baseline; gap: 4px 10px; overflow-wrap: anywhere; }
 .chat-author-wrap { position: relative; width: fit-content; }
 .chat-author { padding: 0; border: 0; background: none; color: #c4b5fd; cursor: pointer; font: inherit; font-size: 12px; font-weight: 750; text-align: left; }
-.chat-player-card { position: absolute; z-index: 3; bottom: calc(100% + 8px); left: 0; display: flex; width: 250px; align-items: center; gap: 12px; padding: 12px; visibility: hidden; opacity: 0; transform: translateY(4px); border: 1px solid rgba(167, 139, 250, 0.28); border-radius: 10px; background: #111214; box-shadow: 0 14px 36px rgba(0, 0, 0, 0.55); transition: opacity 0.12s ease, transform 0.12s ease, visibility 0.12s; pointer-events: none; }
+.chat-player-card { position: absolute; z-index: 3; bottom: calc(100% + 8px); left: 0; display: flex; width: min(300px, calc(100vw - 32px)); align-items: center; gap: 12px; padding: 12px; visibility: hidden; opacity: 0; transform: translateY(4px); border: 1px solid rgba(167, 139, 250, 0.28); border-radius: 10px; background: #111214; box-shadow: 0 14px 36px rgba(0, 0, 0, 0.55); transition: opacity 0.12s ease, transform 0.12s ease, visibility 0.12s; pointer-events: none; }
 .chat-author-wrap:hover .chat-player-card, .chat-author:focus-visible .chat-player-card, .chat-author-wrap:focus-within .chat-player-card { visibility: visible; opacity: 1; transform: translateY(0); }
 .chat-player-card > img, .chat-player-avatar { display: grid; width: 44px; height: 44px; flex: 0 0 44px; place-items: center; border: 1px solid rgba(196, 181, 253, 0.26); border-radius: 50%; background: #211532; color: #ddd6fe; font-size: 17px; font-weight: 800; object-fit: cover; }
 .chat-player-details { display: grid; gap: 4px; min-width: 0; }
+.chat-player-details small { line-height: 1.4; overflow-wrap: anywhere; }
 .chat-player-details strong { overflow: hidden; color: #f3f4f6; font-size: 12px; text-overflow: ellipsis; }
 .chat-player-details small, .chat-player-rank { color: #a5aab3; font-size: 10px; }
 .chat-player-rank { color: #c4b5fd; }

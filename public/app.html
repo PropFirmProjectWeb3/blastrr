@@ -513,6 +513,7 @@
                 <button id="profile-creator-tab" class="admin-section-tab" role="tab" aria-selected="false" aria-controls="profile-creator-panel" onclick="switchProfileSection('profile-creator-panel')">Creator application</button>
                 <button id="profile-support-tab" class="admin-section-tab" role="tab" aria-selected="false" aria-controls="profile-support-panel" onclick="switchProfileSection('profile-support-panel')">Support tickets</button>
                 <button id="profile-reviews-tab" class="admin-section-tab" role="tab" aria-selected="false" aria-controls="profile-reviews-panel" onclick="switchProfileSection('profile-reviews-panel')">Share a review</button>
+                <button id="profile-achievements-tab" class="admin-section-tab" role="tab" aria-selected="false" aria-controls="profile-achievements-panel" onclick="switchProfileSection('profile-achievements-panel')">Achievements</button>
             </div>
             <section id="profile-referrals-panel" class="profile-section-panel" role="tabpanel" aria-labelledby="profile-referrals-tab">
             <div class="card profile-primary-card">
@@ -705,6 +706,16 @@
                     <p id="review-form-feedback" class="support-feedback" role="status" aria-live="polite"></p>
                 </form>
             </div>
+            </section>
+            <section id="profile-achievements-panel" class="profile-section-panel" role="tabpanel" aria-labelledby="profile-achievements-tab" hidden>
+                <div class="card withdrawal-achievements-card">
+                    <div class="withdrawal-achievements-heading"><div class="card-title">Withdrawal certificates</div><button id="refresh-withdrawal-certificates" class="battlepass-secondary-button" type="button">Refresh</button></div>
+                    <p class="support-note">Certificates are added after a withdrawal is approved and marked paid. Download your certificate as a JPG to share or keep.</p>
+                    <p id="withdrawal-certificates-feedback" class="support-feedback" role="status" aria-live="polite"></p>
+                    <div id="withdrawal-certificates-list" class="withdrawal-certificate-list">
+                        <p class="workspace-empty-state">Connect your wallet to view approved withdrawal certificates.</p>
+                    </div>
+                </div>
             </section>
         </section>
 

@@ -230,6 +230,8 @@ let connectedWallet = null;
             document.getElementById('disclaimer-cancel-purchase')?.addEventListener('click', () => resolvePurchaseDisclaimer(false));
             document.getElementById('market-chat-form')?.addEventListener('submit', postMarketChatMessage);
             document.getElementById('market-chat-popout')?.addEventListener('click', openMarketChatInNewTab);
+            document.getElementById('withdrawal-certificates-list')?.addEventListener('click', downloadWithdrawalCertificate);
+            document.getElementById('refresh-withdrawal-certificates')?.addEventListener('click', loadWithdrawalCertificates);
             document.getElementById('leaderboard-exclude-self')?.addEventListener('change', saveLeaderboardPreference);
             document.getElementById('chart-timeframe')?.addEventListener('change', reloadLiveMarketChart);
             document.getElementById('chart-indicator-add')?.addEventListener('click', addChartIndicator);
@@ -1340,7 +1342,8 @@ let connectedWallet = null;
                 ['profile-promo-panel', 'profile-promo-tab'],
                 ['profile-creator-panel', 'profile-creator-tab'],
                 ['profile-support-panel', 'profile-support-tab'],
-                ['profile-reviews-panel', 'profile-reviews-tab']
+                ['profile-reviews-panel', 'profile-reviews-tab'],
+                ['profile-achievements-panel', 'profile-achievements-tab']
             ];
             if (!sections.some(([id]) => id === panelId)) return;
             sections.forEach(([id, tabId]) => {
@@ -1355,6 +1358,7 @@ let connectedWallet = null;
             if (['profile-referrals-panel', 'profile-promo-panel'].includes(panelId) && connectedWallet) {
                 loadReferralTransactions(connectedWallet);
             }
+            if (panelId === 'profile-achievements-panel' && connectedWallet) loadWithdrawalCertificates();
         }
 
         function battlePassLevelForXp(xp) {
@@ -5145,6 +5149,134 @@ let connectedWallet = null;
             } finally {
                 if (submit) submit.disabled = false;
             }
+        }
+
+        async function loadWithdrawalCertificates() {
+                const list = document.getElementById('withdrawal-certificates-list');
+                const feedback = document.getElementById('withdrawal-certificates-feedback');
+                if (!list || !connectedWallet) return;
+                list.innerHTML = '<p class="workspace-empty-state">Loading your certificates…</p>';
+                if (feedback) feedback.textContent = '';
+                try {
+                    const response = await walletFetch('/api/user/withdrawal-certificates');
+                    const data = await response.json();
+                    if (!response.ok) throw new Error(data.error || 'Unable to load withdrawal certificates.');
+                    const certificates = Array.isArray(data.certificates) ? data.certificates : [];
+                    list.innerHTML = certificates.length ? certificates.map(certificate => {
+                        const paidDate = certificate.paid_at || certificate.created_at;
+                        const parsedDate = new Date(`${String(paidDate || '').replace(' ', 'T')}Z`);
+                        const dateText = Number.isNaN(parsedDate.getTime()) ? 'Date unavailable' : parsedDate.toLocaleDateString();
+                        return `<article class="withdrawal-certificate-card">
+                            <div><strong>Withdrawal payout</strong><span>Paid ${escapeHTML(dateText)}</span></div>
+                            <strong class="withdrawal-certificate-amount">$${Number(certificate.amount || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} USDT</strong>
+                            <button class="battlepass-secondary-button" type="button" data-withdrawal-certificate="${escapeHTML(certificate.id)}" data-certificate-amount="${Number(certificate.amount || 0)}" data-certificate-date="${escapeHTML(dateText)}" data-certificate-username="${escapeHTML(data.username || 'Blastrr Trader')}">Download JPG</button>
+                        </article>`;
+                    }).join('') : '<p class="workspace-empty-state">No approved withdrawals yet. Your certificate will appear here after a withdrawal is marked paid.</p>';
+                } catch (error) {
+                    console.error(error);
+                    list.innerHTML = '';
+                    if (feedback) feedback.textContent = error.message || 'Unable to load withdrawal certificates.';
+                }
+            }
+
+        async function downloadWithdrawalCertificate(event) {
+                const button = event.target.closest('[data-withdrawal-certificate]');
+                if (!button) return;
+                const feedback = document.getElementById('withdrawal-certificates-feedback');
+                button.disabled = true;
+                if (feedback) feedback.textContent = 'Preparing JPG…';
+                try {
+                    const canvas = document.createElement('canvas');
+                    canvas.width = 1600;
+                    canvas.height = 1000;
+                    const context = canvas.getContext('2d');
+                    if (!context) throw new Error('Your browser could not prepare the certificate image.');
+                    const background = context.createLinearGradient(0, 0, 1600, 1000);
+                    background.addColorStop(0, '#090b10');
+                    background.addColorStop(0.55, '#11141a');
+                    background.addColorStop(1, '#08090c');
+                    context.fillStyle = background;
+                    context.fillRect(0, 0, canvas.width, canvas.height);
+
+                    context.strokeStyle = 'rgba(170, 190, 210, 0.08)';
+                    context.lineWidth = 1;
+                    for (let x = 70; x < canvas.width; x += 80) {
+                        context.beginPath();
+                        context.moveTo(x, 70);
+                        context.lineTo(x, 930);
+                        context.stroke();
+                    }
+                    for (let y = 70; y < canvas.height; y += 80) {
+                        context.beginPath();
+                        context.moveTo(70, y);
+                        context.lineTo(1530, y);
+                        context.stroke();
+                    }
+                    context.beginPath();
+                    context.moveTo(1020, 690);
+                    [[1110, 620], [1185, 650], [1260, 510], [1335, 560], [1420, 390], [1530, 420]].forEach(([x, y]) => context.lineTo(x, y));
+                    context.strokeStyle = 'rgba(117, 184, 164, 0.42)';
+                    context.lineWidth = 5;
+                    context.stroke();
+
+                    context.strokeStyle = 'rgba(204, 214, 224, 0.42)';
+                    context.lineWidth = 2;
+                    context.strokeRect(40, 40, 1520, 920);
+                    context.strokeStyle = 'rgba(204, 214, 224, 0.13)';
+                    context.strokeRect(58, 58, 1484, 884);
+
+                    const logo = new Image();
+                    logo.src = '/favicon.png';
+                    await new Promise((resolve, reject) => {
+                        logo.onload = resolve;
+                        logo.onerror = () => reject(new Error('Could not load the Blastrr logo for the certificate.'));
+                    });
+                    context.drawImage(logo, 105, 104, 78, 78);
+                    context.fillStyle = '#f3f4f6';
+                    context.font = '800 31px Inter, Arial, sans-serif';
+                    context.fillText('BLASTRR', 202, 151);
+                    context.fillStyle = '#aeb4bc';
+                    context.font = '700 22px Inter, Arial, sans-serif';
+                    context.letterSpacing = '7px';
+                    context.fillText('PERFORMANCE BONUS CERTIFICATE', 108, 300);
+                    context.letterSpacing = '0px';
+                    context.fillStyle = '#aeb4bc';
+                    context.font = '400 27px Inter, Arial, sans-serif';
+                    context.fillText('This certifies that', 108, 382);
+                    context.fillStyle = '#f8fafc';
+                    context.font = '700 58px Inter, Arial, sans-serif';
+                    context.fillText(button.dataset.certificateUsername || 'Blastrr Trader', 108, 470);
+                    context.fillStyle = '#aeb4bc';
+                    context.font = '400 25px Inter, Arial, sans-serif';
+                    context.fillText('received an approved performance bonus of', 108, 540);
+                    context.fillStyle = '#9ed3c3';
+                    context.font = '700 72px Inter, Arial, sans-serif';
+                    context.fillText(`$${Number(button.dataset.certificateAmount || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} USDT`, 108, 650);
+                    context.fillStyle = '#d1d5db';
+                    context.font = '600 23px Inter, Arial, sans-serif';
+                    context.fillStyle = '#9298a1';
+                    context.font = '400 21px Inter, Arial, sans-serif';
+                    context.fillText(`Paid ${button.dataset.certificateDate || ''}`, 108, 760);
+                    context.fillText(`Certificate ${button.dataset.withdrawalCertificate}`, 108, 850);
+                    context.fillStyle = 'rgba(174, 180, 188, 0.72)';
+                    context.font = '600 17px Inter, Arial, sans-serif';
+                    context.fillText('BLASTRR.COM  ·  SIMULATED TRADING PLATFORM', 108, 916);
+
+                    const imageBlob = await new Promise(resolve => canvas.toBlob(resolve, 'image/jpeg', 0.94));
+                    if (!imageBlob) throw new Error('Your browser could not encode the certificate as a JPG.');
+                    const imageUrl = URL.createObjectURL(imageBlob);
+                    const link = document.createElement('a');
+                    link.href = imageUrl;
+                    link.download = `blastrr-withdrawal-certificate-${button.dataset.withdrawalCertificate}.jpg`;
+                    link.click();
+                    URL.revokeObjectURL(imageUrl);
+                    if (feedback) feedback.textContent = 'Certificate downloaded as JPG.';
+                } catch (error) {
+                    console.error(error);
+                    if (feedback) feedback.textContent = error.message || 'Unable to prepare the JPG certificate.';
+                } finally {
+                    button.disabled = false;
+                }
         }
 
         function toggleEditProfile() {

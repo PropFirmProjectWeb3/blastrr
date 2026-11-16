@@ -1732,6 +1732,38 @@ app.get('/api/user/profile', requireWalletSession, (req, res) => {
   );
 });
 
+app.get('/api/user/withdrawal-certificates', requireWalletSession, (req, res) => {
+  db.all(
+    `SELECT id, COALESCE(user_amount, ROUND(amount * 0.9, 2)) AS amount,
+            paid_at, created_at
+     FROM withdrawals
+     WHERE LOWER(wallet_address) = LOWER(?) AND status = 'PAID'
+     UNION ALL
+     SELECT id, amount, paid_at, created_at
+     FROM referral_withdrawals
+     WHERE LOWER(wallet_address) = LOWER(?) AND status = 'PAID'
+     ORDER BY paid_at DESC, created_at DESC`,
+    [req.walletAddress, req.walletAddress],
+    (err, certificates) => {
+      if (err) return res.status(500).json({ error: 'Unable to load your withdrawal certificates.' });
+      db.get(
+        'SELECT username FROM users WHERE LOWER(wallet_address) = LOWER(?)',
+        [req.walletAddress],
+        (userErr, user) => {
+          if (userErr) return res.status(500).json({ error: 'Unable to load your certificate profile.' });
+          res.json({
+            username: user?.username || 'Blastrr Trader',
+            certificates: (certificates || []).map(certificate => ({
+              ...certificate,
+              amount: Number(certificate.amount || 0)
+            }))
+          });
+        }
+      );
+    }
+  );
+});
+
 app.post('/api/user/profile', sensitiveLimiter, requireTradeSignature, (req, res) => {
   const { wallet_address, username, discount_code } = req.body;
   if (typeof username !== 'string' || typeof discount_code !== 'string') {

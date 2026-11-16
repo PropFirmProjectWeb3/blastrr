@@ -520,6 +520,15 @@
         .profile-section-tabs .admin-section-tab { min-height: 42px; }
         .profile-section-panel[hidden] { display: none !important; }
         .profile-section-panel > .card { margin-bottom: 0; }
+        .withdrawal-certificate-list { display: grid; gap: 10px; }
+        .withdrawal-achievements-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+        .withdrawal-achievements-heading .card-title { margin-bottom: 0; }
+        .withdrawal-certificate-card { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; padding: 14px; border: 1px solid rgba(180, 190, 200, 0.13); border-radius: 10px; background: linear-gradient(120deg, rgba(16, 19, 23, 0.96), rgba(8, 10, 12, 0.9)); }
+        .withdrawal-certificate-card > div { display: grid; gap: 5px; }
+        .withdrawal-certificate-card > div strong { color: #e5e7eb; font-size: 13px; }
+        .withdrawal-certificate-card > div span { color: #9298a1; font-size: 11px; }
+        .withdrawal-certificate-amount { color: #9ed3c3; font-size: 14px; white-space: nowrap; }
+        .withdrawal-certificate-card button { min-height: 36px; }
         .admin-search-form, .promo-claim-controls { display: flex; flex-wrap: wrap; align-items: end; gap: 12px; }
         .admin-search-form .form-group { flex: 1 1 240px; margin-bottom: 12px; }
         .admin-search-form > button { min-height: 42px; margin-bottom: 12px; }

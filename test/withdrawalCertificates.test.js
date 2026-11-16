@@ -21,6 +21,7 @@ test('users can only retrieve their own approved withdrawal certificates', () =>
 });
 
 test('profile achievements list approved certificates and download branded JPGs', () => {
+  assert.match(appHtml, /src="\/js\/app\.js\?v=20261116-profile-achievements" defer/);
   assert.match(appHtml, /id="profile-achievements-tab"[^>]*>Achievements<\/button>/);
   assert.match(appHtml, /id="profile-achievements-panel"[^>]*role="tabpanel"/);
   assert.match(appHtml, /id="withdrawal-certificates-list"/);

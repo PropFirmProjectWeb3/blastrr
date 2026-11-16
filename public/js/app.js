@@ -5152,131 +5152,228 @@ let connectedWallet = null;
         }
 
         async function loadWithdrawalCertificates() {
-                const list = document.getElementById('withdrawal-certificates-list');
-                const feedback = document.getElementById('withdrawal-certificates-feedback');
-                if (!list || !connectedWallet) return;
-                list.innerHTML = '<p class="workspace-empty-state">Loading your certificates…</p>';
-                if (feedback) feedback.textContent = '';
-                try {
-                    const response = await walletFetch('/api/user/withdrawal-certificates');
-                    const data = await response.json();
-                    if (!response.ok) throw new Error(data.error || 'Unable to load withdrawal certificates.');
-                    const certificates = Array.isArray(data.certificates) ? data.certificates : [];
-                    list.innerHTML = certificates.length ? certificates.map(certificate => {
-                        const paidDate = certificate.paid_at || certificate.created_at;
-                        const parsedDate = new Date(`${String(paidDate || '').replace(' ', 'T')}Z`);
-                        const dateText = Number.isNaN(parsedDate.getTime()) ? 'Date unavailable' : parsedDate.toLocaleDateString();
-                        return `<article class="withdrawal-certificate-card">
-                            <div><strong>Withdrawal payout</strong><span>Paid ${escapeHTML(dateText)}</span></div>
-                            <strong class="withdrawal-certificate-amount">$${Number(certificate.amount || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} USDT</strong>
-                            <button class="battlepass-secondary-button" type="button" data-withdrawal-certificate="${escapeHTML(certificate.id)}" data-certificate-amount="${Number(certificate.amount || 0)}" data-certificate-date="${escapeHTML(dateText)}" data-certificate-username="${escapeHTML(data.username || 'Blastrr Trader')}">Download JPG</button>
-                        </article>`;
-                    }).join('') : '<p class="workspace-empty-state">No approved withdrawals yet. Your certificate will appear here after a withdrawal is marked paid.</p>';
-                } catch (error) {
-                    console.error(error);
-                    list.innerHTML = '';
-                    if (feedback) feedback.textContent = error.message || 'Unable to load withdrawal certificates.';
+            const list = document.getElementById('withdrawal-certificates-list');
+            const feedback = document.getElementById('withdrawal-certificates-feedback');
+            if (!list || !connectedWallet) return;
+            list.innerHTML = '<p class="workspace-empty-state">Loading your certificates…</p>';
+            if (feedback) feedback.textContent = '';
+            try {
+                const response = await walletFetch('/api/user/withdrawal-certificates');
+                const data = await response.json();
+                if (!response.ok) throw new Error(data.error || 'Unable to load withdrawal certificates.');
+                const username = data.username || 'Blastrr Trader';
+                const certificates = Array.isArray(data.certificates) ? data.certificates : [];
+                if (!certificates.length) {
+                    list.innerHTML = '<p class="workspace-empty-state">No approved withdrawals yet. Your certificate will appear here after a withdrawal is marked paid.</p>';
+                    return;
                 }
+                list.innerHTML = certificates.map(certificate => {
+                    const paidDate = certificate.paid_at || certificate.created_at;
+                    const parsedDate = new Date(`${String(paidDate || '').replace(' ', 'T')}Z`);
+                    const dateText = Number.isNaN(parsedDate.getTime()) ? 'Date unavailable' : parsedDate.toLocaleDateString();
+                    return `<article class="withdrawal-certificate-card" data-certificate-id="${escapeHTML(certificate.id)}" data-certificate-amount="${Number(certificate.amount || 0)}" data-certificate-date="${escapeHTML(dateText)}" data-certificate-username="${escapeHTML(username)}">
+                        <div><strong>Performance bonus</strong><span>Paid ${escapeHTML(dateText)}</span></div>
+                        <strong class="withdrawal-certificate-amount">$${Number(certificate.amount || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} USDT</strong>
+                        <canvas class="withdrawal-certificate-preview" width="960" height="600" role="img" aria-label="Performance bonus certificate for ${escapeHTML(username)}"></canvas>
+                        <button class="battlepass-secondary-button" type="button" data-withdrawal-certificate>Download JPG</button>
+                    </article>`;
+                }).join('');
+                await Promise.all([...list.querySelectorAll('.withdrawal-certificate-preview')].map(canvas => {
+                    const card = canvas.closest('.withdrawal-certificate-card');
+                    return renderWithdrawalCertificate(canvas, {
+                        id: card.dataset.certificateId,
+                        amount: Number(card.dataset.certificateAmount),
+                        date: card.dataset.certificateDate,
+                        username: card.dataset.certificateUsername
+                    });
+                }));
+            } catch (error) {
+                console.error(error);
+                list.innerHTML = '';
+                if (feedback) feedback.textContent = error.message || 'Unable to load withdrawal certificates.';
             }
+        }
+
+        async function renderWithdrawalCertificate(canvas, certificate) {
+            const width = 1600;
+            const height = 1000;
+            const context = canvas.getContext('2d');
+            if (!context) throw new Error('Your browser could not prepare the certificate preview.');
+            context.save();
+            context.scale(canvas.width / width, canvas.height / height);
+
+            const background = context.createLinearGradient(0, 0, width, height);
+            background.addColorStop(0, '#080b12');
+            background.addColorStop(0.48, '#111827');
+            background.addColorStop(1, '#080b10');
+            context.fillStyle = background;
+            context.fillRect(0, 0, width, height);
+
+            const glow = context.createRadialGradient(1280, 250, 30, 1280, 250, 650);
+            glow.addColorStop(0, 'rgba(77, 117, 121, 0.22)');
+            glow.addColorStop(1, 'rgba(77, 117, 121, 0)');
+            context.fillStyle = glow;
+            context.fillRect(0, 0, width, height);
+
+            context.save();
+            context.beginPath();
+            context.rect(60, 60, 1480, 880);
+            context.clip();
+            context.strokeStyle = 'rgba(180, 203, 218, 0.045)';
+            context.lineWidth = 1;
+            for (let x = 70; x < width; x += 64) {
+                context.beginPath();
+                context.moveTo(x, 60);
+                context.lineTo(x, 940);
+                context.stroke();
+            }
+            for (let y = 70; y < height; y += 64) {
+                context.beginPath();
+                context.moveTo(60, y);
+                context.lineTo(1540, y);
+                context.stroke();
+            }
+            context.beginPath();
+            context.moveTo(990, 650);
+            [[1080, 590], [1160, 625], [1240, 495], [1320, 530], [1410, 390], [1540, 430]].forEach(([x, y]) => context.lineTo(x, y));
+            context.strokeStyle = 'rgba(119, 205, 179, 0.22)';
+            context.lineWidth = 6;
+            context.stroke();
+            context.restore();
+
+            context.strokeStyle = 'rgba(190, 209, 219, 0.44)';
+            context.lineWidth = 2;
+            context.strokeRect(42, 42, 1516, 916);
+            context.strokeStyle = 'rgba(190, 209, 219, 0.12)';
+            context.strokeRect(60, 60, 1480, 880);
+            context.fillStyle = '#7ccbb4';
+            context.fillRect(84, 83, 90, 4);
+            context.fillRect(width - 174, height - 87, 90, 4);
+
+            const logo = new Image();
+            logo.src = '/favicon.png';
+            await new Promise((resolve, reject) => {
+                logo.onload = resolve;
+                logo.onerror = () => reject(new Error('Could not load the Blastrr logo for the certificate.'));
+            });
+            context.drawImage(logo, 105, 104, 68, 68);
+            context.fillStyle = '#f3f6f7';
+            context.font = '800 30px Inter, Arial, sans-serif';
+            context.fillText('BLASTRR', 193, 139);
+            context.fillStyle = '#8fa0ad';
+            context.font = '600 14px Inter, Arial, sans-serif';
+            context.letterSpacing = '3px';
+            context.fillText('PERFORMANCE PROGRAM', 195, 164);
+            context.letterSpacing = '0px';
+
+            context.textAlign = 'right';
+            context.fillStyle = '#8fa0ad';
+            context.font = '600 16px Inter, Arial, sans-serif';
+            context.fillText(`CERTIFICATE  ${certificate.id}`, 1490, 137);
+            context.textAlign = 'center';
+            context.fillStyle = '#7ccbb4';
+            context.font = '700 17px Inter, Arial, sans-serif';
+            context.letterSpacing = '6px';
+            context.fillText('PERFORMANCE BONUS', 800, 292);
+            context.letterSpacing = '0px';
+            context.fillStyle = '#f7f8fa';
+            context.font = '700 62px Inter, Arial, sans-serif';
+            context.fillText('Certificate of Achievement', 800, 382);
+
+            context.fillStyle = '#94a3b0';
+            context.font = '500 20px Inter, Arial, sans-serif';
+            context.fillText('AWARDED TO', 800, 458);
+            context.fillStyle = '#fff';
+            let usernameFontSize = 58;
+            context.font = `700 ${usernameFontSize}px Inter, Arial, sans-serif`;
+            while (context.measureText(certificate.username).width > 1280 && usernameFontSize > 34) {
+                usernameFontSize -= 2;
+                context.font = `700 ${usernameFontSize}px Inter, Arial, sans-serif`;
+            }
+            context.fillText(certificate.username, 800, 532);
+
+            const amount = `$${Number(certificate.amount || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+            context.fillStyle = 'rgba(3, 10, 14, 0.55)';
+            context.beginPath();
+            context.roundRect(350, 590, 900, 150, 18);
+            context.fill();
+            context.strokeStyle = 'rgba(124, 203, 180, 0.32)';
+            context.lineWidth = 2;
+            context.stroke();
+            context.fillStyle = '#9bdfc9';
+            let amountFontSize = 78;
+            context.font = `700 ${amountFontSize}px Inter, Arial, sans-serif`;
+            while (context.measureText(`${amount} USDT`).width > 820 && amountFontSize > 48) {
+                amountFontSize -= 2;
+                context.font = `700 ${amountFontSize}px Inter, Arial, sans-serif`;
+            }
+            context.fillText(`${amount} USDT`, 800, 686);
+
+            context.fillStyle = '#b5c0ca';
+            context.font = '500 20px Inter, Arial, sans-serif';
+            context.fillText('Approved performance bonus', 800, 805);
+            context.fillStyle = '#8795a1';
+            context.font = '400 17px Inter, Arial, sans-serif';
+            context.fillText(`PAID ${certificate.date}`, 800, 846);
+
+            context.beginPath();
+            context.arc(1408, 820, 58, 0, Math.PI * 2);
+            context.fillStyle = 'rgba(124, 203, 180, 0.08)';
+            context.fill();
+            context.strokeStyle = 'rgba(124, 203, 180, 0.4)';
+            context.lineWidth = 2;
+            context.stroke();
+            context.beginPath();
+            context.arc(1408, 820, 47, 0, Math.PI * 2);
+            context.strokeStyle = 'rgba(124, 203, 180, 0.2)';
+            context.stroke();
+            context.fillStyle = '#9bdfc9';
+            context.font = '700 13px Inter, Arial, sans-serif';
+            context.letterSpacing = '1px';
+            context.fillText('PAID', 1408, 825);
+            context.letterSpacing = '0px';
+
+            context.textAlign = 'left';
+            context.fillStyle = 'rgba(174, 186, 197, 0.72)';
+            context.font = '500 14px Inter, Arial, sans-serif';
+            context.fillText('BLASTRR.COM  ·  SIMULATED TRADING PLATFORM', 108, 911);
+            context.restore();
+        }
 
         async function downloadWithdrawalCertificate(event) {
-                const button = event.target.closest('[data-withdrawal-certificate]');
-                if (!button) return;
-                const feedback = document.getElementById('withdrawal-certificates-feedback');
-                button.disabled = true;
-                if (feedback) feedback.textContent = 'Preparing JPG…';
-                try {
-                    const canvas = document.createElement('canvas');
-                    canvas.width = 1600;
-                    canvas.height = 1000;
-                    const context = canvas.getContext('2d');
-                    if (!context) throw new Error('Your browser could not prepare the certificate image.');
-                    const background = context.createLinearGradient(0, 0, 1600, 1000);
-                    background.addColorStop(0, '#090b10');
-                    background.addColorStop(0.55, '#11141a');
-                    background.addColorStop(1, '#08090c');
-                    context.fillStyle = background;
-                    context.fillRect(0, 0, canvas.width, canvas.height);
-
-                    context.strokeStyle = 'rgba(170, 190, 210, 0.08)';
-                    context.lineWidth = 1;
-                    for (let x = 70; x < canvas.width; x += 80) {
-                        context.beginPath();
-                        context.moveTo(x, 70);
-                        context.lineTo(x, 930);
-                        context.stroke();
-                    }
-                    for (let y = 70; y < canvas.height; y += 80) {
-                        context.beginPath();
-                        context.moveTo(70, y);
-                        context.lineTo(1530, y);
-                        context.stroke();
-                    }
-                    context.beginPath();
-                    context.moveTo(1020, 690);
-                    [[1110, 620], [1185, 650], [1260, 510], [1335, 560], [1420, 390], [1530, 420]].forEach(([x, y]) => context.lineTo(x, y));
-                    context.strokeStyle = 'rgba(117, 184, 164, 0.42)';
-                    context.lineWidth = 5;
-                    context.stroke();
-
-                    context.strokeStyle = 'rgba(204, 214, 224, 0.42)';
-                    context.lineWidth = 2;
-                    context.strokeRect(40, 40, 1520, 920);
-                    context.strokeStyle = 'rgba(204, 214, 224, 0.13)';
-                    context.strokeRect(58, 58, 1484, 884);
-
-                    const logo = new Image();
-                    logo.src = '/favicon.png';
-                    await new Promise((resolve, reject) => {
-                        logo.onload = resolve;
-                        logo.onerror = () => reject(new Error('Could not load the Blastrr logo for the certificate.'));
-                    });
-                    context.drawImage(logo, 105, 104, 78, 78);
-                    context.fillStyle = '#f3f4f6';
-                    context.font = '800 31px Inter, Arial, sans-serif';
-                    context.fillText('BLASTRR', 202, 151);
-                    context.fillStyle = '#aeb4bc';
-                    context.font = '700 22px Inter, Arial, sans-serif';
-                    context.letterSpacing = '7px';
-                    context.fillText('PERFORMANCE BONUS CERTIFICATE', 108, 300);
-                    context.letterSpacing = '0px';
-                    context.fillStyle = '#aeb4bc';
-                    context.font = '400 27px Inter, Arial, sans-serif';
-                    context.fillText('This certifies that', 108, 382);
-                    context.fillStyle = '#f8fafc';
-                    context.font = '700 58px Inter, Arial, sans-serif';
-                    context.fillText(button.dataset.certificateUsername || 'Blastrr Trader', 108, 470);
-                    context.fillStyle = '#aeb4bc';
-                    context.font = '400 25px Inter, Arial, sans-serif';
-                    context.fillText('received an approved performance bonus of', 108, 540);
-                    context.fillStyle = '#9ed3c3';
-                    context.font = '700 72px Inter, Arial, sans-serif';
-                    context.fillText(`$${Number(button.dataset.certificateAmount || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} USDT`, 108, 650);
-                    context.fillStyle = '#d1d5db';
-                    context.font = '600 23px Inter, Arial, sans-serif';
-                    context.fillStyle = '#9298a1';
-                    context.font = '400 21px Inter, Arial, sans-serif';
-                    context.fillText(`Paid ${button.dataset.certificateDate || ''}`, 108, 760);
-                    context.fillText(`Certificate ${button.dataset.withdrawalCertificate}`, 108, 850);
-                    context.fillStyle = 'rgba(174, 180, 188, 0.72)';
-                    context.font = '600 17px Inter, Arial, sans-serif';
-                    context.fillText('BLASTRR.COM  ·  SIMULATED TRADING PLATFORM', 108, 916);
-
-                    const imageBlob = await new Promise(resolve => canvas.toBlob(resolve, 'image/jpeg', 0.94));
-                    if (!imageBlob) throw new Error('Your browser could not encode the certificate as a JPG.');
-                    const imageUrl = URL.createObjectURL(imageBlob);
-                    const link = document.createElement('a');
-                    link.href = imageUrl;
-                    link.download = `blastrr-withdrawal-certificate-${button.dataset.withdrawalCertificate}.jpg`;
-                    link.click();
-                    URL.revokeObjectURL(imageUrl);
-                    if (feedback) feedback.textContent = 'Certificate downloaded as JPG.';
-                } catch (error) {
-                    console.error(error);
-                    if (feedback) feedback.textContent = error.message || 'Unable to prepare the JPG certificate.';
-                } finally {
-                    button.disabled = false;
-                }
+            const button = event.target.closest('[data-withdrawal-certificate]');
+            if (!button) return;
+            const card = button.closest('.withdrawal-certificate-card');
+            const preview = card?.querySelector('.withdrawal-certificate-preview');
+            const feedback = document.getElementById('withdrawal-certificates-feedback');
+            if (!card || !preview) return;
+            button.disabled = true;
+            if (feedback) feedback.textContent = 'Preparing JPG…';
+            try {
+                const canvas = document.createElement('canvas');
+                canvas.width = 1600;
+                canvas.height = 1000;
+                await renderWithdrawalCertificate(canvas, {
+                    id: card.dataset.certificateId,
+                    amount: Number(card.dataset.certificateAmount),
+                    date: card.dataset.certificateDate,
+                    username: card.dataset.certificateUsername
+                });
+                const imageBlob = await new Promise(resolve => canvas.toBlob(resolve, 'image/jpeg', 0.94));
+                if (!imageBlob) throw new Error('Your browser could not encode the certificate as a JPG.');
+                const imageUrl = URL.createObjectURL(imageBlob);
+                const link = document.createElement('a');
+                link.href = imageUrl;
+                link.download = `blastrr-performance-bonus-certificate-${card.dataset.certificateId}.jpg`;
+                link.click();
+                setTimeout(() => URL.revokeObjectURL(imageUrl), 1000);
+                if (feedback) feedback.textContent = 'Certificate downloaded as JPG.';
+            } catch (error) {
+                console.error(error);
+                if (feedback) feedback.textContent = error.message || 'Unable to prepare the JPG certificate.';
+            } finally {
+                button.disabled = false;
+            }
         }
 
         function toggleEditProfile() {

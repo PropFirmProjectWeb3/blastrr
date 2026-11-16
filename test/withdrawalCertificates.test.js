@@ -21,7 +21,7 @@ test('users can only retrieve their own approved withdrawal certificates', () =>
 });
 
 test('profile achievements list approved certificates and download branded JPGs', () => {
-  assert.match(appHtml, /src="\/js\/app\.js\?v=20261116-profile-achievements" defer/);
+  assert.match(appHtml, /src="\/js\/app\.js\?v=20261117-certificate-preview" defer/);
   assert.match(appHtml, /id="profile-achievements-tab"[^>]*>Achievements<\/button>/);
   assert.match(appHtml, /id="profile-achievements-panel"[^>]*role="tabpanel"/);
   assert.match(appHtml, /id="withdrawal-certificates-list"/);
@@ -30,12 +30,25 @@ test('profile achievements list approved certificates and download branded JPGs'
   assert.match(appJs, /walletFetch\('\/api\/user\/withdrawal-certificates'\)/);
   assert.match(appJs, /Your certificate will appear here after a withdrawal is marked paid/);
   assert.match(appJs, /data-withdrawal-certificate/);
+  assert.match(appJs, /class="withdrawal-certificate-preview" width="960" height="600"/);
+  assert.match(appJs, /async function renderWithdrawalCertificate\(canvas, certificate\)/);
+  assert.match(appJs, /return renderWithdrawalCertificate\(canvas,/);
+  assert.match(appJs, /await renderWithdrawalCertificate\(canvas,/);
   assert.match(appJs, /canvas\.toBlob\(resolve, 'image\/jpeg', 0\.94\)/);
-  assert.match(appJs, /blastrr-withdrawal-certificate-\$\{button\.dataset\.withdrawalCertificate\}\.jpg/);
-  assert.match(appJs, /context\.drawImage\(logo, 105, 104, 78, 78\)/);
-  assert.match(appJs, /PERFORMANCE BONUS CERTIFICATE/);
-  assert.match(appJs, /received an approved performance bonus of/);
-  assert.match(appJs, /<strong>Withdrawal payout<\/strong>/);
+  assert.match(appJs, /blastrr-performance-bonus-certificate-\$\{card\.dataset\.certificateId\}\.jpg/);
+  assert.match(appJs, /context\.drawImage\(logo, 105, 104, 68, 68\)/);
+  assert.match(appJs, /'PERFORMANCE BONUS'/);
+  assert.match(appJs, /'Certificate of Achievement'/);
+  assert.match(appJs, /'Approved performance bonus'/);
+  assert.match(appJs, /<div><strong>Performance bonus<\/strong>/);
   assert.doesNotMatch(appJs, /certificate\.type|data-certificate-type/);
   assert.match(appCss, /\.withdrawal-certificate-card/);
+  assert.match(appCss, /\.withdrawal-certificate-preview/);
+});
+
+test('leaderboard exclusion checkbox keeps native dimensions and styling', () => {
+  assert.match(appHtml, /href="\/css\/app\.css\?v=20261117-certificate-preview"/);
+  assert.match(appCss, /\.leaderboard-toolbar input:not\(\[type="checkbox"\]\)/);
+  assert.match(appCss, /\.leaderboard-toolbar \.leaderboard-exclude-control input\[type="checkbox"\]/);
+  assert.match(appCss, /\.leaderboard-toolbar input:not\(\[type="checkbox"\]\) \{/);
 });

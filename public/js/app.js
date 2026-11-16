@@ -5174,7 +5174,7 @@ let connectedWallet = null;
                     return `<article class="withdrawal-certificate-card" data-certificate-id="${escapeHTML(certificate.id)}" data-certificate-amount="${Number(certificate.amount || 0)}" data-certificate-date="${escapeHTML(dateText)}" data-certificate-username="${escapeHTML(username)}">
                         <div><strong>Performance bonus</strong><span>Paid ${escapeHTML(dateText)}</span></div>
                         <strong class="withdrawal-certificate-amount">$${Number(certificate.amount || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} USDT</strong>
-                        <canvas class="withdrawal-certificate-preview" width="960" height="600" role="img" aria-label="Performance bonus certificate for ${escapeHTML(username)}"></canvas>
+                        <canvas class="withdrawal-certificate-preview" width="480" height="300" role="img" aria-label="Performance bonus certificate for ${escapeHTML(username)}"></canvas>
                         <button class="battlepass-secondary-button" type="button" data-withdrawal-certificate>Download JPG</button>
                     </article>`;
                 }).join('');

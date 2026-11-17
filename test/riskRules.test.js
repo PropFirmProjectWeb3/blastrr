@@ -55,6 +55,21 @@ test('risk balance keeps reserved trade margin separate from account equity', ()
   assert.equal(getRiskBreach({ ...openPosition, risk_balance: 5000 }, plan, 0), null);
 });
 
+test('pending limit orders keep reserved margin in equity without unrealized PnL', () => {
+  const pendingOrder = {
+    initial_balance: 1000,
+    current_balance: 400,
+    current_equity: 1000,
+    high_water_mark: 1000,
+    daily_starting_balance: 1000
+  };
+  const trade = { status: 'PENDING', symbol: 'BTC/USDT', size_usd: 600, trigger_price: 90 };
+  const riskBalance = getLiveRiskBalance(pendingOrder, [trade], new Map());
+
+  assert.equal(riskBalance, 1000);
+  assert.equal(getRiskBreach({ ...pendingOrder, risk_balance: riskBalance }, plan, 0), null);
+});
+
 test('live risk keeps legacy cash balance authoritative when stored equity is stale', () => {
   const legacy = {
     initial_balance: 5000,

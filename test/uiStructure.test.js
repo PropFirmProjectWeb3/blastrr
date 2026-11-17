@@ -170,7 +170,7 @@ test('admin can toggle maintenance for each public page and set an outage messag
 
 test('trading terminal HTML loads its external stylesheet and application script', () => {
   assert.match(appHtml, /href="\/css\/app\.css\?v=20261117-live-margin-estimate"/);
-  assert.match(appHtml, /src="\/js\/app\.js\?v=20261117-forex-volume-hidden" defer/);
+  assert.match(appHtml, /src="\/js\/app\.js\?v=20261117-limit-order-safety" defer/);
   assert.doesNotMatch(appHtml, /<style[\s>]/i);
   assert.doesNotMatch(appHtml, /<script>\s*[\s\S]*?\bfunction\s/m);
   assert.match(appHtml, /id="nav-menu"/);
@@ -466,11 +466,11 @@ test('startup correction only adjusts untouched accounts with the old Whale capi
 
 test('live market PnL feeds server-side risk checks and active trade responses', () => {
   assert.match(serverJs, /function loadAccountWithLiveRisk/);
-  assert.match(serverJs, /getLiveRiskBalance\(account, openTrades, pricesBySymbol\)/);
+  assert.match(serverJs, /getLiveRiskBalance\(account, allTrades, pricesBySymbol, quoteRatesBySymbol\)/);
   assert.match(serverJs, /setInterval\(checkLiveRiskLimits, 5000\)/);
   assert.match(serverJs, /risk_balance: getRiskBalance\(liveAccount\)/);
   assert.match(serverJs, /getTradeMargin\(trade\) \+ pnl/);
-  assert.match(serverJs, /settleBreachWithinTransaction\(account, breach/);
+  assert.match(serverJs, /WHERE id = \? AND status = \?/);
   assert.match(serverJs, /function unlockExpiredDllAccounts/);
   assert.match(serverJs, /a\.lock_reason IN \('DLL', 'MLL'\)/);
   assert.match(serverJs, /COALESCE\(permanent_lock, 0\) = 1 AND \? = 0/);

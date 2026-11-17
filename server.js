@@ -29,6 +29,7 @@ const {
 } = require('./riskRules');
 const { getProtectedPayoutBalance, getAvailableGrossWithdrawal, splitWithdrawal } = require('./payoutRules');
 const { resolveStopTargetPrices } = require('./tradeRules');
+const { isLimitOrderTriggered } = require('./limitOrderRules');
 const { calculateTradePerformance } = require('./performanceRules');
 
 const app = express();
@@ -551,7 +552,7 @@ function loadAccountWithLiveRisk(accountId, callback) {
                   quoteRatesBySymbol.set(trade.symbol, getForexQuoteToUsdRate(market, pricesBySymbol));
                 }
               }
-              account.risk_balance = getLiveRiskBalance(account, openTrades, pricesBySymbol, quoteRatesBySymbol);
+              account.risk_balance = getLiveRiskBalance(account, allTrades, pricesBySymbol, quoteRatesBySymbol);
               account.open_trades = [...openTrades, ...pendingOrders].map(trade => {
                 const currentPrice = pricesBySymbol.get(trade.symbol);
                 const livePnl = trade.status === 'PENDING'
@@ -738,16 +739,18 @@ function settleBreachWithinTransaction(account, breach, callback) {
     }
 
     const trade = openTrades[index];
-    if (trade.current_price == null || !Number.isFinite(Number(trade.current_price)) ||
-        Number(trade.current_price) <= 0 || trade.live_pnl == null ||
+    const isPending = trade.status === 'PENDING';
+    if ((!isPending && (trade.current_price == null || !Number.isFinite(Number(trade.current_price)) ||
+        Number(trade.current_price) <= 0)) || trade.live_pnl == null ||
         !Number.isFinite(Number(trade.live_pnl))) {
       return callback(new Error(`Cannot close breached account trade ${trade.id} without its live price.`));
     }
-    const returnedMargin = getTradeMargin(trade) + Number(trade.live_pnl);
+    const tradePnl = isPending ? 0 : Number(trade.live_pnl);
+    const returnedMargin = getTradeMargin(trade) + tradePnl;
     db.run(
       `UPDATE trades SET status = 'CLOSED', pnl = ?, closed_at = CURRENT_TIMESTAMP
-       WHERE id = ? AND status = 'OPEN'`,
-      [trade.live_pnl, trade.id],
+       WHERE id = ? AND status = ?`,
+      [tradePnl, trade.id, trade.status],
       function(updateErr) {
         if (updateErr) return callback(updateErr);
         if (this.changes === 0) return settleNext(index + 1);
@@ -756,7 +759,7 @@ function settleBreachWithinTransaction(account, breach, callback) {
            SET current_balance = COALESCE(current_balance, 0) + ?,
                current_equity = COALESCE(current_equity, 0) + ?
            WHERE id = ?`,
-          [returnedMargin, trade.live_pnl, account.id],
+          [returnedMargin, tradePnl, account.id],
           (balanceErr) => {
             if (balanceErr) return callback(balanceErr);
             settleNext(index + 1);
@@ -935,6 +938,182 @@ function checkLiveRiskLimits() {
 
 setTimeout(checkLiveRiskLimits, 2000);
 setInterval(checkLiveRiskLimits, 5000);
+
+let pendingLimitOrdersCheckInProgress = false;
+function settlePendingLimitOrder(tradeId, marketPrice, quoteToUsdRate, callback) {
+  db.serialize(() => {
+    db.run('BEGIN IMMEDIATE', beginErr => {
+      if (beginErr) return callback(beginErr);
+      const rollback = error => db.run('ROLLBACK', () => callback(error));
+      db.get(
+        `SELECT t.*, a.wallet_address, a.current_balance, a.status AS account_status,
+         a.admin_frozen,
+         COALESCE((SELECT SUM(w.amount) FROM withdrawals w
+           WHERE w.account_id = a.id AND w.status = 'PENDING'), 0) AS pending_withdrawal_amount,
+         COALESCE((SELECT u.admin_suspended FROM users u
+           WHERE LOWER(u.wallet_address) = LOWER(a.wallet_address)), 0) AS admin_suspended
+         FROM trades t JOIN accounts a ON a.id = t.account_id
+         WHERE t.id = ? AND t.status = 'PENDING'`,
+        [tradeId],
+        (lookupErr, trade) => {
+          if (lookupErr) return rollback(lookupErr);
+          if (!trade) return db.run('COMMIT', callback);
+
+          let reservedMargin;
+          try {
+            reservedMargin = getTradeMargin(trade);
+          } catch (marginError) {
+            return rollback(marginError);
+          }
+          const cancel = reason => {
+            console.warn(`Canceling pending limit order ${trade.id}: ${reason}`);
+            db.run(
+              `UPDATE trades SET status = 'CLOSED', pnl = 0, closed_at = CURRENT_TIMESTAMP
+               WHERE id = ? AND status = 'PENDING'`,
+              [trade.id],
+              function(cancelErr) {
+                if (cancelErr) return rollback(cancelErr);
+                if (this.changes !== 1) return db.run('COMMIT', callback);
+                db.run(
+                  `UPDATE accounts SET current_balance = COALESCE(current_balance, 0) + ?
+                   WHERE id = ?`,
+                  [reservedMargin, trade.account_id],
+                  refundErr => {
+                    if (refundErr) return rollback(refundErr);
+                    db.run('COMMIT', callback);
+                  }
+                );
+              }
+            );
+          };
+
+          const market = getTradeMarket(trade.symbol);
+          if (!market || market.enabled === false) return cancel('market is unavailable');
+          if (!isLimitOrderTriggered(trade.side, trade.trigger_price, marketPrice)) {
+            return db.run('COMMIT', callback);
+          }
+          if (trade.account_status !== 'ACTIVE' || Number(trade.admin_frozen) === 1 ||
+              Number(trade.pending_withdrawal_amount) > 0 || Number(trade.admin_suspended) === 1) {
+            return cancel('the account is not eligible to open new positions');
+          }
+
+          const executionPrice = Number(marketPrice);
+          const leverage = Number(trade.leverage) || 1;
+          let margin = reservedMargin;
+          let units = Number(trade.units);
+          try {
+            if (market.asset_class === 'FOREX') {
+              const forexSize = calculateForexMargin(
+                Number(trade.lot_size),
+                executionPrice,
+                leverage,
+                quoteToUsdRate,
+                market.lot_units
+              );
+              margin = forexSize.marginUsd;
+              units = forexSize.units;
+            }
+            resolveStopTargetPrices({
+              executionPrice,
+              units,
+              side: trade.side,
+              mode: 'price',
+              sl: trade.sl,
+              tp: trade.tp
+            });
+          } catch (fillError) {
+            return cancel(`the market price moved past the order's protective levels (${fillError.message})`);
+          }
+          if (!Number.isFinite(margin) || margin <= 0 ||
+              !Number.isFinite(units) || units <= 0) {
+            return cancel('the filled position size is invalid');
+          }
+
+          const marginDelta = margin - reservedMargin;
+          db.run(
+            `UPDATE accounts SET current_balance = current_balance - ?
+             WHERE id = ? AND current_balance >= ? AND status = 'ACTIVE' AND admin_frozen = 0
+               AND NOT EXISTS (SELECT 1 FROM withdrawals WHERE account_id = ? AND status = 'PENDING')
+               AND NOT EXISTS (SELECT 1 FROM users u WHERE LOWER(u.wallet_address) = LOWER(accounts.wallet_address)
+                               AND COALESCE(u.admin_suspended, 0) = 1)`,
+            [marginDelta, trade.account_id, Math.max(0, marginDelta), trade.account_id],
+            function(balanceErr) {
+              if (balanceErr) return rollback(balanceErr);
+              if (this.changes !== 1) return cancel('the account cannot cover the required margin at the trigger price');
+              db.run(
+                `UPDATE trades SET status = 'OPEN', entry_price = ?, size_usd = ?, units = ?
+                 WHERE id = ? AND status = 'PENDING'`,
+                [executionPrice, margin, units, trade.id],
+                function(fillErr) {
+                  if (fillErr) return rollback(fillErr);
+                  if (this.changes !== 1) return rollback(new Error('Pending order changed before activation.'));
+                  db.run('COMMIT', callback);
+                }
+              );
+            }
+          );
+        }
+      );
+    });
+  });
+}
+
+function checkPendingLimitOrders() {
+  if (pendingLimitOrdersCheckInProgress) return;
+  pendingLimitOrdersCheckInProgress = true;
+  db.all(
+    `SELECT id, symbol, side, trigger_price FROM trades
+     WHERE status = 'PENDING' AND order_type = 'LIMIT'
+     ORDER BY created_at, id`,
+    [],
+    (err, orders) => {
+      if (err) {
+        pendingLimitOrdersCheckInProgress = false;
+        return console.error('Unable to load pending limit orders:', err.message);
+      }
+      const marketsBySymbol = new Map();
+      for (const order of orders || []) {
+        const market = getTradeMarket(order.symbol);
+        if (market) marketsBySymbol.set(order.symbol, market);
+      }
+      Promise.all([...marketsBySymbol].map(async ([symbol, market]) => {
+        try {
+          const maxQuoteAgeMs = market.asset_class === 'FOREX' ? 30000 : 72 * 60 * 60 * 1000;
+          return [symbol, await getAuthoritativePrice(market, maxQuoteAgeMs)];
+        } catch (priceError) {
+          console.warn(`Unable to check pending ${symbol} limit orders:`, priceError.message);
+          return [symbol, null];
+        }
+      })).then(async priceEntries => {
+        const pricesBySymbol = new Map(priceEntries);
+        for (const order of orders || []) {
+          const market = marketsBySymbol.get(order.symbol);
+          const marketPrice = pricesBySymbol.get(order.symbol);
+          if (!market || !Number.isFinite(marketPrice) ||
+              !isLimitOrderTriggered(order.side, order.trigger_price, marketPrice)) continue;
+          try {
+            const quoteToUsdRate = await getLiveForexQuoteToUsdRate(
+              market,
+              market.asset_class === 'FOREX' ? 30000 : 72 * 60 * 60 * 1000
+            );
+            await new Promise((resolve, reject) => {
+              settlePendingLimitOrder(order.id, marketPrice, quoteToUsdRate, error => error ? reject(error) : resolve());
+            });
+          } catch (activationError) {
+            console.error(`Unable to activate pending limit order ${order.id}:`, activationError.message);
+          }
+        }
+      }).catch(processingError => {
+        console.error('Unable to process pending limit orders:', processingError.message);
+      }).finally(() => {
+        pendingLimitOrdersCheckInProgress = false;
+      });
+    }
+  );
+}
+
+setTimeout(checkPendingLimitOrders, 2000);
+setInterval(checkPendingLimitOrders, 1000);
 
 let dllUnlockSweepInProgress = false;
 function unlockExpiredDllAccounts() {
@@ -4584,8 +4763,8 @@ function closeTradeForWallet(tradeId, walletAddress, callback) {
           db.run('BEGIN IMMEDIATE');
           db.run(
             `UPDATE trades SET status = 'CLOSED', pnl = ?, closed_at = CURRENT_TIMESTAMP
-             WHERE id = ? AND status IN ('OPEN', 'PENDING')`,
-            [pnl, tradeId],
+             WHERE id = ? AND status = ?`,
+            [pnl, tradeId, trade.status],
             function(updateErr) {
               if (updateErr || this.changes !== 1) {
                 return db.run('ROLLBACK', () => callback({ status: 409, error: 'Trade was already closed.' }));

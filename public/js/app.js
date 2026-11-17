@@ -4953,7 +4953,7 @@ let connectedWallet = null;
                 const response = await walletFetch(`/api/trades/active?account_id=${encodeURIComponent(selectedAccountId)}&wallet=${encodeURIComponent(connectedWallet)}`);
                 const data = await response.json();
                 for (const trade of data.trades || []) {
-                    if (trade.symbol !== selectedSymbol || closingTradeIds.has(trade.id)) continue;
+                    if (trade.status !== 'OPEN' || trade.symbol !== selectedSymbol || closingTradeIds.has(trade.id)) continue;
                     const hitStop = trade.side === 'BUY'
                         ? (trade.sl && currentLivePrice <= trade.sl) || (trade.tp && currentLivePrice >= trade.tp)
                         : (trade.sl && currentLivePrice >= trade.sl) || (trade.tp && currentLivePrice <= trade.tp);
@@ -5079,6 +5079,7 @@ let connectedWallet = null;
                 const stop = trd.sl_tp_mode === 'amount' ? trd.sl_amount : trd.sl;
                 const target = trd.sl_tp_mode === 'amount' ? trd.tp_amount : trd.tp;
                 const pricePrecision = isForex ? (tradeMarket?.quote_currency === 'JPY' ? 3 : 5) : 0;
+                const isPending = trd.status === 'PENDING';
                 const entryDisplay = Number(trd.entry_price).toLocaleString(undefined, {
                     minimumFractionDigits: pricePrecision,
                     maximumFractionDigits: pricePrecision
@@ -5093,14 +5094,14 @@ let connectedWallet = null;
                 tbody.innerHTML += `
                     <tr>
                         <td><code>${trd.id}</code></td>
-                        <td>${trd.symbol}</td>
+                        <td>${trd.symbol}${isPending ? '<br><small>Pending limit order</small>' : ''}</td>
                         <td><span style="color: ${trd.side === 'BUY' ? '#34d399' : '#ef4444'}; font-weight: bold;">${trd.side}</span></td>
                         <td>${leverageDisplay}</td>
                         <td class="open-trade-value">${isForex ? entryDisplay : `$${formatOpenTradeValue(trd.entry_price)}`}</td>
                         <td class="open-trade-value">$${formatOpenTradeValue(margin)} / $${formatOpenTradeValue(notional)}</td>
                         <td class="open-trade-value">SL: ${stopDisplay} / TP: ${targetDisplay}</td>
                         <td class="open-trade-value"><span data-trade-pnl="${trd.id}" style="color: ${pnlColor}; font-weight: bold;">$${formatOpenTradeValue(pnl)}</span></td>
-                        <td><button class="btn-sell" style="padding:5px 10px; font-size:11px;" onclick="closeTrade('${trd.id}', ${currentPrice})">Close Early</button></td>
+                        <td><button class="btn-sell" style="padding:5px 10px; font-size:11px;" onclick="closeTrade('${trd.id}', ${currentPrice})">${isPending ? 'Cancel Order' : 'Close Early'}</button></td>
                     </tr>
                 `;
             });
@@ -5207,12 +5208,17 @@ let connectedWallet = null;
                 });
                 const data = await res.json();
                 if (data.success) {
+                    if (data.status === 'PENDING' && !data.copy_results) {
+                        const triggerText = Number(price).toLocaleString(undefined, { maximumFractionDigits: 8 });
+                        setTradeFeedback(`Limit order queued at ${triggerText}; waiting for the market to reach the trigger.`);
+                    }
                     if (data.copy_results) {
                         const succeeded = data.copy_results.filter(result => result.success).length;
                         const failed = data.copy_results.filter(result => !result.success);
+                        const orderLabel = data.status === 'PENDING' ? 'Limit order queued' : 'Leader trade opened';
                         const copySummary = failed.length
-                            ? ` Leader trade opened; ${succeeded} follower(s) copied, ${failed.length} failed: ${failed.map(result => `${result.account_id}: ${result.error}`).join(' ')}`
-                            : ` Order copied to all ${succeeded} follower account(s).`;
+                            ? ` ${orderLabel}; ${succeeded} follower(s) copied, ${failed.length} failed: ${failed.map(result => `${result.account_id}: ${result.error}`).join(' ')}`
+                            : ` ${data.status === 'PENDING' ? 'Limit order copied' : 'Order copied'} to all ${succeeded} follower account(s).`;
                         setTradeFeedback(data.copy_error
                             ? `${data.copy_error}${copySummary}`
                             : copySummary.trim());

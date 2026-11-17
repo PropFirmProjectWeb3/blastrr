@@ -31,22 +31,22 @@ function getTradeMargin(trade) {
   return margin;
 }
 
-function getLiveRiskBalance(account, openTrades, pricesBySymbol, quoteRatesBySymbol = new Map()) {
+function getLiveRiskBalance(account, activeTrades, pricesBySymbol, quoteRatesBySymbol = new Map()) {
   const hasCashBalance = account.current_balance != null;
   const baseEquity = !hasCashBalance
     ? Number(account.current_equity)
     : Number(account.current_balance);
   if (!Number.isFinite(baseEquity)) throw new Error('Cannot calculate live risk without a valid account equity.');
-  return baseEquity + openTrades.reduce((total, trade) => {
-    if (!pricesBySymbol.has(trade.symbol)) {
+  return baseEquity + activeTrades.reduce((total, trade) => {
+    const isPending = trade.status === 'PENDING';
+    if (!isPending && !pricesBySymbol.has(trade.symbol)) {
       throw new Error(`Cannot calculate live risk without a price for ${trade.symbol}.`);
     }
     const reservedMargin = hasCashBalance ? getTradeMargin(trade) : 0;
-    return total + reservedMargin + calculateUnrealizedPnl(
-      trade,
-      pricesBySymbol.get(trade.symbol),
-      quoteRatesBySymbol.get(trade.symbol) ?? 1
-    );
+    const unrealizedPnl = isPending
+      ? 0
+      : calculateUnrealizedPnl(trade, pricesBySymbol.get(trade.symbol), quoteRatesBySymbol.get(trade.symbol) ?? 1);
+    return total + reservedMargin + unrealizedPnl;
   }, 0);
 }
 

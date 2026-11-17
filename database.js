@@ -158,10 +158,15 @@ function initTables() {
       id TEXT PRIMARY KEY,
       account_id TEXT,
       symbol TEXT,
+      market_type TEXT NOT NULL DEFAULT 'CRYPTO',
       side TEXT,
       entry_price REAL,
+      order_type TEXT NOT NULL DEFAULT 'MARKET' CHECK(order_type IN ('MARKET', 'LIMIT')),
+      trigger_price REAL,
       size_usd REAL,
       units REAL,
+      lot_size REAL,
+      pip_size REAL,
       sl REAL,
       tp REAL,
       pnl REAL DEFAULT 0,
@@ -713,6 +718,19 @@ function initTables() {
           if (alterErr) console.error('Unable to add trades.leverage', alterErr.message);
         });
       }
+      [
+        ['order_type', "TEXT NOT NULL DEFAULT 'MARKET'"],
+        ['trigger_price', 'REAL'],
+        ['market_type', "TEXT NOT NULL DEFAULT 'CRYPTO'"],
+        ['lot_size', 'REAL'],
+        ['pip_size', 'REAL']
+      ].forEach(([name, type]) => {
+        if (!columns.some(column => column.name === name)) {
+          db.run(`ALTER TABLE trades ADD COLUMN ${name} ${type}`, alterErr => {
+            if (alterErr) console.error(`Unable to add trades.${name}`, alterErr.message);
+          });
+        }
+      });
 
       db.all("PRAGMA table_info(user_reviews)", (err, columns) => {
         if (err) {

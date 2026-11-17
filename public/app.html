@@ -73,10 +73,11 @@
 
         <!-- UNIFIED IN-PAGE NAVIGATION -->
         <nav id="nav-menu" aria-label="Main navigation">
-            <button class="nav-tab active" data-maintenance-page="trade" onclick="switchView('tradeView')">Trade Terminal</button>
             <details class="nav-dropdown">
                 <summary class="nav-tab nav-dropdown-trigger">Trading <span aria-hidden="true">⌄</span></summary>
                 <div class="nav-dropdown-menu">
+                    <button class="nav-tab active" data-maintenance-page="trade" data-trade-market-mode="CRYPTO" onclick="switchTradingMarketMode('CRYPTO')">Crypto</button>
+                    <button class="nav-tab" data-maintenance-page="trade" data-trade-market-mode="FOREX" onclick="switchTradingMarketMode('FOREX')">Forex</button>
                     <button class="nav-tab" data-maintenance-page="accounts" onclick="switchView('accountsView')">My Accounts</button>
                     <button class="nav-tab" data-maintenance-page="copytrading" onclick="switchView('copyTradingView')">Copy Trading</button>
                 </div>
@@ -131,7 +132,7 @@
                         <div class="card-title chart-card-heading">
                             <div class="chart-heading-group">
                                 <span id="chart-pair-label" class="chart-pair-label">BTC/USD</span>
-                                <span class="market-hours-status" aria-label="Crypto markets trade 24/7/365" title="Crypto markets trade continuously. Exchange or platform maintenance may temporarily affect access.">
+                                <span id="market-hours-status" class="market-hours-status" aria-label="Crypto markets trade 24/7/365" title="Crypto markets trade continuously. Exchange or platform maintenance may temporarily affect access.">
                                     <span class="market-hours-status-dot" aria-hidden="true"></span>
                                     24/7 TRADING LIVE
                                 </span>
@@ -255,7 +256,15 @@
                         </div>
 
                         <div class="form-group">
-                            <label>Live Reference Price (orders use a fresh quote)</label>
+                            <label for="order-type">Order Type</label>
+                            <select id="order-type" onchange="updateOrderType(this.value)">
+                                <option value="MARKET" selected>Market Order</option>
+                                <option value="LIMIT">Limit Order</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group">
+                            <label id="order-price-label" for="order-price">Live Reference Price (orders use a fresh quote)</label>
                             <input type="number" id="order-price" oninput="onPriceInputChanged()" style="background: rgba(5, 7, 11, 0.95); color: #34d399; font-weight: bold; border-color: rgba(52, 211, 153, 0.2);">
                         </div>
 
@@ -265,9 +274,9 @@
                         </div>
 
                         <div class="form-group">
-                            <label>Collateral Margin ($ USD)</label>
+                            <label id="order-size-label" for="order-size-usd">Collateral Margin ($ USD)</label>
                             <input type="number" id="order-size-usd" placeholder="500" min="10" oninput="calculateMetrics()">
-                            <div class="balance-shortcuts" role="group" aria-label="Set collateral margin as a percentage of selected account balance">
+                            <div id="order-size-shortcuts" class="balance-shortcuts" role="group" aria-label="Set collateral margin as a percentage of selected account balance">
                                 <button type="button" class="balance-shortcut" onclick="setOrderSizeFromBalance(25)" disabled>25%</button>
                                 <button type="button" class="balance-shortcut" onclick="setOrderSizeFromBalance(50)" disabled>50%</button>
                                 <button type="button" class="balance-shortcut" onclick="setOrderSizeFromBalance(100)" disabled>100%</button>

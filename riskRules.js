@@ -1,4 +1,5 @@
 const DLL_LOCK_HOURS = 24;
+const { calculateForexPnl } = require('./forexRules');
 
 function getRiskBalance(account) {
   const explicitRiskBalance = account.risk_balance == null ? NaN : Number(account.risk_balance);
@@ -8,7 +9,10 @@ function getRiskBalance(account) {
   return Number(account.current_equity);
 }
 
-function calculateUnrealizedPnl(trade, currentPrice) {
+function calculateUnrealizedPnl(trade, currentPrice, quoteToUsdRate = 1) {
+  if (trade.market_type === 'FOREX') {
+    return calculateForexPnl(trade, currentPrice, quoteToUsdRate);
+  }
   const price = Number(currentPrice);
   const entryPrice = Number(trade.entry_price);
   const units = Number(trade.units);
@@ -27,7 +31,7 @@ function getTradeMargin(trade) {
   return margin;
 }
 
-function getLiveRiskBalance(account, openTrades, pricesBySymbol) {
+function getLiveRiskBalance(account, openTrades, pricesBySymbol, quoteRatesBySymbol = new Map()) {
   const hasCashBalance = account.current_balance != null;
   const baseEquity = !hasCashBalance
     ? Number(account.current_equity)
@@ -38,7 +42,11 @@ function getLiveRiskBalance(account, openTrades, pricesBySymbol) {
       throw new Error(`Cannot calculate live risk without a price for ${trade.symbol}.`);
     }
     const reservedMargin = hasCashBalance ? getTradeMargin(trade) : 0;
-    return total + reservedMargin + calculateUnrealizedPnl(trade, pricesBySymbol.get(trade.symbol));
+    return total + reservedMargin + calculateUnrealizedPnl(
+      trade,
+      pricesBySymbol.get(trade.symbol),
+      quoteRatesBySymbol.get(trade.symbol) ?? 1
+    );
   }, 0);
 }
 

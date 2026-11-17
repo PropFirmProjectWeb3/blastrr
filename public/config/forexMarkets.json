@@ -1,0 +1,93 @@
+[
+  {
+    "label": "EUR/USD",
+    "symbol": "FX:EURUSD",
+    "pair": "EUR/USD",
+    "type": "FOREX",
+    "asset_class": "FOREX",
+    "group": "Forex Majors",
+    "source": "SWISSQUOTE",
+    "base_currency": "EUR",
+    "quote_currency": "USD",
+    "pip_size": 0.0001,
+    "lot_units": 100000
+  },
+  {
+    "label": "GBP/USD",
+    "symbol": "FX:GBPUSD",
+    "pair": "GBP/USD",
+    "type": "FOREX",
+    "asset_class": "FOREX",
+    "group": "Forex Majors",
+    "source": "SWISSQUOTE",
+    "base_currency": "GBP",
+    "quote_currency": "USD",
+    "pip_size": 0.0001,
+    "lot_units": 100000
+  },
+  {
+    "label": "USD/JPY",
+    "symbol": "FX:USDJPY",
+    "pair": "USD/JPY",
+    "type": "FOREX",
+    "asset_class": "FOREX",
+    "group": "Forex Majors",
+    "source": "SWISSQUOTE",
+    "base_currency": "USD",
+    "quote_currency": "JPY",
+    "pip_size": 0.01,
+    "lot_units": 100000
+  },
+  {
+    "label": "USD/CHF",
+    "symbol": "FX:USDCHF",
+    "pair": "USD/CHF",
+    "type": "FOREX",
+    "asset_class": "FOREX",
+    "group": "Forex Majors",
+    "source": "SWISSQUOTE",
+    "base_currency": "USD",
+    "quote_currency": "CHF",
+    "pip_size": 0.0001,
+    "lot_units": 100000
+  },
+  {
+    "label": "AUD/USD",
+    "symbol": "FX:AUDUSD",
+    "pair": "AUD/USD",
+    "type": "FOREX",
+    "asset_class": "FOREX",
+    "group": "Forex Majors",
+    "source": "SWISSQUOTE",
+    "base_currency": "AUD",
+    "quote_currency": "USD",
+    "pip_size": 0.0001,
+    "lot_units": 100000
+  },
+  {
+    "label": "USD/CAD",
+    "symbol": "FX:USDCAD",
+    "pair": "USD/CAD",
+    "type": "FOREX",
+    "asset_class": "FOREX",
+    "group": "Forex Majors",
+    "source": "SWISSQUOTE",
+    "base_currency": "USD",
+    "quote_currency": "CAD",
+    "pip_size": 0.0001,
+    "lot_units": 100000
+  },
+  {
+    "label": "NZD/USD",
+    "symbol": "FX:NZDUSD",
+    "pair": "NZD/USD",
+    "type": "FOREX",
+    "asset_class": "FOREX",
+    "group": "Forex Majors",
+    "source": "SWISSQUOTE",
+    "base_currency": "NZD",
+    "quote_currency": "USD",
+    "pip_size": 0.0001,
+    "lot_units": 100000
+  }
+]

@@ -6,6 +6,15 @@ const { ethers } = require('ethers');
 const db = require('./database');
 const defaultPlans = require('./config/plans.json');
 const markets = require('./public/config/markets.json');
+const forexMarkets = require('./public/config/forexMarkets.json');
+const {
+  USD_CONVERSION_SYMBOLS,
+  calculateForexMargin,
+  getQuoteToUsdRate,
+  parseSwissquotePrice,
+  resolveForexStopTargetPrices
+} = require('./forexRules');
+const supportedMarkets = [...markets, ...forexMarkets];
 const { CHAT_COOLDOWN_MS, moderateChatMessage } = require('./chatRules');
 const {
   advanceRiskBaselines,
@@ -245,6 +254,9 @@ const LOGIN_IP_RETENTION_DAYS = 180;
 setTimeout(cleanupExpiredLoginIpEvents, 5000);
 setInterval(cleanupExpiredLoginIpEvents, 24 * 60 * 60 * 1000);
 const marketPriceCache = new Map();
+const forexPriceStreamClients = new Set();
+let forexPriceStreamInterval = null;
+let forexPricePollInFlight = false;
 // Resolve retired symbols only for existing open trades; new orders use markets from markets.json.
 const legacyTradeMarkets = new Map([
   ['BINANCE:BTCUSDT', { source: 'BINANCE_SPOT', pair: 'BTCUSDT' }],
@@ -260,13 +272,57 @@ const legacyTradeMarkets = new Map([
 ]);
 
 function getTradeMarket(symbol) {
-  return markets.find(item => item.symbol === symbol) || legacyTradeMarkets.get(symbol);
+  return supportedMarkets.find(item => item.symbol === symbol) || legacyTradeMarkets.get(symbol);
 }
 
-function getAuthoritativePrice(market) {
+function getSwissquoteQuote(market, maxAgeMs = 72 * 60 * 60 * 1000) {
+  const cacheKey = `SWISSQUOTE:${market.pair}`;
+  const cached = marketPriceCache.get(cacheKey);
+  if (cached?.quote && cached.expiresAt > Date.now()) {
+    if (Date.now() - cached.publishedAt > maxAgeMs) {
+      return Promise.reject(new Error('Swissquote price is stale; forex trading is unavailable until live prices resume.'));
+    }
+    return Promise.resolve(cached.quote);
+  }
+  if (cached?.promise) return cached.promise;
+
+  const pairPath = market.pair.split('/').map(encodeURIComponent).join('/');
+  const url = `https://forex-data-feed.swissquote.com/public-quotes/bboquotes/instrument/${pairPath}`;
+  const quotePromise = new Promise((resolve, reject) => {
+    const request = https.get(url, { timeout: 5000 }, response => {
+      let body = '';
+      response.setEncoding('utf8');
+      response.on('data', chunk => { body += chunk; });
+      response.on('end', () => {
+        if (response.statusCode !== 200) return reject(new Error(`Swissquote returned HTTP ${response.statusCode}.`));
+        try {
+          const quote = parseSwissquotePrice(JSON.parse(body));
+          if (Date.now() - quote.publishedAt > maxAgeMs) {
+            return reject(new Error('Swissquote price is stale; forex trading is unavailable until live prices resume.'));
+          }
+          resolve(quote);
+        } catch (error) {
+          reject(new Error(`Unable to parse Swissquote price: ${error.message}`));
+        }
+      });
+    });
+    request.on('timeout', () => request.destroy(new Error('Swissquote price request timed out.')));
+    request.on('error', reject);
+  });
+  marketPriceCache.set(cacheKey, { promise: quotePromise });
+  quotePromise.then(quote => {
+    marketPriceCache.set(cacheKey, { quote, price: quote.price, publishedAt: quote.publishedAt, expiresAt: Date.now() + 1000 });
+  }).catch(() => marketPriceCache.delete(cacheKey));
+  return quotePromise;
+}
+
+function getAuthoritativePrice(market, maxAgeMs = 72 * 60 * 60 * 1000) {
   if (market.source === 'SIMULATED') {
     const wave = Math.sin(Date.now() / 2000) * market.amplitude;
     return Promise.resolve(Number((market.base + wave).toFixed(2)));
+  }
+  if (market.source === 'SWISSQUOTE') {
+    return getSwissquoteQuote(market, maxAgeMs).then(quote => quote.price);
   }
   if (!['BINANCE_SPOT', 'BINANCE_PERP', 'BITGET_PERP'].includes(market.source)) {
     return Promise.reject(new Error(`Unsupported market source: ${market.source}`));
@@ -274,7 +330,9 @@ function getAuthoritativePrice(market) {
 
   const cacheKey = `${market.source}:${market.pair}`;
   const cached = marketPriceCache.get(cacheKey);
-  if (cached?.price && cached.expiresAt > Date.now()) return Promise.resolve(cached.price);
+  if (cached?.price && cached.expiresAt > Date.now()) {
+    return Promise.resolve(cached.price);
+  }
   if (cached?.promise) return cached.promise;
 
   let url;
@@ -315,12 +373,76 @@ function getAuthoritativePrice(market) {
     request.on('error', reject);
   });
   marketPriceCache.set(cacheKey, { promise: pricePromise });
-  pricePromise.then((price) => {
+  pricePromise.then(price => {
     marketPriceCache.set(cacheKey, { price, expiresAt: Date.now() + 2000 });
   }).catch(() => {
     marketPriceCache.delete(cacheKey);
   });
   return pricePromise;
+}
+
+function getForexQuoteToUsdRate(market, pricesBySymbol) {
+  if (market.asset_class !== 'FOREX') return 1;
+  return getQuoteToUsdRate(market.quote_currency, pricesBySymbol);
+}
+
+function getLiveForexQuoteToUsdRate(market, maxAgeMs) {
+  if (market.asset_class !== 'FOREX' || market.quote_currency === 'USD') return Promise.resolve(1);
+  const symbol = USD_CONVERSION_SYMBOLS[market.quote_currency];
+  const conversionMarket = getTradeMarket(symbol);
+  if (!conversionMarket) return Promise.reject(new Error(`Forex conversion market is not configured for ${market.quote_currency}.`));
+  return getAuthoritativePrice(conversionMarket, maxAgeMs)
+    .then(price => getQuoteToUsdRate(market.quote_currency, new Map([[symbol, price]])));
+}
+
+function loadTradePrices(trades) {
+  const requiredMarkets = new Map();
+  for (const trade of trades) {
+    const market = getTradeMarket(trade.symbol);
+    if (!market) throw new Error(`Trade market is not configured: ${trade.symbol}`);
+    requiredMarkets.set(market.symbol, market);
+    if (market.asset_class === 'FOREX') {
+      const conversionSymbol = USD_CONVERSION_SYMBOLS[market.quote_currency];
+      if (conversionSymbol) {
+        const conversionMarket = getTradeMarket(conversionSymbol);
+        if (!conversionMarket) throw new Error(`Forex conversion market is not configured: ${conversionSymbol}`);
+        requiredMarkets.set(conversionSymbol, conversionMarket);
+      }
+    }
+  }
+  return Promise.all([...requiredMarkets].map(async ([symbol, market]) => [symbol, await getAuthoritativePrice(market)]))
+    .then(prices => new Map(prices));
+}
+
+function broadcastForexPrices() {
+  if (!forexPriceStreamClients.size || forexPricePollInFlight) return;
+  forexPricePollInFlight = true;
+  Promise.all(forexMarkets.map(async market => {
+    try {
+      return { market, quote: await getSwissquoteQuote(market) };
+    } catch (error) {
+      console.warn(`Unable to refresh Swissquote ${market.pair}:`, error.message);
+      return { market, quote: null };
+    }
+  })).then(results => {
+    for (const { market, quote } of results) {
+      if (!quote) continue;
+      const message = `data: ${JSON.stringify({
+        symbol: market.symbol,
+        pair: market.pair,
+        price: quote.price,
+        bid: quote.bid,
+        ask: quote.ask,
+        publishTime: quote.publishedAt
+      })}\n\n`;
+      for (const client of forexPriceStreamClients) {
+        if (client.writableEnded) forexPriceStreamClients.delete(client);
+        else client.write(message);
+      }
+    }
+  }).finally(() => {
+    forexPricePollInFlight = false;
+  });
 }
 
 function loadAccountWithLiveRisk(accountId, callback) {
@@ -335,27 +457,37 @@ function loadAccountWithLiveRisk(accountId, callback) {
       if (accountErr) return callback(accountErr);
       if (!account) return callback(new Error('Account not found.'));
       db.all(
-        `SELECT * FROM trades WHERE account_id = ? AND status = 'OPEN'`,
+        `SELECT * FROM trades WHERE account_id = ? AND status IN ('OPEN', 'PENDING')`,
         [accountId],
         (tradesErr, trades) => {
           if (tradesErr) return callback(tradesErr);
-          const openTrades = trades || [];
-          const marketsBySymbol = new Map();
-          for (const trade of openTrades) {
-            const market = getTradeMarket(trade.symbol);
-            if (!market) return callback(new Error(`Open trade market is not configured: ${trade.symbol}`));
-            marketsBySymbol.set(trade.symbol, market);
+          const allTrades = trades || [];
+          const openTrades = allTrades.filter(trade => trade.status === 'OPEN');
+          const pendingOrders = allTrades.filter(trade => trade.status === 'PENDING');
+          let pricesPromise;
+          try {
+            pricesPromise = loadTradePrices(allTrades);
+          } catch (priceError) {
+            return callback(priceError);
           }
-          Promise.all([...marketsBySymbol].map(async ([symbol, market]) => [symbol, await getAuthoritativePrice(market)]))
-            .then((prices) => {
-              const pricesBySymbol = new Map(prices);
-              account.risk_balance = getLiveRiskBalance(account, openTrades, pricesBySymbol);
-              account.open_trades = openTrades.map(trade => {
+          pricesPromise.then(pricesBySymbol => {
+              const quoteRatesBySymbol = new Map();
+              for (const trade of allTrades) {
+                const market = getTradeMarket(trade.symbol);
+                if (market.asset_class === 'FOREX') {
+                  quoteRatesBySymbol.set(trade.symbol, getForexQuoteToUsdRate(market, pricesBySymbol));
+                }
+              }
+              account.risk_balance = getLiveRiskBalance(account, openTrades, pricesBySymbol, quoteRatesBySymbol);
+              account.open_trades = [...openTrades, ...pendingOrders].map(trade => {
                 const currentPrice = pricesBySymbol.get(trade.symbol);
+                const livePnl = trade.status === 'PENDING'
+                  ? 0
+                  : calculateUnrealizedPnl(trade, currentPrice, quoteRatesBySymbol.get(trade.symbol) ?? 1);
                 return {
                   ...trade,
                   current_price: currentPrice,
-                  live_pnl: calculateUnrealizedPnl(trade, currentPrice)
+                  live_pnl: livePnl
                 };
               });
               callback(null, account);
@@ -3872,8 +4004,21 @@ app.delete('/api/trade-copy/groups/:groupId', sensitiveLimiter, requireWalletSes
 });
 
 function executeTradeForAccount(accountId, order, walletAddress, callback) {
-  const { symbol, side, size_usd, margin_used, leverage } = order;
-  const market = markets.find(item => item.symbol === symbol);
+  const { symbol, side, size_usd, margin_used, leverage, order_type, trigger_price } = order;
+  const orderType = String(order_type || 'MARKET').toUpperCase();
+  const limitTriggerPrice = trigger_price == null ? null : Number(trigger_price);
+  const market = getTradeMarket(symbol);
+  const isForex = market?.asset_class === 'FOREX';
+  const lotSize = isForex ? Number(order.lot_size) : null;
+  if (!market || market.enabled === false) {
+    return callback({ status: 400, error: 'The selected market is unavailable.' });
+  }
+  if (orderType === 'LIMIT' && (!Number.isFinite(limitTriggerPrice) || limitTriggerPrice <= 0)) {
+    return callback({ status: 400, error: 'A valid limit trigger price is required.' });
+  }
+  if (isForex && (!Number.isFinite(lotSize) || lotSize <= 0)) {
+    return callback({ status: 400, error: 'A valid forex lot size is required.' });
+  }
   db.get(
     `SELECT a.*, p.max_drawdown_pct, p.daily_loss_pct,
      COALESCE((SELECT SUM(w.amount) FROM withdrawals w
@@ -3919,31 +4064,58 @@ function executeTradeForAccount(accountId, order, walletAddress, callback) {
             });
           }
 
-          const margin = Number(margin_used);
-          if (margin > account.current_balance) {
+          const requestedMargin = Number(margin_used);
+          if (!isForex && requestedMargin > account.current_balance) {
             return callback({ status: 400, error: `Insufficient available balance ($${account.current_balance.toFixed(2)} available).` });
           }
-          getAuthoritativePrice(market).then(marketPrice => {
-            const slippage = market.source === 'BITGET_PERP' ? marketPrice * 0.0005 : 5;
-            const executionPrice = marketPrice + (side === 'BUY' ? slippage : -slippage);
-            const units = Number(size_usd) / executionPrice;
+          const maxQuoteAgeMs = isForex ? 30000 : 72 * 60 * 60 * 1000;
+          Promise.all([
+            getAuthoritativePrice(market, maxQuoteAgeMs),
+            getLiveForexQuoteToUsdRate(market, maxQuoteAgeMs)
+          ]).then(([marketPrice, quoteToUsdRate]) => {
+            const slippage = isForex ? 0 : market.source === 'BITGET_PERP' ? marketPrice * 0.0005 : 5;
+            const executionPrice = orderType === 'LIMIT'
+              ? limitTriggerPrice
+              : marketPrice + (side === 'BUY' ? slippage : -slippage);
+            const forexSize = isForex
+              ? calculateForexMargin(lotSize, executionPrice, leverage, quoteToUsdRate, market.lot_units)
+              : null;
+            const margin = isForex ? forexSize.marginUsd : requestedMargin;
+            const units = isForex ? forexSize.units : Number(size_usd) / executionPrice;
+            if (margin > account.current_balance) {
+              return callback({ status: 400, error: `Insufficient available balance ($${account.current_balance.toFixed(2)} available).` });
+            }
             let levels;
             try {
-              levels = resolveStopTargetPrices({
-                executionPrice,
-                units,
-                side,
-                mode: order.sl_tp_mode,
-                sl: order.sl,
-                tp: order.tp,
-                slAmount: order.sl_amount,
-                tpAmount: order.tp_amount
-              });
+              levels = isForex
+                ? resolveForexStopTargetPrices({
+                    executionPrice,
+                    units,
+                    quoteToUsdRate,
+                    pipSize: market.pip_size,
+                    side,
+                    mode: order.sl_tp_mode,
+                    sl: order.sl,
+                    tp: order.tp,
+                    slAmount: order.sl_amount,
+                    tpAmount: order.tp_amount
+                  })
+                : resolveStopTargetPrices({
+                    executionPrice,
+                    units,
+                    side,
+                    mode: order.sl_tp_mode,
+                    sl: order.sl,
+                    tp: order.tp,
+                    slAmount: order.sl_amount,
+                    tpAmount: order.tp_amount
+                  });
             } catch (levelError) {
               return callback({ status: 400, error: levelError.message });
             }
             const { sl: stopLoss, tp: takeProfit } = levels;
             const tradeId = `trd_${crypto.randomBytes(8).toString('hex')}`;
+            const tradeStatus = orderType === 'LIMIT' ? 'PENDING' : 'OPEN';
             db.serialize(() => {
               db.run('BEGIN IMMEDIATE', beginErr => {
                 if (beginErr) return callback({ status: 500, error: 'Unable to reserve account balance.' });
@@ -4049,14 +4221,16 @@ function executeTradeForAccount(accountId, order, walletAddress, callback) {
                           );
                         }
                         db.run(
-                          `INSERT INTO trades (id, account_id, symbol, side, entry_price, size_usd, units, sl, tp, status, leverage)
-                           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'OPEN', ?)`,
-                          [tradeId, accountId, symbol, side, executionPrice, margin, units, stopLoss, takeProfit, leverage],
+                          `INSERT INTO trades
+                           (id, account_id, symbol, market_type, side, entry_price, order_type, trigger_price,
+                            size_usd, units, lot_size, pip_size, sl, tp, status, leverage)
+                           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                          [tradeId, accountId, symbol, isForex ? 'FOREX' : 'CRYPTO', side, executionPrice, orderType, tradeStatus === 'PENDING' ? limitTriggerPrice : null, margin, units, lotSize, isForex ? market.pip_size : null, stopLoss, takeProfit, tradeStatus, leverage],
                           insertErr => {
                             if (insertErr) return db.run('ROLLBACK', () => callback({ status: 500, error: 'Unable to create trade.' }));
                             db.run('COMMIT', commitErr => {
                               if (commitErr) return callback({ status: 500, error: 'Unable to commit trade.' });
-                              callback(null, { success: true, trade_id: tradeId, execution_price: executionPrice, sl: stopLoss, tp: takeProfit });
+                              callback(null, { success: true, trade_id: tradeId, execution_price: executionPrice, trigger_price: tradeStatus === 'PENDING' ? limitTriggerPrice : null, sl: stopLoss, tp: takeProfit, order_type: orderType, status: tradeStatus, lot_size: lotSize, margin_used: margin });
                             });
                           }
                         );
@@ -4081,13 +4255,21 @@ app.post('/api/trades/execute', sensitiveLimiter, requireWalletSession, requireU
   const slTpMode = req.body?.sl_tp_mode || 'price';
   const slAmount = req.body?.sl_amount == null ? null : Number(req.body.sl_amount);
   const tpAmount = req.body?.tp_amount == null ? null : Number(req.body.tp_amount);
-  const market = markets.find(item => item.symbol === symbol);
-  const numericFields = [price, sizeUsd, marginUsed, leverage];
+  const orderType = String(req.body?.order_type || 'MARKET').toUpperCase();
+  const triggerPrice = req.body?.trigger_price == null ? null : Number(req.body.trigger_price);
+  const lotSize = req.body?.lot_size == null ? null : Number(req.body.lot_size);
+  const market = supportedMarkets.find(item => item.symbol === symbol);
+  const isForex = market?.asset_class === 'FOREX';
+  const numericFields = isForex
+    ? [price, sizeUsd, marginUsed, leverage, lotSize]
+    : [price, sizeUsd, marginUsed, leverage];
   if (!accountId || !market || market.enabled === false || !['BUY', 'SELL'].includes(side) ||
-      !['price', 'amount'].includes(slTpMode) ||
+      !['MARKET', 'LIMIT'].includes(orderType) ||
+      !(isForex ? ['pips', 'amount'] : ['price', 'amount']).includes(slTpMode) ||
       numericFields.some(value => !Number.isFinite(Number(value)) || Number(value) <= 0) ||
       !Number.isInteger(Number(leverage)) || Number(leverage) > 50 ||
-      Math.abs(Number(sizeUsd) - Number(marginUsed) * Number(leverage)) > 0.01 ||
+      (!isForex && Math.abs(Number(sizeUsd) - Number(marginUsed) * Number(leverage)) > 0.01) ||
+      (orderType === 'LIMIT' && (!Number.isFinite(triggerPrice) || Number(triggerPrice) <= 0)) ||
       (sl != null && (!Number.isFinite(Number(sl)) || Number(sl) <= 0)) ||
       (tp != null && (!Number.isFinite(Number(tp)) || Number(tp) <= 0)) ||
       (slTpMode === 'amount' && (
@@ -4105,6 +4287,8 @@ app.post('/api/trades/execute', sensitiveLimiter, requireWalletSession, requireU
 
   const order = {
     symbol, side, size_usd: Number(sizeUsd), margin_used: Number(marginUsed), leverage: Number(leverage),
+    lot_size: lotSize,
+    order_type: orderType, trigger_price: orderType === 'LIMIT' ? triggerPrice : null,
     sl_tp_mode: slTpMode, sl: sl == null ? null : Number(sl), tp: tp == null ? null : Number(tp),
     sl_amount: slAmount, tp_amount: tpAmount
   };
@@ -4152,7 +4336,8 @@ app.post('/api/trades/execute', sensitiveLimiter, requireWalletSession, requireU
                   const followerOrder = {
                     ...order,
                     margin_used: followerMargin,
-                    size_usd: followerMargin * order.leverage
+                    size_usd: followerMargin * order.leverage,
+                    ...(isForex ? { lot_size: order.lot_size * ratio } : {})
                   };
                   if (order.sl_tp_mode === 'amount') {
                     followerOrder.sl_amount = order.sl_amount == null ? null : order.sl_amount * ratio;
@@ -4214,7 +4399,7 @@ function closeTradeForWallet(tradeId, walletAddress, callback) {
     `SELECT t.*, a.wallet_address, a.current_equity, a.daily_starting_balance,
      a.status AS account_status, a.lock_reason, a.locked_until, a.permanent_lock
      FROM trades t JOIN accounts a ON a.id = t.account_id
-     WHERE t.id = ? AND t.status = 'OPEN'`,
+     WHERE t.id = ? AND t.status IN ('OPEN', 'PENDING')`,
     [tradeId],
     (err, trade) => {
       if (err) return callback({ status: 500, error: 'Unable to load trade.' });
@@ -4239,15 +4424,22 @@ function closeTradeForWallet(tradeId, walletAddress, callback) {
         if (unlockErr) return callback({ status: 500, error: 'Unable to refresh account lock status.' });
         const market = getTradeMarket(trade.symbol);
         if (!market) return callback({ status: 409, error: 'The trade market is no longer configured.' });
-        getAuthoritativePrice(market).then((price) => {
-        const priceDiff = trade.side === 'BUY' ? price - trade.entry_price : trade.entry_price - price;
-        const pnl = priceDiff * trade.units;
+        const pricePromise = trade.status === 'PENDING'
+          ? Promise.resolve(Number(trade.entry_price))
+          : getAuthoritativePrice(market);
+        const conversionPromise = trade.status === 'PENDING'
+          ? Promise.resolve(1)
+          : getLiveForexQuoteToUsdRate(market, 72 * 60 * 60 * 1000);
+        Promise.all([pricePromise, conversionPromise]).then(([price, quoteToUsdRate]) => {
+        const pnl = trade.status === 'PENDING'
+          ? 0
+          : calculateUnrealizedPnl(trade, price, quoteToUsdRate);
         const returnedMargin = getTradeMargin(trade) + pnl;
         db.serialize(() => {
           db.run('BEGIN IMMEDIATE');
           db.run(
             `UPDATE trades SET status = 'CLOSED', pnl = ?, closed_at = CURRENT_TIMESTAMP
-             WHERE id = ? AND status = 'OPEN'`,
+             WHERE id = ? AND status IN ('OPEN', 'PENDING')`,
             [pnl, tradeId],
             function(updateErr) {
               if (updateErr || this.changes !== 1) {
@@ -4298,7 +4490,7 @@ function closeOutstandingCopyTrades(walletAddress, callback) {
      FROM trade_copy_links l
      JOIN trades lt ON lt.id = l.leader_trade_id AND lt.status = 'CLOSED'
      JOIN accounts la ON la.id = lt.account_id AND LOWER(la.wallet_address) = LOWER(?)
-     JOIN trades ft ON ft.id = l.follower_trade_id AND ft.status = 'OPEN'
+     JOIN trades ft ON ft.id = l.follower_trade_id AND ft.status IN ('OPEN', 'PENDING')
      JOIN accounts fa ON fa.id = ft.account_id AND LOWER(fa.wallet_address) = LOWER(?)
      ORDER BY lt.closed_at, ft.created_at`,
     [walletAddress, walletAddress],
@@ -4384,7 +4576,7 @@ app.post('/api/trade-copy/flatten', sensitiveLimiter, requireWalletSession, (req
     `SELECT DISTINCT t.id AS trade_id, a.id AS account_id
      FROM trades t
      JOIN accounts a ON a.id = t.account_id
-     WHERE t.status = 'OPEN' AND LOWER(a.wallet_address) = LOWER(?)
+     WHERE t.status IN ('OPEN', 'PENDING') AND LOWER(a.wallet_address) = LOWER(?)
        AND (EXISTS (SELECT 1 FROM trade_copy_leader_trades l WHERE l.leader_trade_id = t.id)
             OR EXISTS (SELECT 1 FROM trade_copy_links c WHERE c.follower_trade_id = t.id))
      ORDER BY a.created_at, t.created_at`,
@@ -4600,6 +4792,31 @@ app.get('/api/trades/active', requireWalletSession, (req, res) => {
       });
     });
   });
+});
+
+app.get('/api/forex/stream', (req, res) => {
+  res.set({
+    'Content-Type': 'text/event-stream',
+    'Cache-Control': 'no-cache, no-transform',
+    Connection: 'keep-alive',
+    'X-Accel-Buffering': 'no'
+  });
+  res.flushHeaders?.();
+  res.write('retry: 3000\n\n');
+  forexPriceStreamClients.add(res);
+  if (!forexPriceStreamInterval) {
+    forexPriceStreamInterval = setInterval(broadcastForexPrices, 1000);
+    broadcastForexPrices();
+  }
+  const removeClient = () => {
+    forexPriceStreamClients.delete(res);
+    if (!forexPriceStreamClients.size && forexPriceStreamInterval) {
+      clearInterval(forexPriceStreamInterval);
+      forexPriceStreamInterval = null;
+    }
+  };
+  req.on('close', removeClient);
+  res.on('close', removeClient);
 });
 
 app.use('/api', (req, res) => {

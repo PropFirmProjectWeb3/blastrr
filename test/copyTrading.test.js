@@ -46,8 +46,9 @@ test('copy-trading emergency flatten closes tracked trades across paused or dele
   assert.match(serverJs, /copyFlatteningWallets\.add\(wallet\)/);
   assert.match(serverJs, /EXISTS \(SELECT 1 FROM trade_copy_leader_trades/);
   assert.match(serverJs, /EXISTS \(SELECT 1 FROM trade_copy_links/);
+  assert.match(serverJs, /t\.status IN \('OPEN', 'PENDING'\)/);
   assert.match(appHtml, /id="copy-flatten-all"/);
-  assert.match(appJs, /Emergency stop: pause all copy groups and close every open copy-trading position/);
+  assert.match(appJs, /Emergency stop: pause all copy groups and close every open or pending copy-trading position/);
   assert.match(appJs, /walletFetch\('\/api\/trade-copy\/flatten'/);
   assert.match(appJs, /Paused all copy groups/);
 });

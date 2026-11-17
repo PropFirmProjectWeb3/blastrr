@@ -94,6 +94,12 @@ let connectedWallet = null;
         let battlePassActiveTab = 'missions';
         let adminBattlePassTasks = [];
                 let marketsData = [];
+                let cryptoMarketsData = [];
+                let forexMarketsData = [];
+                let tradingMarketMode = 'CRYPTO';
+                let forexPriceStream = null;
+                let forexPriceGeneration = 0;
+                const forexPricesBySymbol = new Map();
                 const closingTradeIds = new Set();
         let maintenanceStatuses = {};
         let maintenanceMessage = '';
@@ -296,14 +302,29 @@ let connectedWallet = null;
         });
 
         async function loadMarketConfig() {
-            const response = await fetch('/config/markets.json');
-            if (!response.ok) throw new Error(`Market configuration request failed (${response.status}).`);
-            marketsData = await response.json();
-            if (!Array.isArray(marketsData) || marketsData.length === 0) {
+            const [cryptoResponse, forexResponse] = await Promise.all([
+                fetch('/config/markets.json'),
+                fetch('/config/forexMarkets.json')
+            ]);
+            if (!cryptoResponse.ok) throw new Error(`Crypto market configuration request failed (${cryptoResponse.status}).`);
+            if (!forexResponse.ok) throw new Error(`Forex market configuration request failed (${forexResponse.status}).`);
+            cryptoMarketsData = await cryptoResponse.json();
+            forexMarketsData = await forexResponse.json();
+            if (!Array.isArray(cryptoMarketsData) || cryptoMarketsData.length === 0 ||
+                !Array.isArray(forexMarketsData) || forexMarketsData.length === 0) {
                 throw new Error('Market configuration is empty or invalid.');
             }
 
+            marketsData = cryptoMarketsData;
+            initializeMarketPriceTicker();
+            renderTradeMarkets('CRYPTO');
+        }
+
+        function renderTradeMarkets(mode, preferredSymbol = null) {
+            tradingMarketMode = mode === 'FOREX' ? 'FOREX' : 'CRYPTO';
+            marketsData = tradingMarketMode === 'FOREX' ? forexMarketsData : cryptoMarketsData;
             const select = document.getElementById('order-symbol');
+            if (!select) return;
             select.replaceChildren();
             const groups = new Map();
             for (const market of marketsData) {
@@ -321,14 +342,40 @@ let connectedWallet = null;
                 option.dataset.pair = market.pair;
                 option.dataset.type = market.type;
                 option.dataset.source = market.source;
+                option.dataset.assetClass = market.asset_class || 'CRYPTO';
                 groups.get(groupName).append(option);
             }
 
             select.disabled = false;
-            const defaultMarket = marketsData.find(market => market.pair === 'NDX100USDT') || marketsData[0];
+            const defaultMarket = marketsData.find(market => market.symbol === preferredSymbol) ||
+                (tradingMarketMode === 'CRYPTO'
+                    ? marketsData.find(market => market.pair === 'NDX100USDT') || marketsData[0]
+                    : marketsData[0]);
             select.value = defaultMarket.symbol;
-            initializeMarketPriceTicker();
+            document.querySelectorAll('[data-trade-market-mode]').forEach(button => {
+                button.classList.toggle('active', button.dataset.tradeMarketMode === tradingMarketMode);
+            });
+            updateForexTicketLabels();
             onSymbolChanged(defaultMarket.symbol);
+        }
+
+        function findConfiguredMarket(symbol) {
+            return [...cryptoMarketsData, ...forexMarketsData].find(market => market.symbol === symbol);
+        }
+
+        function switchTradingMarketMode(mode) {
+            if (!dashboardAuthenticated || !walletSessionToken ||
+                walletSessionOwner !== connectedWallet?.toLowerCase() ||
+                walletSessionExpiresAt <= Date.now()) {
+                lockDashboard();
+                return;
+            }
+            if (mode === tradingMarketMode) {
+                switchView('tradeView');
+                return;
+            }
+            renderTradeMarkets(mode);
+            switchView('tradeView');
         }
 
         function toggleMobileMenu(forceClose = false) {
@@ -647,6 +694,14 @@ let connectedWallet = null;
             observeLiveMarketChart(liveMarketChart, chartHost);
             syncLiveChartRanges(liveMarketChart);
 
+            if (source === 'SWISSQUOTE') {
+                liveMarketChartStatus.textContent = 'Waiting for Swissquote ticks to build live candles…';
+                const market = marketsData.find(item => item.pair === pair);
+                const lastTick = forexPricesBySymbol.get(market?.symbol);
+                if (lastTick) updateLiveMarketChart(pair, lastTick.price, lastTick.publishTime);
+                return;
+            }
+
             try {
                 const endpoint = source === 'BITGET_PERP'
                     ? `https://api.bitget.com/api/v2/mix/market/candles?productType=USDT-FUTURES&symbol=${encodeURIComponent(pair)}&granularity=${timeframeConfig.bitget}&limit=1000`
@@ -700,7 +755,17 @@ let connectedWallet = null;
             const time = Math.floor((Number.isFinite(timestamp) ? timestamp : Date.now()) /
                 (liveMarketTimeframeSeconds * 1000)) * liveMarketTimeframeSeconds;
             const latest = liveMarketLastCandle;
-            if (!latest || time < latest.time) return;
+            if (!latest) {
+                liveMarketLastCandle = { time, open: price, high: price, low: price, close: price, volume: 0 };
+                liveMarketCandles = [{ ...liveMarketLastCandle }];
+                liveMarketFirstCandleTime = time;
+                liveMarketCandleSeries.update({ ...liveMarketLastCandle });
+                liveMarketChartStatus?.remove();
+                liveMarketChartStatus = null;
+                refreshChartIndicators();
+                return;
+            }
+            if (time < latest.time) return;
             if (time === latest.time) {
                 latest.high = Math.max(latest.high, price);
                 latest.low = Math.min(latest.low, price);
@@ -737,12 +802,13 @@ let connectedWallet = null;
             liveMarketTradeMarkers = [];
             const selectedSymbol = document.getElementById('order-symbol')?.value;
             const validTrades = (trades || []).filter(trade =>
-                trade.symbol === selectedSymbol && trade.status === 'OPEN'
+                trade.symbol === selectedSymbol && ['OPEN', 'PENDING'].includes(trade.status)
             );
             const lineStyle = LightweightCharts.LineStyle?.Dashed ?? 2;
             for (const trade of validTrades) {
                 const isLong = trade.side === 'BUY';
-                const tradeLabel = `${isLong ? 'LONG' : 'SHORT'} ${String(trade.id).slice(-6)}`;
+                const isPending = trade.status === 'PENDING';
+                const tradeLabel = `${isPending ? (isLong ? 'LIMIT LONG' : 'LIMIT SHORT') : (isLong ? 'LONG' : 'SHORT')} ${String(trade.id).slice(-6)}`;
                 const addPriceLine = (price, title, color, width = 1) => {
                     const value = Number(price);
                     if (!Number.isFinite(value) || value <= 0) return;
@@ -755,7 +821,12 @@ let connectedWallet = null;
                         title
                     }));
                 };
-                addPriceLine(trade.entry_price, `${tradeLabel} entry`, isLong ? LIVE_CHART_THEME.up : LIVE_CHART_THEME.down, 2);
+                if (isPending) {
+                    const pendingPrice = Number(trade.trigger_price ?? trade.entry_price ?? currentLivePrice);
+                    addPriceLine(pendingPrice, `${tradeLabel} limit`, '#60a5fa', 2);
+                } else {
+                    addPriceLine(trade.entry_price, `${tradeLabel} entry`, isLong ? LIVE_CHART_THEME.up : LIVE_CHART_THEME.down, 2);
+                }
                 addPriceLine(trade.sl, `${tradeLabel} SL`, LIVE_CHART_THEME.down);
                 addPriceLine(trade.tp, `${tradeLabel} TP`, '#22d3ee');
 
@@ -765,9 +836,9 @@ let connectedWallet = null;
                     liveMarketTradeMarkers.push({
                         time: entryTime,
                         position: isLong ? 'belowBar' : 'aboveBar',
-                        color: isLong ? LIVE_CHART_THEME.up : LIVE_CHART_THEME.down,
+                        color: isPending ? '#60a5fa' : (isLong ? LIVE_CHART_THEME.up : LIVE_CHART_THEME.down),
                         shape: isLong ? 'arrowUp' : 'arrowDown',
-                        text: `${isLong ? 'Long' : 'Short'} entry`
+                        text: isPending ? 'Limit' : `${isLong ? 'Long' : 'Short'} entry`
                     });
                 }
             }
@@ -782,6 +853,7 @@ let connectedWallet = null;
             if (!select) return;
             const opt = select.querySelector(`option[value="${tvSymbol}"]`);
             if (!opt) return;
+            updateForexTicketLabels();
             resetChartMarketStats(opt.textContent);
             initLiveMarketChart(opt.dataset.pair, opt.dataset.source);
             startPricePolling(opt.dataset.pair, opt.dataset.type, opt.dataset.source);
@@ -1022,6 +1094,7 @@ let connectedWallet = null;
             track.addEventListener('click', event => {
                 const button = event.target.closest('[data-ticker-symbol]');
                 if (!button) return;
+                if (tradingMarketMode !== 'CRYPTO') switchTradingMarketMode('CRYPTO');
                 const select = document.getElementById('order-symbol');
                 if (select && select.value !== button.dataset.tickerSymbol) {
                     select.value = button.dataset.tickerSymbol;
@@ -1121,8 +1194,76 @@ let connectedWallet = null;
         function startPricePolling(pair, type, source) {
             if (livePriceInterval) clearInterval(livePriceInterval);
             const generation = ++livePriceRequestGeneration;
+            if (source === 'SWISSQUOTE') {
+                connectForexPriceTicker();
+                return;
+            }
+            disconnectForexPriceTicker();
             fetchPrice(pair, type, source, generation);
             livePriceInterval = setInterval(() => fetchPrice(pair, type, source, generation), 1000);
+        }
+
+        function disconnectForexPriceTicker() {
+            forexPriceGeneration++;
+            forexPriceStream?.close();
+            forexPriceStream = null;
+        }
+
+        function connectForexPriceTicker() {
+            if (forexPriceStream || tradingMarketMode !== 'FOREX') return;
+            if (typeof EventSource === 'undefined') {
+                const status = document.getElementById('market-hours-status');
+                if (status) status.lastChild.textContent = 'FOREX · FEED UNAVAILABLE';
+                return;
+            }
+            const generation = ++forexPriceGeneration;
+            const status = document.getElementById('market-hours-status');
+            if (status) status.lastChild.textContent = 'FOREX · CONNECTING';
+            const stream = new EventSource('/api/forex/stream');
+            forexPriceStream = stream;
+            stream.onopen = () => {
+                if (generation !== forexPriceGeneration || forexPriceStream !== stream) return;
+                if (status) status.lastChild.textContent = 'SWISSQUOTE · LIVE';
+            };
+            stream.onmessage = event => {
+                if (generation !== forexPriceGeneration) return;
+                try {
+                    const update = JSON.parse(event.data);
+                    const market = forexMarketsData.find(item => item.symbol === update.symbol);
+                    if (!market) return;
+                    const price = Number(update.price);
+                    const publishTime = Number(update.publishTime);
+                    if (!Number.isFinite(price) || price <= 0 || !Number.isFinite(publishTime)) return;
+                    forexPricesBySymbol.set(market.symbol, { price, publishTime });
+                    if (market.symbol !== document.getElementById('order-symbol')?.value) {
+                        calculateMetrics();
+                        updateDisplayedOpenTradePnls(currentLivePrice);
+                        return;
+                    }
+                    const marketHoursStatus = document.getElementById('market-hours-status');
+                    if (marketHoursStatus) {
+                        marketHoursStatus.lastChild.textContent = Date.now() - publishTime > 30000
+                            ? 'MARKET CLOSED · LAST QUOTE'
+                            : 'SWISSQUOTE · LIVE';
+                    }
+                    currentLivePrice = price;
+                    updateMarketTabTitle(price, market.pair);
+                    updateLiveMarketChart(market.pair, price, publishTime);
+                    renderChartMarketStats({ bidPrice: update.bid, askPrice: update.ask, lastPrice: price });
+                    const priceInput = document.getElementById('order-price');
+                    if (priceInput && !userHasEditedPrice) {
+                        priceInput.value = price;
+                        calculateMetrics();
+                    }
+                    updateDisplayedOpenTradePnls(price);
+                    monitorClientStops();
+                } catch (error) {
+                    console.warn('Invalid Swissquote price update:', error);
+                }
+            };
+            stream.onerror = () => {
+                if (generation === forexPriceGeneration && status) status.lastChild.textContent = 'FOREX · RECONNECTING';
+            };
         }
 
         async function fetchPrice(pair, type, source, generation) {
@@ -1176,6 +1317,57 @@ let connectedWallet = null;
             }
         }
 
+        function updateOrderType(orderType) {
+            const priceLabel = document.getElementById('order-price-label');
+            const priceInput = document.getElementById('order-price');
+            const isLimit = String(orderType || 'MARKET').toUpperCase() === 'LIMIT';
+            if (priceLabel) {
+                priceLabel.textContent = isLimit
+                    ? 'Limit trigger price'
+                    : 'Live Reference Price (orders use a fresh quote)';
+            }
+            if (priceInput) {
+                priceInput.placeholder = isLimit ? 'Set trigger price' : 'Current market price';
+                if (currentLivePrice > 0 && !userHasEditedPrice) {
+                    priceInput.value = currentLivePrice;
+                }
+            }
+            calculateMetrics();
+        }
+
+        function updateForexTicketLabels() {
+            const isForex = tradingMarketMode === 'FOREX';
+            const sizeLabel = document.getElementById('order-size-label');
+            const sizeInput = document.getElementById('order-size-usd');
+            const shortcuts = document.getElementById('order-size-shortcuts');
+            const marketHours = document.getElementById('market-hours-status');
+            const selectedMarket = marketsData.find(market => market.symbol === document.getElementById('order-symbol')?.value);
+            if (sizeLabel) sizeLabel.textContent = isForex ? 'Position size (lots)' : 'Collateral Margin ($ USD)';
+            if (sizeInput) {
+                sizeInput.min = isForex ? '0.01' : '10';
+                sizeInput.step = isForex ? '0.01' : 'any';
+                sizeInput.placeholder = isForex ? '0.10' : '500';
+            }
+            if (shortcuts) shortcuts.hidden = isForex;
+            if (marketHours) {
+                marketHours.setAttribute('aria-label', isForex ? 'Forex majors trade 24 hours a day, five days a week' : 'Crypto markets trade 24/7/365');
+                marketHours.title = isForex
+                    ? 'Forex prices are provided by Swissquote and may be stale while markets are closed.'
+                    : 'Crypto markets trade continuously. Exchange or platform maintenance may temporarily affect access.';
+                const text = marketHours.lastChild;
+                if (text) text.textContent = isForex ? 'SWISSQUOTE · FOREX 24/5' : '24/7 TRADING LIVE';
+            }
+            const pipSize = Number(selectedMarket?.pip_size);
+            const priceInput = document.getElementById('order-price');
+            if (priceInput && isForex) {
+                priceInput.step = pipSize === 0.01 ? '0.001' : '0.00001';
+            } else if (priceInput) {
+                priceInput.removeAttribute('step');
+            }
+            toggleStopAmountMode(document.getElementById('order-sl-tp-amount-mode')?.checked === true);
+            calculateMetrics();
+        }
+
         function onPriceInputChanged() {
             userHasEditedPrice = true;
             calculateMetrics();
@@ -1197,22 +1389,32 @@ let connectedWallet = null;
             const help = document.getElementById('order-sl-tp-mode-help');
             const stopInput = document.getElementById('order-sl');
             const targetInput = document.getElementById('order-tp');
-            if (stopLabel) stopLabel.textContent = enabled ? 'Stop Loss amount ($ P&L)' : 'Stop Loss trigger price (SL)';
-            if (targetLabel) targetLabel.textContent = enabled ? 'Take Profit amount ($ P&L)' : 'Take Profit trigger price (TP)';
+            const isForex = tradingMarketMode === 'FOREX';
+            if (stopLabel) stopLabel.textContent = enabled ? 'Stop Loss amount ($ P&L)' : (isForex ? 'Stop Loss distance (pips)' : 'Stop Loss trigger price (SL)');
+            if (targetLabel) targetLabel.textContent = enabled ? 'Take Profit amount ($ P&L)' : (isForex ? 'Take Profit distance (pips)' : 'Take Profit trigger price (TP)');
             if (help) {
                 help.textContent = enabled
                     ? 'Enter loss and profit amounts'
-                    : 'Off: enter trigger prices';
+                    : isForex ? 'Off: enter pip distances' : 'Off: enter trigger prices';
             }
-            if (stopInput) stopInput.placeholder = enabled ? 'Loss amount ($)' : 'Trigger price';
-            if (targetInput) targetInput.placeholder = enabled ? 'Profit amount ($)' : 'Trigger price';
+            if (stopInput) stopInput.placeholder = enabled ? 'Loss amount ($)' : isForex ? 'Pips' : 'Trigger price';
+            if (targetInput) targetInput.placeholder = enabled ? 'Profit amount ($)' : isForex ? 'Pips' : 'Trigger price';
         }
 
         function calculateMetrics() {
-            const marginInput = parseFloat(document.getElementById('order-size-usd')?.value) || 0;
+            const sizeInput = parseFloat(document.getElementById('order-size-usd')?.value) || 0;
             const leverage = parseInt(document.getElementById('order-leverage')?.value) || 1;
-            const notional = marginInput * leverage;
             const priceInputVal = parseFloat(document.getElementById('order-price')?.value) || currentLivePrice || 0;
+            const selectedMarket = marketsData.find(market => market.symbol === document.getElementById('order-symbol')?.value);
+            const isForex = selectedMarket?.asset_class === 'FOREX';
+            let marginInput = sizeInput;
+            let notional = marginInput * leverage;
+            if (isForex && selectedMarket) {
+                const quoteToUsd = getClientForexQuoteToUsdRate(selectedMarket.quote_currency);
+                const units = sizeInput * Number(selectedMarket.lot_units);
+                notional = Number.isFinite(quoteToUsd) ? units * priceInputVal * quoteToUsd : 0;
+                marginInput = notional / leverage;
+            }
 
             const notionalLabel = document.getElementById('notional-exposure-label');
             if (notionalLabel) notionalLabel.innerText = `$${notional.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -1227,6 +1429,23 @@ let connectedWallet = null;
                 } else {
                     liqLabel.innerText = '—';
                 }
+            }
+
+            function getClientForexQuoteToUsdRate(quoteCurrency) {
+                const currency = String(quoteCurrency || '').toUpperCase();
+                if (currency === 'USD') return 1;
+                const conversion = {
+                    EUR: ['FX:EURUSD', false],
+                    GBP: ['FX:GBPUSD', false],
+                    AUD: ['FX:AUDUSD', false],
+                    NZD: ['FX:NZDUSD', false],
+                    JPY: ['FX:USDJPY', true],
+                    CHF: ['FX:USDCHF', true],
+                    CAD: ['FX:USDCAD', true]
+                }[currency];
+                const rate = forexPricesBySymbol.get(conversion?.[0])?.price;
+                if (!Number.isFinite(rate) || rate <= 0) return currency === 'USD' ? 1 : NaN;
+                return conversion[1] ? 1 / rate : rate;
             }
         }
 
@@ -1251,6 +1470,9 @@ let connectedWallet = null;
 
             const activeTab = Array.from(document.querySelectorAll('#nav-menu .nav-tab')).find(t => t.getAttribute('onclick')?.includes(requestedViewId));
             if (activeTab) activeTab.classList.add('active');
+            if (requestedViewId === 'tradeView') {
+                document.querySelector(`[data-trade-market-mode="${tradingMarketMode}"]`)?.classList.add('active');
+            }
             document.querySelectorAll('#nav-menu .nav-dropdown').forEach(dropdown => {
                 dropdown.classList.toggle('has-active', Boolean(dropdown.querySelector('.nav-tab.active')));
                 dropdown.removeAttribute('open');
@@ -2292,7 +2514,7 @@ let connectedWallet = null;
             document.querySelectorAll('.view-panel').forEach(panel => panel.classList.remove('active'));
             document.getElementById('tradeView')?.classList.add('active');
             document.querySelectorAll('#nav-menu .nav-tab').forEach(tab => {
-                tab.classList.toggle('active', tab.getAttribute('onclick')?.includes('tradeView'));
+                tab.classList.toggle('active', tab.dataset.tradeMarketMode === tradingMarketMode);
             });
         }
 
@@ -2901,10 +3123,10 @@ let connectedWallet = null;
         }
 
         async function flattenCopyTrades(button) {
-            if (!confirm('Emergency stop: pause all copy groups and close every open copy-trading position across your accounts?')) return;
+            if (!confirm('Emergency stop: pause all copy groups and close every open or pending copy-trading position across your accounts?')) return;
             const status = document.getElementById('copy-trading-status');
             button.disabled = true;
-            if (status) status.textContent = 'Closing open copy trades…';
+            if (status) status.textContent = 'Closing open and pending copy trades…';
             try {
                 const response = await walletFetch('/api/trade-copy/flatten', { method: 'POST' });
                 const data = await response.json();
@@ -2912,7 +3134,7 @@ let connectedWallet = null;
                 const failures = data.failed || [];
                 const summary = failures.length
                     ? `Closed ${data.closed} position(s); ${failures.length} could not be closed. ${failures.map(item => `${item.trade_id}: ${item.error}`).join(' ')}`
-                    : `Emergency stop complete. Paused all copy groups and closed ${data.closed} open copy-trading position(s).`;
+                    : `Emergency stop complete. Paused all copy groups and closed ${data.closed} open or pending copy-trading position(s).`;
                 await loadCopyTradingPage();
                 if (status) status.textContent = summary;
             } catch (error) {
@@ -4490,13 +4712,33 @@ let connectedWallet = null;
             displayedOpenTrades.forEach(trd => {
                 const currentPrice = trd.current_price || currentLivePrice || trd.entry_price;
                 const priceDiff = trd.side === 'BUY' ? (currentPrice - trd.entry_price) : (trd.entry_price - currentPrice);
-                const pnl = Number.isFinite(Number(trd.live_pnl)) ? Number(trd.live_pnl) : priceDiff * trd.units;
+                const tradeMarket = findConfiguredMarket(trd.symbol);
+                const isForex = trd.market_type === 'FOREX';
+                const quoteToUsdRate = isForex ? getClientForexQuoteToUsdRate(tradeMarket?.quote_currency) : 1;
+                const pnl = Number.isFinite(Number(trd.live_pnl))
+                    ? Number(trd.live_pnl)
+                    : priceDiff * trd.units * quoteToUsdRate;
                 const pnlColor = pnl >= 0 ? '#34d399' : '#ef4444';
-                const leverageDisplay = trd.leverage && trd.leverage > 1 ? `${trd.leverage}x Perp` : '1x Spot';
+                const leverageDisplay = isForex
+                    ? `${Number(trd.lot_size).toFixed(2)} lots · ${trd.leverage || 1}x`
+                    : trd.leverage && trd.leverage > 1 ? `${trd.leverage}x Perp` : '1x Spot';
                 const margin = Number(trd.size_usd);
-                const notional = Number(trd.units) * Number(trd.entry_price);
+                const notional = isForex
+                    ? Number(trd.units) * Number(trd.entry_price) * quoteToUsdRate
+                    : Number(trd.units) * Number(trd.entry_price);
                 const stop = trd.sl_tp_mode === 'amount' ? trd.sl_amount : trd.sl;
                 const target = trd.sl_tp_mode === 'amount' ? trd.tp_amount : trd.tp;
+                const pricePrecision = isForex ? (tradeMarket?.quote_currency === 'JPY' ? 3 : 5) : 0;
+                const entryDisplay = Number(trd.entry_price).toLocaleString(undefined, {
+                    minimumFractionDigits: pricePrecision,
+                    maximumFractionDigits: pricePrecision
+                });
+                const stopDisplay = isForex && stop != null
+                    ? `${(Math.abs(Number(trd.entry_price) - Number(stop)) / Number(tradeMarket?.pip_size)).toFixed(1)} pips`
+                    : formatProtectionValue(stop);
+                const targetDisplay = isForex && target != null
+                    ? `${(Math.abs(Number(target) - Number(trd.entry_price)) / Number(tradeMarket?.pip_size)).toFixed(1)} pips`
+                    : formatProtectionValue(target);
 
                 tbody.innerHTML += `
                     <tr>
@@ -4504,9 +4746,9 @@ let connectedWallet = null;
                         <td>${trd.symbol}</td>
                         <td><span style="color: ${trd.side === 'BUY' ? '#34d399' : '#ef4444'}; font-weight: bold;">${trd.side}</span></td>
                         <td>${leverageDisplay}</td>
-                        <td class="open-trade-value">$${formatOpenTradeValue(trd.entry_price)}</td>
+                        <td class="open-trade-value">${isForex ? entryDisplay : `$${formatOpenTradeValue(trd.entry_price)}`}</td>
                         <td class="open-trade-value">$${formatOpenTradeValue(margin)} / $${formatOpenTradeValue(notional)}</td>
-                        <td class="open-trade-value">SL: ${formatProtectionValue(stop)} / TP: ${formatProtectionValue(target)}</td>
+                        <td class="open-trade-value">SL: ${stopDisplay} / TP: ${targetDisplay}</td>
                         <td class="open-trade-value"><span data-trade-pnl="${trd.id}" style="color: ${pnlColor}; font-weight: bold;">$${formatOpenTradeValue(pnl)}</span></td>
                         <td><button class="btn-sell" style="padding:5px 10px; font-size:11px;" onclick="closeTrade('${trd.id}', ${currentPrice})">Close Early</button></td>
                     </tr>
@@ -4525,7 +4767,11 @@ let connectedWallet = null;
                 const priceDiff = trade.side === 'BUY'
                     ? currentPrice - Number(trade.entry_price)
                     : Number(trade.entry_price) - currentPrice;
-                const pnl = priceDiff * Number(trade.units);
+                const tradeMarket = findConfiguredMarket(trade.symbol);
+                const quoteToUsdRate = trade.market_type === 'FOREX'
+                    ? getClientForexQuoteToUsdRate(tradeMarket?.quote_currency)
+                    : 1;
+                const pnl = priceDiff * Number(trade.units) * quoteToUsdRate;
                 if (!Number.isFinite(pnl)) continue;
                 const pnlCell = Array.from(tbody.querySelectorAll('[data-trade-pnl]'))
                     .find(cell => cell.dataset.tradePnl === trade.id);
@@ -4538,16 +4784,36 @@ let connectedWallet = null;
         async function executeTrade(side) {
             if (!selectedAccountId || !activeAccount) { setTradeFeedback('Select or purchase an active trading account first.'); return; }
             const symbol = document.getElementById('order-symbol').value;
+            const selectedMarket = marketsData.find(market => market.symbol === symbol);
+            const isForex = selectedMarket?.asset_class === 'FOREX';
+            const orderType = document.getElementById('order-type')?.value || 'MARKET';
             const price = parseFloat(document.getElementById('order-price').value) || currentLivePrice;
-            const sizeUsd = parseFloat(document.getElementById('order-size-usd').value);
+            const enteredSize = parseFloat(document.getElementById('order-size-usd').value);
             const leverage = parseInt(document.getElementById('order-leverage').value) || 1;
             const amountMode = document.getElementById('order-sl-tp-amount-mode')?.checked === true;
             const slValue = document.getElementById('order-sl').value;
             const tpValue = document.getElementById('order-tp').value;
             const sl = slValue === '' ? null : Number(slValue);
             const tp = tpValue === '' ? null : Number(tpValue);
+            const lotSize = isForex ? enteredSize : null;
+            const quoteToUsdRate = isForex ? getClientForexQuoteToUsdRate(selectedMarket.quote_currency) : 1;
+            const forexNotional = isForex
+                ? lotSize * Number(selectedMarket.lot_units) * price * quoteToUsdRate
+                : null;
+            const marginUsed = isForex ? forexNotional / leverage : enteredSize;
+            const sizeUsd = isForex ? marginUsed : enteredSize;
 
-            if (!sizeUsd || sizeUsd <= 0 || sizeUsd > activeAccount.current_balance) {
+            if (orderType === 'LIMIT' && (!Number.isFinite(price) || price <= 0)) {
+                setTradeFeedback('Enter a valid limit trigger price before submitting the order.');
+                return;
+            }
+            if (isForex && (!Number.isFinite(quoteToUsdRate) || quoteToUsdRate <= 0)) {
+                setTradeFeedback('Waiting for live currency-conversion prices. Please retry when the feed is live.');
+                return;
+            }
+            if (!Number.isFinite(enteredSize) || enteredSize <= 0 ||
+                (isForex && lotSize < 0.01) ||
+                !Number.isFinite(sizeUsd) || sizeUsd <= 0 || sizeUsd > activeAccount.current_balance) {
                 setTradeFeedback('Please check position size and available balance.');
                 return;
             }
@@ -4558,7 +4824,7 @@ let connectedWallet = null;
                 return;
             }
 
-            const totalNotional = sizeUsd * leverage;
+            const totalNotional = isForex ? forexNotional : sizeUsd * leverage;
             const buyButton = document.querySelector('.btn-buy[onclick*="executeTrade"]');
             const sellButton = document.querySelector('.btn-sell[onclick*="executeTrade"]');
             setTradeFeedback('');
@@ -4576,12 +4842,15 @@ let connectedWallet = null;
                         side, 
                         price, 
                         size_usd: totalNotional,
-                        margin_used: sizeUsd,
+                        margin_used: marginUsed,
+                        lot_size: lotSize,
                         leverage: leverage,
                         is_perp: leverage > 1,
+                        order_type: orderType,
+                        trigger_price: orderType === 'LIMIT' ? price : null,
                         sl: amountMode ? null : sl,
                         tp: amountMode ? null : tp,
-                        sl_tp_mode: amountMode ? 'amount' : 'price',
+                        sl_tp_mode: amountMode ? 'amount' : isForex ? 'pips' : 'price',
                         sl_amount: amountMode ? sl : null,
                         tp_amount: amountMode ? tp : null
                     })

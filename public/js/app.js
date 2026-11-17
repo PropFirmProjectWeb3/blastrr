@@ -939,8 +939,9 @@ let connectedWallet = null;
             liveMarketTradeLines = [];
             liveMarketTradeMarkers = [];
             const selectedSymbol = document.getElementById('order-symbol')?.value;
+            const isLimitMode = document.getElementById('order-type')?.value === 'LIMIT';
             const validTrades = (trades || []).filter(trade =>
-                trade.symbol === selectedSymbol && ['OPEN', 'PENDING'].includes(trade.status)
+                trade.symbol === selectedSymbol && trade.status === (isLimitMode ? 'PENDING' : 'OPEN')
             );
             const lineStyle = LightweightCharts.LineStyle?.Dashed ?? 2;
             for (const trade of validTrades) {
@@ -1474,9 +1475,31 @@ let connectedWallet = null;
         }
 
         function updateOrderType(orderType) {
+            const normalizedOrderType = String(orderType || 'MARKET').toUpperCase() === 'LIMIT' ? 'LIMIT' : 'MARKET';
+            const isLimit = normalizedOrderType === 'LIMIT';
+            const orderTypeInput = document.getElementById('order-type');
+            if (orderTypeInput) orderTypeInput.value = normalizedOrderType;
+            document.querySelectorAll('[data-order-type]').forEach(button => {
+                const isSelected = button.dataset.orderType === normalizedOrderType;
+                button.classList.toggle('is-active', isSelected);
+                button.setAttribute('aria-pressed', String(isSelected));
+            });
+
+            const tradeListTitle = document.getElementById('trade-list-title');
+            const tradeListDescription = document.getElementById('trade-list-description');
+            if (tradeListTitle) tradeListTitle.textContent = isLimit ? 'Pending Limit Orders' : 'Open Positions & PnL';
+            if (tradeListDescription) {
+                tradeListDescription.textContent = isLimit
+                    ? 'Manage unfilled limit orders. Filled orders move to Market Positions.'
+                    : 'Manage filled positions and their live PnL, including filled limit orders.';
+            }
+            const buyButton = document.getElementById('order-buy-button');
+            const sellButton = document.getElementById('order-sell-button');
+            if (buyButton) buyButton.textContent = isLimit ? 'Place Buy Limit' : 'Execute Buy / Long';
+            if (sellButton) sellButton.textContent = isLimit ? 'Place Sell Limit' : 'Execute Sell / Short';
+
             const priceLabel = document.getElementById('order-price-label');
             const priceInput = document.getElementById('order-price');
-            const isLimit = String(orderType || 'MARKET').toUpperCase() === 'LIMIT';
             if (priceLabel) {
                 priceLabel.textContent = isLimit
                     ? 'Limit price (Buy fills at/below; Sell fills at/above)'
@@ -1493,6 +1516,18 @@ let connectedWallet = null;
                 }
             }
             calculateMetrics();
+            renderChartTradeOverlays(displayedOpenTrades);
+            if (selectedAccountId) {
+                loadOpenTrades(selectedAccountId).catch(error => console.error('Failed to refresh trade terminal:', error));
+            } else {
+                const tbody = document.getElementById('open-trades-list');
+                if (tbody) {
+                    const emptyMessage = isLimit
+                        ? 'Select an account to view pending limit orders.'
+                        : 'Select an account to view open positions.';
+                    tbody.innerHTML = `<tr><td colspan="9" style="text-align: center; color: #6b7280; padding: 24px;">${emptyMessage}</td></tr>`;
+                }
+            }
         }
 
         function updateForexTicketLabels() {
@@ -5103,10 +5138,17 @@ let connectedWallet = null;
             if (!tbody) return;
             tbody.innerHTML = '';
             displayedOpenTrades = data.trades || [];
+            const isLimitMode = document.getElementById('order-type')?.value === 'LIMIT';
+            const visibleTrades = displayedOpenTrades.filter(trade =>
+                trade.status === (isLimitMode ? 'PENDING' : 'OPEN')
+            );
             renderChartTradeOverlays(displayedOpenTrades);
 
-            if (displayedOpenTrades.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="9" style="text-align: center; color: #6b7280; padding: 24px;">No open positions for this account.</td></tr>';
+            if (visibleTrades.length === 0) {
+                const emptyMessage = isLimitMode
+                    ? 'No pending limit orders for this account.'
+                    : 'No open positions for this account.';
+                tbody.innerHTML = `<tr><td colspan="9" style="text-align: center; color: #6b7280; padding: 24px;">${emptyMessage}</td></tr>`;
                 return;
             }
 
@@ -5114,7 +5156,7 @@ let connectedWallet = null;
             const formatProtectionValue = value => value == null
                 ? 'None'
                 : `$${formatOpenTradeValue(value)}`;
-            displayedOpenTrades.forEach(trd => {
+            visibleTrades.forEach(trd => {
                 const currentPrice = trd.current_price || currentLivePrice || trd.entry_price;
                 const priceDiff = trd.side === 'BUY' ? (currentPrice - trd.entry_price) : (trd.entry_price - currentPrice);
                 const tradeMarket = findConfiguredMarket(trd.symbol);

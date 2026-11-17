@@ -169,8 +169,8 @@ test('admin can toggle maintenance for each public page and set an outage messag
 });
 
 test('trading terminal HTML loads its external stylesheet and application script', () => {
-  assert.match(appHtml, /href="\/css\/app\.css\?v=20261117-account-progress"/);
-  assert.match(appHtml, /src="\/js\/app\.js\?v=20261117-limit-order-pnl-account-progress" defer/);
+  assert.match(appHtml, /href="\/css\/app\.css\?v=20261117-terminal-modes"/);
+  assert.match(appHtml, /src="\/js\/app\.js\?v=20261117-terminal-modes" defer/);
   assert.doesNotMatch(appHtml, /<style[\s>]/i);
   assert.doesNotMatch(appHtml, /<script>\s*[\s\S]*?\bfunction\s/m);
   assert.match(appHtml, /id="nav-menu"/);
@@ -178,6 +178,16 @@ test('trading terminal HTML loads its external stylesheet and application script
   assert.match(appHtml, /id="wallet-menu-accounts"/);
   assert.match(appHtml, /onclick="closeWalletMenu\(\); connectNewWallet\(\)">＋ Add account/);
   assert.match(appHtml, /onclick="closeWalletMenu\(\); disconnectWallet\(\)">Log out/);
+  assert.match(appHtml, /data-order-type="MARKET"/);
+  assert.match(appHtml, /data-order-type="LIMIT"/);
+  assert.match(appHtml, /id="order-type" value="MARKET"/);
+  assert.match(appHtml, /id="trade-list-title"/);
+  assert.match(appHtml, /id="order-buy-button"/);
+  assert.match(appHtml, /id="order-sell-button"/);
+  assert.match(appJs, /buyButton\.textContent = isLimit \? 'Place Buy Limit' : 'Execute Buy \/ Long'/);
+  assert.match(appJs, /sellButton\.textContent = isLimit \? 'Place Sell Limit' : 'Execute Sell \/ Short'/);
+  assert.match(appJs, /trade\.status === \(isLimitMode \? 'PENDING' : 'OPEN'\)/);
+  assert.match(appJs, /trade\.symbol === selectedSymbol && trade\.status === \(isLimitMode \? 'PENDING' : 'OPEN'\)/);
   assert.match(appHtml, /id="order-symbol"/);
   assert.doesNotMatch(appHtml, /\p{Extended_Pictographic}/u);
   assert.match(appHtml, /class="hamburger-glyph"/);

@@ -704,6 +704,12 @@
         .order-card-title { color: #ddd6fe; }
         .order-card .form-group { margin-bottom: 12px; }
         .order-card .form-group input, .order-card .form-group select { min-height: 40px; padding: 9px 12px; }
+        .order-mode-label { display: block; margin-bottom: 6px; color: #cbd5e1; font-size: 11px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; }
+        .order-mode-tabs { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; padding: 4px; border: 1px solid rgba(167, 139, 250, 0.2); border-radius: 9px; background: rgba(5, 7, 11, 0.72); }
+        .order-mode-tab { min-height: 36px; padding: 7px 8px; border: 1px solid transparent; border-radius: 6px; background: transparent; color: #a7b2c0; font: inherit; font-size: 11px; font-weight: 700; cursor: pointer; transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease; }
+        .order-mode-tab:hover, .order-mode-tab:focus-visible { border-color: rgba(167, 139, 250, 0.35); color: #ede9fe; outline: none; }
+        .order-mode-tab.is-active { border-color: rgba(167, 139, 250, 0.32); background: rgba(124, 58, 237, 0.22); color: #ede9fe; box-shadow: inset 0 0 12px rgba(167, 139, 250, 0.08); }
+        .trade-list-description { margin: -10px 0 16px; color: #8792a0; font-size: 11px; line-height: 1.4; }
         .order-card .form-group label span { color: #c084fc; font-weight: 700; }
         .order-metrics { display: grid; grid-template-columns: minmax(0, 1fr); gap: 8px; margin-top: 8px; }
         .order-metrics.is-leveraged { grid-template-columns: repeat(2, minmax(0, 1fr)); }

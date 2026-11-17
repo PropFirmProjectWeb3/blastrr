@@ -7,7 +7,7 @@
     <link rel="icon" type="image/png" href="/favicon.png">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link rel="stylesheet" href="/css/app.css?v=20261117-account-progress">
+    <link rel="stylesheet" href="/css/app.css?v=20261117-terminal-modes">
 </head>
 <body class="auth-locked">
     <section id="wallet-login-gate" class="wallet-login-gate" aria-labelledby="wallet-login-title">
@@ -180,7 +180,8 @@
                     </div>
 
                     <div class="card">
-                        <div class="card-title">Open Positions & PnL</div>
+                        <div class="card-title" id="trade-list-title" aria-live="polite">Open Positions & PnL</div>
+                        <p id="trade-list-description" class="trade-list-description">Manage filled positions and their live PnL.</p>
                         <div class="table-responsive">
                             <table>
                                 <thead>
@@ -256,11 +257,12 @@
                         </div>
 
                         <div class="form-group">
-                            <label for="order-type">Order Type</label>
-                            <select id="order-type" onchange="updateOrderType(this.value)">
-                                <option value="MARKET" selected>Market Order</option>
-                                <option value="LIMIT">Limit Order</option>
-                            </select>
+                            <span class="order-mode-label">Terminal Mode</span>
+                            <div class="order-mode-tabs" role="group" aria-label="Trade terminal mode">
+                                <button type="button" class="order-mode-tab is-active" data-order-type="MARKET" aria-pressed="true" onclick="updateOrderType('MARKET')">Market Positions</button>
+                                <button type="button" class="order-mode-tab" data-order-type="LIMIT" aria-pressed="false" onclick="updateOrderType('LIMIT')">Limit Orders</button>
+                            </div>
+                            <input type="hidden" id="order-type" value="MARKET">
                         </div>
 
                         <div class="form-group">
@@ -315,8 +317,8 @@
                         </div>
 
                         <div class="order-actions">
-                            <button class="btn-buy" onclick="executeTrade('BUY')">Execute Buy / Long</button>
-                            <button class="btn-sell" onclick="executeTrade('SELL')">Execute Sell / Short</button>
+                            <button id="order-buy-button" class="btn-buy" onclick="executeTrade('BUY')">Execute Buy / Long</button>
+                            <button id="order-sell-button" class="btn-sell" onclick="executeTrade('SELL')">Execute Sell / Short</button>
                         </div>
                         <p id="trade-feedback" class="trade-feedback" role="status" aria-live="polite"></p>
                     </div>
@@ -1046,6 +1048,6 @@
 
     <script src="https://unpkg.com/lightweight-charts@4.2.3/dist/lightweight-charts.standalone.production.js"></script>
     <script src="/js/chartIndicators.js?v=20261115-multi-account-checkout" defer></script>
-    <script src="/js/app.js?v=20261117-limit-order-pnl-account-progress" defer></script>
+    <script src="/js/app.js?v=20261117-terminal-modes" defer></script>
 </body>
 </html>

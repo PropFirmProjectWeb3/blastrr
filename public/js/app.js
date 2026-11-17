@@ -178,8 +178,7 @@ let connectedWallet = null;
                     ? ((price / referencePrice) - 1) * 100
                     : undefined,
                 high24h: Number.isFinite(highPrice) && highPrice > 0 ? Math.max(highPrice, price) : price,
-                low24h: Number.isFinite(lowPrice) && lowPrice > 0 ? Math.min(lowPrice, price) : price,
-                quoteUpdates24h: stats?.quoteUpdates24h
+                low24h: Number.isFinite(lowPrice) && lowPrice > 0 ? Math.min(lowPrice, price) : price
             });
         }
 
@@ -1145,6 +1144,9 @@ let connectedWallet = null;
         function resetChartMarketStats(marketLabel) {
             const marketName = document.getElementById('chart-market-name');
             if (marketName) marketName.textContent = marketLabel || 'Selected market';
+            const selectedMarket = marketsData.find(market => market.symbol === document.getElementById('order-symbol')?.value);
+            const volumeCard = document.getElementById('chart-volume-24h')?.parentElement;
+            if (volumeCard) volumeCard.hidden = selectedMarket?.asset_class === 'FOREX';
             for (const id of ['chart-mid-price', 'chart-bid-ask', 'chart-change-24h', 'chart-high-24h', 'chart-low-24h', 'chart-volume-24h']) {
                 const element = document.getElementById(id);
                 if (element) {
@@ -1319,6 +1321,8 @@ let connectedWallet = null;
             const volumeUsd = Number(ticker.usdtVolume ?? ticker.quoteVolume);
             const highPrice = Number(ticker.highPrice ?? ticker.high24h);
             const lowPrice = Number(ticker.lowPrice ?? ticker.low24h);
+            const volumeCard = document.getElementById('chart-volume-24h')?.parentElement;
+            if (volumeCard) volumeCard.hidden = isForex;
             const stats = [
                 ['chart-mid-price', formatMarketStat(midPrice, priceStyle, pricePrecision)],
                 ['chart-bid-ask', bidAsk],
@@ -1331,17 +1335,6 @@ let connectedWallet = null;
                 const element = document.getElementById(id);
                 if (element) element.textContent = value;
             });
-            const volumeLabel = document.getElementById('chart-volume-24h')?.previousElementSibling;
-            const volumeStat = document.getElementById('chart-volume-24h');
-            if (selectedMarket?.asset_class === 'FOREX') {
-                const quoteUpdates = Number(ticker.quoteUpdates24h);
-                if (volumeLabel) volumeLabel.textContent = 'Quote samples (24h)';
-                if (volumeStat) volumeStat.textContent = Number.isFinite(quoteUpdates) ? Math.floor(quoteUpdates).toLocaleString() : '—';
-                volumeStat?.parentElement?.setAttribute('title', 'Count of valid historical quote samples; spot Forex has no centralized traded-volume feed.');
-            } else {
-                if (volumeLabel) volumeLabel.textContent = '24h Volume (USDT)';
-                volumeStat?.parentElement?.removeAttribute('title');
-            }
             const change = document.getElementById('chart-change-24h');
             if (change && Number.isFinite(changePct)) {
                 change.classList.toggle('is-positive', changePct > 0);

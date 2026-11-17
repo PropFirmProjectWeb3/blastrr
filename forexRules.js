@@ -143,11 +143,6 @@ function parseForexChartHistory(payload, intervalSeconds = 60, nowSeconds = Math
   }
   const dayStart = nowSeconds - 24 * 60 * 60;
   const recentCandles = candles.filter(candle => candle.time >= dayStart);
-  const quoteUpdates24h = timestamps.reduce((count, timestampValue, index) => {
-    const timestamp = Number(timestampValue);
-    const close = Number(quote.close[index]);
-    return count + (timestamp >= dayStart && timestamp <= nowSeconds && Number.isFinite(close) && close > 0 ? 1 : 0);
-  }, 0);
   const priorCandle = candles.filter(candle => candle.time < dayStart).pop();
   const chartPreviousClose = Number(result.meta?.chartPreviousClose ?? result.meta?.previousClose);
   const referencePrice = priorCandle?.close ||
@@ -157,8 +152,7 @@ function parseForexChartHistory(payload, intervalSeconds = 60, nowSeconds = Math
     stats: {
       referencePrice,
       highPrice: Math.max(...(recentCandles.length ? recentCandles : candles).map(candle => candle.high)),
-      lowPrice: Math.min(...(recentCandles.length ? recentCandles : candles).map(candle => candle.low)),
-      quoteUpdates24h
+      lowPrice: Math.min(...(recentCandles.length ? recentCandles : candles).map(candle => candle.low))
     }
   };
 }

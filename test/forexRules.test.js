@@ -109,7 +109,9 @@ test('flat Forex price samples are rendered as candles using the prior close', (
     { open: 1.1, high: 1.1, low: 1.1, close: 1.1 },
     { open: 1.1, high: 1.101, low: 1.1, close: 1.101 }
   ]);
-  assert.equal(history.stats.quoteUpdates24h, 2);
+  assert.equal(history.stats.highPrice, 1.101);
+  assert.equal(history.stats.lowPrice, 1.1);
+  assert.equal(history.stats.quoteUpdates24h, undefined);
 });
 
 test('forex margin is standard-lot notional converted to USD and divided by leverage', () => {

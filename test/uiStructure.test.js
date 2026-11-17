@@ -138,6 +138,8 @@ test('trading terminal displays spot stats and puts account selection first in t
   assert.match(appJs, /ticker\.highPrice/);
   assert.match(appJs, /ticker\.lowPrice/);
   assert.match(appJs, /ticker\.quoteVolume/);
+  assert.match(appJs, /volumeCard\.hidden = isForex/);
+  assert.doesNotMatch(appJs, /quoteUpdates24h|Quote samples/);
   assert.match(appJs, /function updateMarketTabTitle\(price, pair\)/);
   assert.match(appJs, /updateMarketTabTitle\(price, pair\)/);
   assert.match(appJs, /document\.title = `\$\$\{price\.toLocaleString/);
@@ -168,7 +170,7 @@ test('admin can toggle maintenance for each public page and set an outage messag
 
 test('trading terminal HTML loads its external stylesheet and application script', () => {
   assert.match(appHtml, /href="\/css\/app\.css\?v=20261117-live-margin-estimate"/);
-  assert.match(appHtml, /src="\/js\/app\.js\?v=20261117-leveraged-forex-exposure" defer/);
+  assert.match(appHtml, /src="\/js\/app\.js\?v=20261117-forex-volume-hidden" defer/);
   assert.doesNotMatch(appHtml, /<style[\s>]/i);
   assert.doesNotMatch(appHtml, /<script>\s*[\s\S]*?\bfunction\s/m);
   assert.match(appHtml, /id="nav-menu"/);

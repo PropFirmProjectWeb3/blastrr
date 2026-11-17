@@ -131,7 +131,7 @@ let connectedWallet = null;
         };
         
         const TREASURY_WALLET = "0xFBD3B9bA404f590b9A7b35B72104bEff9DEa5503";
-        const DISCLAIMER_VERSION = '2026-11-02-v1';
+        const DISCLAIMER_VERSION = '2026-11-17-v2';
 
         function escapeHTML(value) {
             return String(value ?? '').replace(/[&<>"']/g, character => ({
@@ -2489,7 +2489,7 @@ let connectedWallet = null;
             const cancelButton = document.getElementById('disclaimer-cancel-purchase');
             if (cancelButton) cancelButton.hidden = mode !== 'purchase';
             const title = document.getElementById('disclaimer-title');
-            if (title) title.textContent = mode === 'purchase' ? 'Review Terms Before Purchase' : 'Important Disclaimers & Terms';
+            if (title) title.textContent = mode === 'purchase' ? 'Review Terms Before Purchase' : 'Simulated Trading Terms & Rules';
             const copy = document.querySelector('.disclaimer-header .wallet-login-copy');
             if (copy) copy.textContent = mode === 'purchase'
                 ? 'Review the terms for this purchase. You must reach the end and confirm both acknowledgements each time you buy.'

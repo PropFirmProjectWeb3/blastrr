@@ -37,7 +37,7 @@ const app = express();
 const PORT = process.env.PORT || 4480;
 
 const TREASURY_WALLET = '0xFBD3B9bA404f590b9A7b35B72104bEff9DEa5503';
-const DISCLAIMER_VERSION = '2026-11-02-v1';
+const DISCLAIMER_VERSION = '2026-11-17-v2';
 const MAINTENANCE_PAGE_IDS = ['home', 'trade', 'accounts', 'copytrading', 'leaderboard', 'blastrrpass', 'profile', 'plans', 'faq', 'docs'];
 
 // --- SUPPORTED EVM CHAINS CONFIGURATION ---

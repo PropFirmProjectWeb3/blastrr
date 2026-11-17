@@ -346,7 +346,15 @@ test('terminal stays black and locked until a signed wallet session is establish
   assert.match(appHtml, /id="disclaimer-simulated-funds" type="checkbox" disabled/);
   assert.match(appHtml, /id="disclaimer-remember" type="checkbox" checked/);
   assert.match(appHtml, /id="disclaimer-cancel-purchase"/);
-  assert.match(appHtml, /Testimonials &amp; User Submissions/);
+  assert.match(appHtml, /Testimonials, feedback, or metrics/);
+  assert.match(appHtml, /five minutes before or after/);
+  assert.match(appHtml, /general minimum holding period of two minutes/);
+  assert.match(appHtml, /not an automatic breach/);
+  assert.match(appHtml, /built-in copy feature between accounts that you personally own and control/);
+  assert.match(appHtml, /reward is not guaranteed/);
+  assert.doesNotMatch(appHtml, /No Guarantee or Promise of Payment|Hindsight Bias/i);
+  assert.match(appJs, /const DISCLAIMER_VERSION = '2026-11-17-v2'/);
+  assert.match(serverJs, /const DISCLAIMER_VERSION = '2026-11-17-v2'/);
   assert.match(appCss, /body\.auth-locked[^}]*background:\s*#000/);
   assert.match(appJs, /if \(!dashboardAuthenticated \|\| !walletSessionToken \|\|[\s\S]*?lockDashboard\(\);[\s\S]*?return;/);
   assert.match(appJs, /await ensureWalletSession\(\);[\s\S]*?walletFetch\('\/api\/user\/disclaimer-consent'\)[\s\S]*?if \(consent\.accepted && consent\.version === DISCLAIMER_VERSION\)[\s\S]*?continueAfterDisclaimer\(\)/);

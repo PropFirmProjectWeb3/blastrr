@@ -100,6 +100,10 @@ let connectedWallet = null;
                 let forexPriceStream = null;
                 let forexPriceGeneration = 0;
                 const forexPricesBySymbol = new Map();
+                let forexChartStats = null;
+                let forexChartStatsSymbol = null;
+                let liveMarketChartHistoryFailed = false;
+                let liveMarketChartUsesNewYorkTime = false;
                 const closingTradeIds = new Set();
         let maintenanceStatuses = {};
         let maintenanceMessage = '';
@@ -154,6 +158,24 @@ let connectedWallet = null;
                     : 'The server returned an invalid API response.';
                 throw new Error(`${endpoint} failed (HTTP ${response.status}). ${detail}`);
             }
+        }
+
+        function renderForexChartStats(market, quote) {
+            const stats = forexChartStatsSymbol === market.symbol ? forexChartStats : null;
+            const price = Number(quote.price);
+            const referencePrice = Number(stats?.referencePrice);
+            const highPrice = Number(stats?.highPrice);
+            const lowPrice = Number(stats?.lowPrice);
+            renderChartMarketStats({
+                bidPrice: quote.bid,
+                askPrice: quote.ask,
+                lastPrice: price,
+                priceChangePercent: Number.isFinite(referencePrice) && referencePrice > 0
+                    ? ((price / referencePrice) - 1) * 100
+                    : undefined,
+                high24h: Number.isFinite(highPrice) && highPrice > 0 ? Math.max(highPrice, price) : price,
+                low24h: Number.isFinite(lowPrice) && lowPrice > 0 ? Math.min(lowPrice, price) : price
+            });
         }
 
         const SUPPORTED_EVM_CHAINS = {
@@ -413,10 +435,12 @@ let connectedWallet = null;
             liveMarketChart = null;
             liveMarketCandleSeries = null;
             liveMarketChartPair = null;
+            liveMarketChartUsesNewYorkTime = false;
             liveMarketChartStatus = null;
             liveMarketLastCandle = null;
             liveMarketFirstCandleTime = null;
             liveMarketCandles = [];
+            liveMarketChartHistoryFailed = false;
             liveMarketIndicatorSeries = {};
             liveMarketTradeLines = [];
             liveMarketTradeMarkers = [];
@@ -522,10 +546,61 @@ let connectedWallet = null;
                 timeScale: {
                     borderColor: LIVE_CHART_THEME.border,
                     timeVisible: showTimeScale,
-                    visible: showTimeScale
+                    visible: showTimeScale,
+                    tickMarkFormatter: formatChartTimeInNewYork
+                },
+                localization: {
+                    locale: 'en-US',
+                    timeFormatter: formatChartTimeInNewYork
                 },
                 crosshair: { mode: LightweightCharts.CrosshairMode?.Normal ?? 0 }
             };
+        }
+
+        function formatChartTimeInNewYork(time) {
+            const date = typeof time === 'number'
+                ? new Date(time * 1000)
+                : new Date(Date.UTC(time.year, time.month - 1, time.day));
+            return date.toLocaleString('en-US', {
+                timeZone: 'America/New_York',
+                month: 'short',
+                day: 'numeric',
+                hour: 'numeric',
+                minute: '2-digit',
+                timeZoneName: 'short'
+            });
+        }
+
+        const newYorkChartTimeFormatter = new Intl.DateTimeFormat('en-US', {
+            timeZone: 'America/New_York',
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit',
+            hour: '2-digit',
+            minute: '2-digit',
+            second: '2-digit',
+            hourCycle: 'h23'
+        });
+
+        function floorChartTimeToNewYorkInterval(timestampSeconds, intervalSeconds) {
+            if (intervalSeconds <= 60 * 60) {
+                return Math.floor(timestampSeconds / intervalSeconds) * intervalSeconds;
+            }
+            const getWallClockTime = timestamp => {
+                const parts = Object.fromEntries(newYorkChartTimeFormatter.formatToParts(new Date(timestamp * 1000))
+                    .filter(part => part.type !== 'literal')
+                    .map(part => [part.type, Number(part.value)]));
+                return Date.UTC(parts.year, parts.month - 1, parts.day, parts.hour, parts.minute, parts.second) / 1000;
+            };
+            const targetWallClockTime = Math.floor(getWallClockTime(timestampSeconds) / intervalSeconds) * intervalSeconds;
+            let flooredTimestamp = targetWallClockTime - (getWallClockTime(timestampSeconds) - timestampSeconds);
+            for (let attempt = 0; attempt < 3; attempt += 1) {
+                const offsetSeconds = getWallClockTime(flooredTimestamp) - flooredTimestamp;
+                const adjustedTimestamp = targetWallClockTime - offsetSeconds;
+                if (adjustedTimestamp === flooredTimestamp) break;
+                flooredTimestamp = adjustedTimestamp;
+            }
+            return flooredTimestamp;
         }
 
         function createChartIndicatorSeries(chart, indicatorSeries) {
@@ -648,6 +723,14 @@ let connectedWallet = null;
                 : String(pair || '').replace(/\.P$/i, '').replace(/USDT$/i, '/USD');
             const chartPairLabel = document.getElementById('chart-pair-label');
             if (chartPairLabel) chartPairLabel.textContent = pairLabel || 'Selected market';
+            const forexMarket = source === 'SWISSQUOTE' ? marketsData.find(item => item.pair === pair) : null;
+            liveMarketChartUsesNewYorkTime = Boolean(forexMarket);
+            forexChartStats = null;
+            forexChartStatsSymbol = forexMarket?.symbol || null;
+            const forexPipSize = Number(forexMarket?.pip_size);
+            const forexPricePrecision = forexMarket && Number.isFinite(forexPipSize) && forexPipSize > 0
+                ? Math.min(8, Math.ceil(-Math.log10(forexPipSize)) + 1)
+                : null;
             const container = document.getElementById('tradingview-widget-container');
             if (!container) return;
             container.replaceChildren();
@@ -680,6 +763,9 @@ let connectedWallet = null;
             attribution.target = '_blank';
             attribution.rel = 'noopener noreferrer';
             attribution.textContent = 'Charts by TradingView';
+            attribution.title = source === 'SWISSQUOTE'
+                ? 'Forex history: Yahoo Finance · Live quotes: Swissquote · Chart times: New York'
+                : 'Charts by TradingView';
             chartHost.append(liveMarketChartStatus, attribution);
             container.replaceChildren(chartHost);
 
@@ -689,16 +775,52 @@ let connectedWallet = null;
                 downColor: LIVE_CHART_THEME.down,
                 borderVisible: false,
                 wickUpColor: LIVE_CHART_THEME.up,
-                wickDownColor: LIVE_CHART_THEME.down
+                wickDownColor: LIVE_CHART_THEME.down,
+                ...(forexPricePrecision ? {
+                    priceFormat: {
+                        type: 'price',
+                        precision: forexPricePrecision,
+                        minMove: 10 ** -forexPricePrecision
+                    }
+                } : {})
             });
             observeLiveMarketChart(liveMarketChart, chartHost);
             syncLiveChartRanges(liveMarketChart);
 
             if (source === 'SWISSQUOTE') {
-                liveMarketChartStatus.textContent = 'Waiting for Swissquote ticks to build live candles…';
-                const market = marketsData.find(item => item.pair === pair);
-                const lastTick = forexPricesBySymbol.get(market?.symbol);
-                if (lastTick) updateLiveMarketChart(pair, lastTick.price, lastTick.publishTime);
+                liveMarketChartStatus.textContent = 'Loading Forex chart history…';
+                liveMarketChartHistoryFailed = true;
+                try {
+                    if (!forexMarket) throw new Error('The selected Forex market is not configured.');
+                    const response = await fetch(`/api/forex/candles?symbol=${encodeURIComponent(forexMarket.symbol)}&timeframe=${encodeURIComponent(timeframe)}`);
+                    const data = await response.json();
+                    if (!response.ok) throw new Error(data?.error || `Forex candle request failed (${response.status}).`);
+                    if (generation !== liveMarketChartGeneration || liveMarketChartPair !== pair) return;
+                    if (!Array.isArray(data.candles) || data.candles.length === 0) {
+                        throw new Error('Forex history provider returned no candles.');
+                    }
+                    liveMarketCandleSeries.setData(data.candles);
+                    liveMarketCandles = data.candles;
+                    liveMarketFirstCandleTime = data.candles[0].time;
+                    liveMarketLastCandle = { ...data.candles[data.candles.length - 1] };
+                    forexChartStats = data.stats;
+                    refreshChartIndicators();
+                    liveMarketChart.timeScale().fitContent();
+                    renderChartTradeOverlays(displayedOpenTrades);
+                    liveMarketChartHistoryFailed = false;
+                    liveMarketChartStatus.remove();
+                    liveMarketChartStatus = null;
+                    const lastTick = forexPricesBySymbol.get(forexMarket.symbol);
+                    if (lastTick) {
+                        updateLiveMarketChart(pair, lastTick.price, lastTick.publishTime);
+                        renderForexChartStats(forexMarket, lastTick);
+                    }
+                } catch (error) {
+                    if (generation !== liveMarketChartGeneration) return;
+                    liveMarketChartHistoryFailed = true;
+                    console.error(`Unable to load Forex chart history for ${pair}:`, error.message);
+                    liveMarketChartStatus.textContent = 'Forex history is unavailable; showing live candles only.';
+                }
                 return;
             }
 
@@ -752,16 +874,20 @@ let connectedWallet = null;
             const price = Number(priceValue);
             const timestamp = Number(timestampValue);
             if (!Number.isFinite(price) || price <= 0) return;
-            const time = Math.floor((Number.isFinite(timestamp) ? timestamp : Date.now()) /
-                (liveMarketTimeframeSeconds * 1000)) * liveMarketTimeframeSeconds;
+            const timestampSeconds = (Number.isFinite(timestamp) ? timestamp : Date.now()) / 1000;
+            const time = liveMarketChartUsesNewYorkTime
+                ? floorChartTimeToNewYorkInterval(timestampSeconds, liveMarketTimeframeSeconds)
+                : Math.floor(timestampSeconds / liveMarketTimeframeSeconds) * liveMarketTimeframeSeconds;
             const latest = liveMarketLastCandle;
             if (!latest) {
                 liveMarketLastCandle = { time, open: price, high: price, low: price, close: price, volume: 0 };
                 liveMarketCandles = [{ ...liveMarketLastCandle }];
                 liveMarketFirstCandleTime = time;
                 liveMarketCandleSeries.update({ ...liveMarketLastCandle });
-                liveMarketChartStatus?.remove();
-                liveMarketChartStatus = null;
+                if (!liveMarketChartHistoryFailed) {
+                    liveMarketChartStatus?.remove();
+                    liveMarketChartStatus = null;
+                }
                 refreshChartIndicators();
                 return;
             }
@@ -1014,11 +1140,11 @@ let connectedWallet = null;
             }
         }
 
-        function formatMarketStat(value, style = 'number') {
+        function formatMarketStat(value, style = 'number', maximumFractionDigits = 2) {
             const number = Number(value);
             if (!Number.isFinite(number)) return '—';
             if (style === 'currency') {
-                return `$${number.toLocaleString(undefined, { maximumFractionDigits: 2 })}`;
+                return `$${number.toLocaleString(undefined, { maximumFractionDigits })}`;
             }
             if (style === 'compactCurrency') {
                 return new Intl.NumberFormat('en-US', {
@@ -1031,7 +1157,7 @@ let connectedWallet = null;
             if (style === 'percent') {
                 return `${number >= 0 ? '+' : ''}${number.toFixed(2)}%`;
             }
-            return number.toLocaleString(undefined, { maximumFractionDigits: 2 });
+            return number.toLocaleString(undefined, { maximumFractionDigits });
         }
 
         function updateMarketTabTitle(price, pair) {
@@ -1159,6 +1285,13 @@ let connectedWallet = null;
 
         function renderChartMarketStats(ticker) {
             if (!ticker) return;
+            const selectedMarket = marketsData.find(market => market.symbol === document.getElementById('order-symbol')?.value);
+            const isForex = selectedMarket?.asset_class === 'FOREX';
+            const pipSize = Number(selectedMarket?.pip_size);
+            const pricePrecision = isForex && Number.isFinite(pipSize) && pipSize > 0
+                ? Math.min(8, Math.ceil(-Math.log10(pipSize)) + 1)
+                : 2;
+            const priceStyle = isForex ? 'number' : 'currency';
             const bidPrice = Number(ticker.bidPr ?? ticker.bidPrice);
             const askPrice = Number(ticker.askPr ?? ticker.askPrice);
             const lastPrice = Number(ticker.lastPr ?? ticker.lastPrice ?? ticker.price);
@@ -1166,24 +1299,34 @@ let connectedWallet = null;
                 ? (bidPrice + askPrice) / 2
                 : lastPrice;
             const bidAsk = Number.isFinite(bidPrice) && bidPrice > 0 && Number.isFinite(askPrice) && askPrice > 0
-                ? `${formatMarketStat(bidPrice, 'currency')} / ${formatMarketStat(askPrice, 'currency')}`
+                ? `${formatMarketStat(bidPrice, priceStyle, pricePrecision)} / ${formatMarketStat(askPrice, priceStyle, pricePrecision)}`
                 : '—';
             const changePct = Number(ticker.priceChangePercent ?? (Number(ticker.change24h) * 100));
             const volumeUsd = Number(ticker.usdtVolume ?? ticker.quoteVolume);
             const highPrice = Number(ticker.highPrice ?? ticker.high24h);
             const lowPrice = Number(ticker.lowPrice ?? ticker.low24h);
             const stats = [
-                ['chart-mid-price', formatMarketStat(midPrice, 'currency')],
+                ['chart-mid-price', formatMarketStat(midPrice, priceStyle, pricePrecision)],
                 ['chart-bid-ask', bidAsk],
                 ['chart-change-24h', formatMarketStat(changePct, 'percent')],
-                ['chart-high-24h', formatMarketStat(highPrice, 'currency')],
-                ['chart-low-24h', formatMarketStat(lowPrice, 'currency')],
+                ['chart-high-24h', formatMarketStat(highPrice, priceStyle, pricePrecision)],
+                ['chart-low-24h', formatMarketStat(lowPrice, priceStyle, pricePrecision)],
                 ['chart-volume-24h', formatMarketStat(volumeUsd, 'compactCurrency')]
             ];
             stats.forEach(([id, value]) => {
                 const element = document.getElementById(id);
                 if (element) element.textContent = value;
             });
+            const volumeLabel = document.getElementById('chart-volume-24h')?.previousElementSibling;
+            const volumeStat = document.getElementById('chart-volume-24h');
+            if (selectedMarket?.asset_class === 'FOREX') {
+                if (volumeLabel) volumeLabel.textContent = 'Spot volume';
+                if (volumeStat) volumeStat.textContent = 'N/A';
+                volumeStat?.parentElement?.setAttribute('title', 'Spot Forex has no centralized volume feed.');
+            } else {
+                if (volumeLabel) volumeLabel.textContent = '24h Volume (USDT)';
+                volumeStat?.parentElement?.removeAttribute('title');
+            }
             const change = document.getElementById('chart-change-24h');
             if (change && Number.isFinite(changePct)) {
                 change.classList.toggle('is-positive', changePct > 0);
@@ -1234,7 +1377,8 @@ let connectedWallet = null;
                     const price = Number(update.price);
                     const publishTime = Number(update.publishTime);
                     if (!Number.isFinite(price) || price <= 0 || !Number.isFinite(publishTime)) return;
-                    forexPricesBySymbol.set(market.symbol, { price, publishTime });
+                    const quote = { price, bid: Number(update.bid), ask: Number(update.ask), publishTime };
+                    forexPricesBySymbol.set(market.symbol, quote);
                     if (market.symbol !== document.getElementById('order-symbol')?.value) {
                         calculateMetrics();
                         updateDisplayedOpenTradePnls(currentLivePrice);
@@ -1249,7 +1393,7 @@ let connectedWallet = null;
                     currentLivePrice = price;
                     updateMarketTabTitle(price, market.pair);
                     updateLiveMarketChart(market.pair, price, publishTime);
-                    renderChartMarketStats({ bidPrice: update.bid, askPrice: update.ask, lastPrice: price });
+                    renderForexChartStats(market, quote);
                     const priceInput = document.getElementById('order-price');
                     if (priceInput && !userHasEditedPrice) {
                         priceInput.value = price;

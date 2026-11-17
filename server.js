@@ -11,6 +11,7 @@ const {
   USD_CONVERSION_SYMBOLS,
   calculateForexMargin,
   getQuoteToUsdRate,
+  parseForexChartHistory,
   parseSwissquotePrice,
   resolveForexStopTargetPrices
 } = require('./forexRules');
@@ -254,9 +255,18 @@ const LOGIN_IP_RETENTION_DAYS = 180;
 setTimeout(cleanupExpiredLoginIpEvents, 5000);
 setInterval(cleanupExpiredLoginIpEvents, 24 * 60 * 60 * 1000);
 const marketPriceCache = new Map();
+const forexChartHistoryCache = new Map();
 const forexPriceStreamClients = new Set();
 let forexPriceStreamInterval = null;
 let forexPricePollInFlight = false;
+const forexChartTimeframes = Object.freeze({
+  '1m': { interval: '1m', range: '5d', barSeconds: 60 },
+  '5m': { interval: '5m', range: '5d', barSeconds: 300 },
+  '15m': { interval: '15m', range: '1mo', barSeconds: 900 },
+  '1h': { interval: '1h', range: '1mo', barSeconds: 3600 },
+  '4h': { interval: '1h', range: '3mo', barSeconds: 14400 },
+  '1d': { interval: '1h', range: '1y', barSeconds: 86400 }
+});
 // Resolve retired symbols only for existing open trades; new orders use markets from markets.json.
 const legacyTradeMarkets = new Map([
   ['BINANCE:BTCUSDT', { source: 'BINANCE_SPOT', pair: 'BTCUSDT' }],
@@ -273,6 +283,47 @@ const legacyTradeMarkets = new Map([
 
 function getTradeMarket(symbol) {
   return supportedMarkets.find(item => item.symbol === symbol) || legacyTradeMarkets.get(symbol);
+}
+
+function getForexChartHistory(market, timeframe) {
+  const config = forexChartTimeframes[timeframe];
+  if (!config) return Promise.reject(new Error('Choose a supported Forex chart timeframe.'));
+  const cacheKey = `${market.symbol}:${timeframe}`;
+  const cached = forexChartHistoryCache.get(cacheKey);
+  if (cached?.data && cached.expiresAt > Date.now()) return Promise.resolve(cached.data);
+  if (cached?.promise) return cached.promise;
+
+  const yahooSymbol = `${market.base_currency}${market.quote_currency}=X`;
+  const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(yahooSymbol)}?range=${config.range}&interval=${config.interval}`;
+  const historyPromise = new Promise((resolve, reject) => {
+    const request = https.get(url, {
+      timeout: 8000,
+      headers: { 'User-Agent': 'Mozilla/5.0' }
+    }, response => {
+      let body = '';
+      response.setEncoding('utf8');
+      response.on('data', chunk => { body += chunk; });
+      response.on('end', () => {
+        if (response.statusCode !== 200) return reject(new Error(`Yahoo Finance returned HTTP ${response.statusCode}.`));
+        try {
+          const payload = JSON.parse(body);
+          if (payload.chart?.error) {
+            return reject(new Error(payload.chart.error.description || 'Yahoo Finance returned a chart error.'));
+          }
+          resolve(parseForexChartHistory(payload, config.barSeconds));
+        } catch (error) {
+          reject(new Error(`Unable to parse Yahoo Finance Forex history: ${error.message}`));
+        }
+      });
+    });
+    request.on('timeout', () => request.destroy(new Error('Yahoo Finance chart request timed out.')));
+    request.on('error', reject);
+  });
+  forexChartHistoryCache.set(cacheKey, { promise: historyPromise });
+  historyPromise.then(data => {
+    forexChartHistoryCache.set(cacheKey, { data, expiresAt: Date.now() + 60000 });
+  }).catch(() => forexChartHistoryCache.delete(cacheKey));
+  return historyPromise;
 }
 
 function getSwissquoteQuote(market, maxAgeMs = 72 * 60 * 60 * 1000) {
@@ -4792,6 +4843,23 @@ app.get('/api/trades/active', requireWalletSession, (req, res) => {
       });
     });
   });
+});
+
+app.get('/api/forex/candles', (req, res) => {
+  const market = getTradeMarket(String(req.query.symbol || ''));
+  if (!market || market.asset_class !== 'FOREX') {
+    return res.status(400).json({ error: 'Choose a supported Forex market.' });
+  }
+  const timeframe = String(req.query.timeframe || '1m');
+  if (!forexChartTimeframes[timeframe]) {
+    return res.status(400).json({ error: 'Choose a supported Forex chart timeframe.' });
+  }
+  getForexChartHistory(market, timeframe)
+    .then(history => res.json(history))
+    .catch(error => {
+      console.warn(`Unable to load Yahoo Finance Forex history for ${market.pair}:`, error.message);
+      res.status(502).json({ error: 'Unable to load Forex chart history. Live pricing is still available.' });
+    });
 });
 
 app.get('/api/forex/stream', (req, res) => {

@@ -8,6 +8,43 @@ const USD_CONVERSION_SYMBOLS = Object.freeze({
   CAD: 'FX:USDCAD'
 });
 
+const NEW_YORK_TIME_FORMATTER = new Intl.DateTimeFormat('en-US', {
+  timeZone: 'America/New_York',
+  year: 'numeric',
+  month: '2-digit',
+  day: '2-digit',
+  hour: '2-digit',
+  minute: '2-digit',
+  second: '2-digit',
+  hourCycle: 'h23'
+});
+const NEW_YORK_INTERVAL_CACHE = new Map();
+
+function floorToNewYorkInterval(timestampSeconds, intervalSeconds) {
+  if (intervalSeconds <= 60 * 60) {
+    return Math.floor(timestampSeconds / intervalSeconds) * intervalSeconds;
+  }
+  const getWallClockTime = timestamp => {
+    const parts = Object.fromEntries(NEW_YORK_TIME_FORMATTER.formatToParts(new Date(timestamp * 1000))
+      .filter(part => part.type !== 'literal')
+      .map(part => [part.type, Number(part.value)]));
+    return Date.UTC(parts.year, parts.month - 1, parts.day, parts.hour, parts.minute, parts.second) / 1000;
+  };
+  const targetWallClockTime = Math.floor(getWallClockTime(timestampSeconds) / intervalSeconds) * intervalSeconds;
+  const cacheKey = `${intervalSeconds}:${targetWallClockTime}`;
+  if (NEW_YORK_INTERVAL_CACHE.has(cacheKey)) return NEW_YORK_INTERVAL_CACHE.get(cacheKey);
+  let flooredTimestamp = targetWallClockTime - (getWallClockTime(timestampSeconds) - timestampSeconds);
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    const offsetSeconds = getWallClockTime(flooredTimestamp) - flooredTimestamp;
+    const adjustedTimestamp = targetWallClockTime - offsetSeconds;
+    if (adjustedTimestamp === flooredTimestamp) break;
+    flooredTimestamp = adjustedTimestamp;
+  }
+  NEW_YORK_INTERVAL_CACHE.set(cacheKey, flooredTimestamp);
+  if (NEW_YORK_INTERVAL_CACHE.size > 2000) NEW_YORK_INTERVAL_CACHE.delete(NEW_YORK_INTERVAL_CACHE.keys().next().value);
+  return flooredTimestamp;
+}
+
 function getQuoteToUsdRate(quoteCurrency, pricesBySymbol) {
   const currency = String(quoteCurrency || '').toUpperCase();
   if (currency === 'USD') return 1;
@@ -67,6 +104,51 @@ function parseSwissquotePrice(payload) {
   return quotes[0];
 }
 
+function parseForexChartHistory(payload, intervalSeconds = 60, nowSeconds = Math.floor(Date.now() / 1000)) {
+  const result = payload?.chart?.result?.[0];
+  const timestamps = result?.timestamp;
+  const quote = result?.indicators?.quote?.[0];
+  if (!Array.isArray(timestamps) || !quote ||
+      ![quote.open, quote.high, quote.low, quote.close].every(Array.isArray) ||
+      !Number.isInteger(intervalSeconds) || intervalSeconds <= 0 ||
+      !Number.isFinite(nowSeconds)) {
+    throw new Error('Yahoo Finance returned invalid Forex chart history.');
+  }
+
+  const groupedCandles = new Map();
+  timestamps.forEach((timestampValue, index) => {
+    const timeValue = Number(timestampValue);
+    const [open, high, low, close] = [quote.open[index], quote.high[index], quote.low[index], quote.close[index]].map(Number);
+    if (!Number.isFinite(timeValue) || ![open, high, low, close].every(value => Number.isFinite(value) && value > 0)) return;
+    const time = floorToNewYorkInterval(timeValue, intervalSeconds);
+    const candle = groupedCandles.get(time);
+    if (!candle) {
+      groupedCandles.set(time, { time, open, high, low, close, volume: 0 });
+      return;
+    }
+    candle.high = Math.max(candle.high, high);
+    candle.low = Math.min(candle.low, low);
+    candle.close = close;
+  });
+
+  const candles = [...groupedCandles.values()].sort((left, right) => left.time - right.time);
+  if (!candles.length) throw new Error('Yahoo Finance returned no valid Forex candles.');
+  const dayStart = nowSeconds - 24 * 60 * 60;
+  const recentCandles = candles.filter(candle => candle.time >= dayStart);
+  const priorCandle = candles.filter(candle => candle.time < dayStart).pop();
+  const chartPreviousClose = Number(result.meta?.chartPreviousClose ?? result.meta?.previousClose);
+  const referencePrice = priorCandle?.close ||
+    (Number.isFinite(chartPreviousClose) && chartPreviousClose > 0 ? chartPreviousClose : null);
+  return {
+    candles: candles.slice(-2000),
+    stats: {
+      referencePrice,
+      highPrice: Math.max(...(recentCandles.length ? recentCandles : candles).map(candle => candle.high)),
+      lowPrice: Math.min(...(recentCandles.length ? recentCandles : candles).map(candle => candle.low))
+    }
+  };
+}
+
 function resolveForexStopTargetPrices({
   executionPrice,
   units,
@@ -123,6 +205,8 @@ module.exports = {
   calculateForexMargin,
   calculateForexPnl,
   getQuoteToUsdRate,
+  floorToNewYorkInterval,
+  parseForexChartHistory,
   parseSwissquotePrice,
   resolveForexStopTargetPrices
 };

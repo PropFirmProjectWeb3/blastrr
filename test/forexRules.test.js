@@ -161,3 +161,30 @@ test('forex stops support pip distances and dollar risk amounts', () => {
     tpAmount: 200
   }), { sl: 1.099, tp: 1.102 });
 });
+
+test('XAUUSD dollar exits target the requested PnL independently of 50x leverage', () => {
+  const position = calculateForexMargin(0.5, 4000, 50, 1, 100);
+  const levels = resolveForexStopTargetPrices({
+    executionPrice: 4000,
+    units: position.units,
+    quoteToUsdRate: 1,
+    pipSize: 0.01,
+    side: 'BUY',
+    mode: 'amount',
+    slAmount: 1000,
+    tpAmount: 1000
+  });
+
+  assert.equal(position.marginUsd, 4000);
+  assert.deepEqual(levels, { sl: 3980, tp: 4020 });
+  assert.equal(calculateForexPnl({
+    side: 'BUY',
+    entry_price: 4000,
+    units: position.units
+  }, levels.tp), 1000);
+  assert.equal(calculateForexPnl({
+    side: 'BUY',
+    entry_price: 4000,
+    units: position.units
+  }, levels.sl), -1000);
+});

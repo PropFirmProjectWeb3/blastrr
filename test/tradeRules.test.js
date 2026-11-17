@@ -1,7 +1,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
-const { resolveStopTargetPrices } = require('../tradeRules');
+const { getTriggeredExitPrice, resolveStopTargetPrices } = require('../tradeRules');
 const serverJs = fs.readFileSync('server.js', 'utf8');
 const appHtml = fs.readFileSync('public/app.html', 'utf8');
 const appJs = fs.readFileSync('public/js/app.js', 'utf8');
@@ -31,6 +31,20 @@ test('dollar SL/TP amounts resolve to execution-price triggers for short positio
   });
 
   assert.deepEqual(levels, { sl: 125, tp: 50 });
+});
+
+test('amount-based exits use their trigger price instead of a later overshooting quote', () => {
+  assert.equal(getTriggeredExitPrice({ price: 140, side: 'BUY', sl: 75, tp: 150 }), null);
+  assert.equal(getTriggeredExitPrice({ price: 190, side: 'BUY', sl: 75, tp: 150 }), 150);
+  assert.equal(getTriggeredExitPrice({ price: 60, side: 'BUY', sl: 75, tp: 150 }), 75);
+  assert.equal(getTriggeredExitPrice({ price: 60, side: 'SELL', sl: 125, tp: 50 }), null);
+  assert.equal(getTriggeredExitPrice({ price: 20, side: 'SELL', sl: 125, tp: 50 }), 50);
+  assert.equal(getTriggeredExitPrice({ price: 140, side: 'SELL', sl: 125, tp: 50 }), 125);
+  assert.match(serverJs, /SELECT t\.id, t\.symbol, t\.side, t\.sl, t\.tp, t\.sl_tp_mode, a\.wallet_address/);
+  assert.match(serverJs, /trade\.sl_tp_mode === 'amount' \? exitPrice : null/);
+  assert.match(serverJs, /const overridePrice = Number\(options\.exitPrice\)/);
+  assert.match(serverJs, /Number\.isFinite\(overridePrice\) && overridePrice > 0\s+\? Promise\.resolve\(overridePrice\)/);
+  assert.match(serverJs, /\}, \{ exitPrice: trade\.exitPrice \}\);/);
 });
 
 test('amount mode supports optional individual stop and target values', () => {

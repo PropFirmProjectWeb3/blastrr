@@ -40,4 +40,22 @@ function resolveStopTargetPrices({
   return { sl: stopLoss, tp: takeProfit };
 }
 
-module.exports = { resolveStopTargetPrices };
+function getTriggeredExitPrice({ price, side, sl = null, tp = null }) {
+  const marketPrice = Number(price);
+  if (!Number.isFinite(marketPrice) || marketPrice <= 0 || !['BUY', 'SELL'].includes(side)) return null;
+  const stopLoss = sl == null ? null : Number(sl);
+  const takeProfit = tp == null ? null : Number(tp);
+  if ((stopLoss != null && (!Number.isFinite(stopLoss) || stopLoss <= 0)) ||
+      (takeProfit != null && (!Number.isFinite(takeProfit) || takeProfit <= 0))) return null;
+
+  if (side === 'BUY') {
+    if (stopLoss != null && marketPrice <= stopLoss) return stopLoss;
+    if (takeProfit != null && marketPrice >= takeProfit) return takeProfit;
+  } else {
+    if (stopLoss != null && marketPrice >= stopLoss) return stopLoss;
+    if (takeProfit != null && marketPrice <= takeProfit) return takeProfit;
+  }
+  return null;
+}
+
+module.exports = { getTriggeredExitPrice, resolveStopTargetPrices };

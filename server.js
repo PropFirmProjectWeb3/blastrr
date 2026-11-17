@@ -27,7 +27,7 @@ const {
   getTradeMargin
 } = require('./riskRules');
 const { getProtectedPayoutBalance, getAvailableGrossWithdrawal, splitWithdrawal } = require('./payoutRules');
-const { resolveStopTargetPrices } = require('./tradeRules');
+const { getTriggeredExitPrice, resolveStopTargetPrices } = require('./tradeRules');
 const { isLimitOrderTriggered } = require('./limitOrderRules');
 const { calculateTradePerformance } = require('./performanceRules');
 const { MarketDataService } = require('./marketDataService');
@@ -4639,7 +4639,7 @@ app.post('/api/trades/execute', sensitiveLimiter, requireWalletSession, requireU
   );
 });
 
-function closeTradeForWallet(tradeId, walletAddress, callback) {
+function closeTradeForWallet(tradeId, walletAddress, callback, options = {}) {
   db.get(
     `SELECT t.*, a.wallet_address, a.current_equity, a.daily_starting_balance,
      a.status AS account_status, a.lock_reason, a.locked_until, a.permanent_lock
@@ -4669,9 +4669,12 @@ function closeTradeForWallet(tradeId, walletAddress, callback) {
         if (unlockErr) return callback({ status: 500, error: 'Unable to refresh account lock status.' });
         const market = getTradeMarket(trade.symbol);
         if (!market) return callback({ status: 409, error: 'The trade market is no longer configured.' });
+        const overridePrice = Number(options.exitPrice);
         const pricePromise = trade.status === 'PENDING'
           ? Promise.resolve(Number(trade.entry_price))
-          : getAuthoritativePrice(market);
+          : Number.isFinite(overridePrice) && overridePrice > 0
+            ? Promise.resolve(overridePrice)
+            : getAuthoritativePrice(market);
         const conversionPromise = trade.status === 'PENDING'
           ? Promise.resolve(1)
           : getLiveForexQuoteToUsdRate(market);
@@ -4735,7 +4738,7 @@ function closeTradeForWallet(tradeId, walletAddress, callback) {
   );
 }
 
-function closeOutstandingCopyTrades(walletAddress, callback) {
+function closeOutstandingCopyTrades(walletAddress, callback, options = {}) {
   db.all(
     `SELECT l.leader_trade_id, l.follower_trade_id, fa.id AS account_id
      FROM trade_copy_links l
@@ -4751,6 +4754,9 @@ function closeOutstandingCopyTrades(walletAddress, callback) {
       const closeNext = index => {
         if (index >= links.length) return callback(null, results);
         const linked = links[index];
+        const exitPrice = String(linked.leader_trade_id) === String(options.leaderTradeId)
+          ? options.exitPrice
+          : null;
         closeTradeForWallet(linked.follower_trade_id, walletAddress, (closeErr, closedTrade) => {
           results.push(closeErr?.status === 404
             ? {
@@ -4776,7 +4782,7 @@ function closeOutstandingCopyTrades(walletAddress, callback) {
                 pnl: closedTrade.pnl
               });
           closeNext(index + 1);
-        });
+        }, { exitPrice });
       };
       closeNext(0);
     }
@@ -4789,7 +4795,7 @@ function checkServerStopOrders() {
   if (stopOrderSweepInProgress) return;
   stopOrderSweepInProgress = true;
   db.all(
-    `SELECT t.id, t.symbol, t.side, t.sl, t.tp, a.wallet_address
+    `SELECT t.id, t.symbol, t.side, t.sl, t.tp, t.sl_tp_mode, a.wallet_address
      FROM trades t JOIN accounts a ON a.id = t.account_id
      WHERE t.status = 'OPEN' AND (t.sl IS NOT NULL OR t.tp IS NOT NULL)`,
     [],
@@ -4806,12 +4812,13 @@ function checkServerStopOrders() {
         if (!market) continue;
         try {
           const price = marketDataService.getQuote(market.symbol, getMarketQuoteMaxAgeMs(market)).price;
-          const stopLoss = trade.sl == null ? null : Number(trade.sl);
-          const takeProfit = trade.tp == null ? null : Number(trade.tp);
-          const hitStop = trade.side === 'BUY'
-            ? (stopLoss !== null && price <= stopLoss) || (takeProfit !== null && price >= takeProfit)
-            : (stopLoss !== null && price >= stopLoss) || (takeProfit !== null && price <= takeProfit);
-          if (hitStop) triggeredTrades.push(trade);
+          const exitPrice = getTriggeredExitPrice({ price, side: trade.side, sl: trade.sl, tp: trade.tp });
+          if (exitPrice !== null) {
+            triggeredTrades.push({
+              ...trade,
+              exitPrice: trade.sl_tp_mode === 'amount' ? exitPrice : null
+            });
+          }
         } catch {
           // A stale quote cannot safely trigger a stop; fresh execution prices are required to settle.
         }
@@ -4833,12 +4840,12 @@ function checkServerStopOrders() {
               if (copyErr) console.error('Unable to close copied trades after stop execution:', copyErr.message);
               stopOrderChecksInProgress.delete(trade.id);
               closeNext(index + 1);
-            });
+            }, { leaderTradeId: trade.id, exitPrice: trade.exitPrice });
           } else {
             stopOrderChecksInProgress.delete(trade.id);
             closeNext(index + 1);
           }
-        });
+        }, { exitPrice: trade.exitPrice });
       };
       closeNext(0);
     }

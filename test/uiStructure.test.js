@@ -169,7 +169,7 @@ test('admin can toggle maintenance for each public page and set an outage messag
 });
 
 test('trading terminal HTML loads its external stylesheet and application script', () => {
-  assert.match(appHtml, /href="\/css\/app\.css\?v=20261117-account-risk-polish"/);
+  assert.match(appHtml, /href="\/css\/app\.css\?v=20261117-plan-tools-align"/);
   assert.match(appHtml, /src="\/js\/app\.js\?v=20261117-account-risk-polish" defer/);
   assert.doesNotMatch(appHtml, /<style[\s>]/i);
   assert.doesNotMatch(appHtml, /<script>\s*[\s\S]*?\bfunction\s/m);
@@ -221,6 +221,7 @@ test('workspace uses grouped navigation and shared homepage-inspired view and ti
   assert.match(appJs, /class="account-preview-stat dashboard-tile"/);
   assert.match(appJs, /class="card dashboard-tile purchase-plan-card/);
   assert.match(appCss, /\.plans-grid \{ grid-template-columns: repeat\(3, minmax\(0, 1fr\)\); gap: 14px; \}/);
+  assert.match(appCss, /\.plans-purchase-tools \{ display: grid; grid-template-columns: repeat\(2, minmax\(0, 1fr\)\); align-items: start;/);
   assert.match(appCss, /@media \(max-width: 700px\)[\s\S]*?\.plans-grid \{ grid-template-columns: repeat\(2, minmax\(0, 1fr\)\); gap: 10px; \}[\s\S]*?\.plans-purchase-tools \{ grid-template-columns: minmax\(0, 1fr\); \}/);
 });
 

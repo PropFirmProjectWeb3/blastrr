@@ -1756,7 +1756,7 @@
             content: "";
         }
         .plans-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
-        .plans-purchase-tools { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: end; gap: 16px; margin-bottom: 20px; padding: 16px; border-color: var(--home-card-line); border-radius: 16px; background: linear-gradient(115deg, rgba(29, 19, 48, 0.78), rgba(10, 10, 17, 0.9)); }
+        .plans-purchase-tools { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: start; gap: 16px; margin-bottom: 20px; padding: 16px; border-color: var(--home-card-line); border-radius: 16px; background: linear-gradient(115deg, rgba(29, 19, 48, 0.78), rgba(10, 10, 17, 0.9)); }
         .plans-purchase-tools .form-group { min-width: 0; margin: 0; }
         .plans-purchase-tools .form-group label { color: #c6c0d9; }
         .plans-purchase-tools select { width: 100%; }

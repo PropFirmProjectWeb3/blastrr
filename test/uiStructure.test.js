@@ -164,8 +164,8 @@ test('admin can toggle maintenance for each public page and set an outage messag
 });
 
 test('trading terminal HTML loads its external stylesheet and application script', () => {
-  assert.match(appHtml, /href="\/css\/app\.css\?v=20261116-certificate-share"/);
-  assert.match(appHtml, /src="\/js\/app\.js\?v=20261116-certificate-share" defer/);
+  assert.match(appHtml, /href="\/css\/app\.css\?v=20261118-account-performance"/);
+  assert.match(appHtml, /src="\/js\/app\.js\?v=20261117-forex-order-scope-fix" defer/);
   assert.doesNotMatch(appHtml, /<style[\s>]/i);
   assert.doesNotMatch(appHtml, /<script>\s*[\s\S]*?\bfunction\s/m);
   assert.match(appHtml, /id="nav-menu"/);
@@ -592,11 +592,17 @@ test('expanded accounts show a responsive daily trade calendar and save text-onl
 });
 
 test('account performance summaries include active and soft DLL-locked accounts only', () => {
-  assert.doesNotMatch(appHtml, /accounts-hide-permanent|Hide permanently locked accounts/);
+  const accountsStart = appHtml.indexOf('<section id="accountsView"');
+  const accountsEnd = appHtml.indexOf('<section id="copyTradingView"', accountsStart);
+  const accountsHtml = appHtml.slice(accountsStart, accountsEnd);
+  assert.match(accountsHtml, /id="show-mll-accounts"[^>]*onchange="toggleMllAccounts\(this\.checked\)"/);
+  assert.match(accountsHtml, /Show MLL-failed accounts/);
   assert.match(appHtml, /Totals include active accounts and soft-locked DLL accounts; MLL-locked accounts are excluded/);
   assert.match(appJs, /function isActivePortfolioAccount\(account\)/);
   assert.match(appJs, /account\?\.status === 'ACTIVE'/);
   assert.match(appJs, /No active, unlocked accounts available to display/);
+  assert.match(appJs, /function toggleMllAccounts\(show\)/);
+  assert.match(appJs, /showPermanentlyLockedPortfolioAccounts && isMllAccount/);
   assert.match(serverJs, /const activeAccounts = allAccounts\.filter\(account =>[\s\S]*?account\.status === 'ACTIVE'/);
   assert.match(serverJs, /const dllLockedAccounts = allAccounts\.filter\(account =>[\s\S]*?account\.lockReason === 'DLL'/);
   assert.match(serverJs, /dllLockedAccountCount: dllLockedAccounts\.length/);
@@ -627,6 +633,22 @@ test('trade actions reuse the signed wallet session and do not show modal succes
   assert.doesNotMatch(appJs, /alert\(`Position closed/);
   assert.ok(serverJs.includes("app.post('/api/trades/execute', sensitiveLimiter, requireWalletSession"));
   assert.ok(serverJs.includes("app.post('/api/trades/close', sensitiveLimiter, requireWalletSession"));
+});
+
+test('Forex order execution can resolve quote-to-USD conversion outside the metrics function', () => {
+  const helperStart = appJs.indexOf('function getClientForexQuoteToUsdRate(');
+  const metricsStart = appJs.indexOf('function calculateMetrics() {');
+  const executeStart = appJs.indexOf('async function executeTrade(side) {');
+  const executeEnd = appJs.indexOf('async function closeTrade(', executeStart);
+  assert.ok(helperStart >= 0 && helperStart < metricsStart);
+  assert.match(appJs.slice(executeStart, executeEnd), /getClientForexQuoteToUsdRate\(selectedMarket\.quote_currency\)/);
+
+  const helper = appJs.slice(helperStart, metricsStart);
+  const getRate = new vm.Script(`${helper}\ngetClientForexQuoteToUsdRate`).runInNewContext({
+    forexPricesBySymbol: new Map([['FX:USDJPY', { price: 150 }]])
+  });
+  assert.equal(getRate('USD'), 1);
+  assert.equal(getRate('JPY'), 1 / 150);
 });
 
 test('browser application files contain no copied provider credentials', () => {

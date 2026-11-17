@@ -341,6 +341,10 @@
             </section>
             <div class="workspace-toolbar">
                 <button class="battlepass-secondary-button" type="button" onclick="manualRefreshData()">Refresh accounts</button>
+                <label class="account-filter-toggle">
+                    <input id="show-mll-accounts" type="checkbox" onchange="toggleMllAccounts(this.checked)">
+                    <span>Show MLL-failed accounts</span>
+                </label>
             </div>
             <div id="accounts-portfolio-container" class="account-card-list">
                     <p style="text-align: center; color: #6b7280; padding: 30px;">Connect wallet to view your accounts.</p>
@@ -1039,6 +1043,6 @@
 
     <script src="https://unpkg.com/lightweight-charts@4.2.3/dist/lightweight-charts.standalone.production.js"></script>
     <script src="/js/chartIndicators.js?v=20261115-multi-account-checkout" defer></script>
-    <script src="/js/app.js?v=20261117-forex-xauusd-candles-chat" defer></script>
+    <script src="/js/app.js?v=20261117-forex-order-scope-fix" defer></script>
 </body>
 </html>

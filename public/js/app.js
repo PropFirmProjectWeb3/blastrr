@@ -24,6 +24,7 @@ const CHART_INDICATOR_DEFINITIONS = Object.freeze({
 let connectedWallet = null;
         let availableWallets = [];
         let userAccounts = [];
+        let showPermanentlyLockedPortfolioAccounts = false;
         let accountPerformanceData = { overall: null, accounts: [] };
         let accountPerformanceRequest = null;
         let accountPerformanceRequestWallet = null;
@@ -1559,6 +1560,23 @@ let connectedWallet = null;
             if (targetInput) targetInput.placeholder = enabled ? 'Profit amount ($)' : isForex ? 'Pips' : 'Trigger price';
         }
 
+        function getClientForexQuoteToUsdRate(quoteCurrency) {
+            const currency = String(quoteCurrency || '').toUpperCase();
+            if (currency === 'USD') return 1;
+            const conversion = {
+                EUR: ['FX:EURUSD', false],
+                GBP: ['FX:GBPUSD', false],
+                AUD: ['FX:AUDUSD', false],
+                NZD: ['FX:NZDUSD', false],
+                JPY: ['FX:USDJPY', true],
+                CHF: ['FX:USDCHF', true],
+                CAD: ['FX:USDCAD', true]
+            }[currency];
+            const rate = forexPricesBySymbol.get(conversion?.[0])?.price;
+            if (!Number.isFinite(rate) || rate <= 0) return currency === 'USD' ? 1 : NaN;
+            return conversion[1] ? 1 / rate : rate;
+        }
+
         function calculateMetrics() {
             const sizeInput = parseFloat(document.getElementById('order-size-usd')?.value) || 0;
             const leverage = parseInt(document.getElementById('order-leverage')?.value) || 1;
@@ -1587,23 +1605,6 @@ let connectedWallet = null;
                 } else {
                     liqLabel.innerText = '—';
                 }
-            }
-
-            function getClientForexQuoteToUsdRate(quoteCurrency) {
-                const currency = String(quoteCurrency || '').toUpperCase();
-                if (currency === 'USD') return 1;
-                const conversion = {
-                    EUR: ['FX:EURUSD', false],
-                    GBP: ['FX:GBPUSD', false],
-                    AUD: ['FX:AUDUSD', false],
-                    NZD: ['FX:NZDUSD', false],
-                    JPY: ['FX:USDJPY', true],
-                    CHF: ['FX:USDCHF', true],
-                    CAD: ['FX:USDCAD', true]
-                }[currency];
-                const rate = forexPricesBySymbol.get(conversion?.[0])?.price;
-                if (!Number.isFinite(rate) || rate <= 0) return currency === 'USD' ? 1 : NaN;
-                return conversion[1] ? 1 / rate : rate;
             }
         }
 
@@ -3468,6 +3469,11 @@ let connectedWallet = null;
                 Number(account.admin_frozen) !== 1;
         }
 
+        function toggleMllAccounts(show) {
+            showPermanentlyLockedPortfolioAccounts = Boolean(show);
+            renderAccountsPortfolioFlickerFree();
+        }
+
         async function renderAccountsPortfolioFlickerFree() {
             const container = document.getElementById('accounts-portfolio-container');
             if (!container) return;
@@ -3490,7 +3496,8 @@ let connectedWallet = null;
                 Object.assign(acc, details.account);
                 const m = details.metrics;
                 const trades = details.trades;
-                if (!isActivePortfolioAccount(acc)) {
+                const isMllAccount = isPermanentlyLockedCopyAccount(acc);
+                if (!isActivePortfolioAccount(acc) && !(showPermanentlyLockedPortfolioAccounts && isMllAccount)) {
                     document.getElementById(`acc-card-${acc.id}`)?.remove();
                     continue;
                 }
@@ -3661,7 +3668,9 @@ let connectedWallet = null;
             if (!container.querySelector('[id^="acc-card-"]')) {
                 const emptyMessage = document.createElement('p');
                 emptyMessage.className = 'account-chart-empty';
-                emptyMessage.textContent = 'No active, unlocked accounts available to display. Soft-locked DLL accounts remain included in the portfolio summary above.';
+                emptyMessage.textContent = showPermanentlyLockedPortfolioAccounts
+                    ? 'No active, unlocked, or MLL-failed accounts are available to display. Soft-locked DLL accounts remain included in the portfolio summary above.'
+                    : 'No active, unlocked accounts available to display. Select “Show MLL-failed accounts” to review permanently locked accounts. Soft-locked DLL accounts remain included in the portfolio summary above.';
                 container.replaceChildren(emptyMessage);
             }
         }

@@ -24,6 +24,7 @@ const CHART_INDICATOR_DEFINITIONS = Object.freeze({
 let connectedWallet = null;
         let availableWallets = [];
         let userAccounts = [];
+        const accountProgressMetrics = new Map();
         let showPermanentlyLockedPortfolioAccounts = false;
         let accountPerformanceData = { overall: null, accounts: [] };
         let accountPerformanceRequest = null;
@@ -72,6 +73,7 @@ let connectedWallet = null;
         let autoSyncInterval = null;
         let currentLivePrice = 0;
         let displayedOpenTrades = [];
+        let tradeExecutionInProgress = false;
         const accountCalendarMonths = new Map();
         const accountJournalDays = new Map();
         const accountJournalDrafts = new Map();
@@ -944,7 +946,7 @@ let connectedWallet = null;
             for (const trade of validTrades) {
                 const isLong = trade.side === 'BUY';
                 const isPending = trade.status === 'PENDING';
-                const tradeLabel = `${isPending ? (isLong ? 'LIMIT LONG' : 'LIMIT SHORT') : (isLong ? 'LONG' : 'SHORT')} ${String(trade.id).slice(-6)}`;
+                const tradeLabel = isPending ? (isLong ? 'LIMIT LONG' : 'LIMIT SHORT') : (isLong ? 'LONG' : 'SHORT');
                 const addPriceLine = (price, title, color, width = 1) => {
                     const value = Number(price);
                     if (!Number.isFinite(value) || value <= 0) return;
@@ -1405,6 +1407,7 @@ let connectedWallet = null;
                     const priceInput = document.getElementById('order-price');
                     if (priceInput && !userHasEditedPrice) {
                         priceInput.value = price;
+                        if (document.getElementById('order-type')?.value === 'LIMIT') userHasEditedPrice = true;
                         calculateMetrics();
                     }
                     updateDisplayedOpenTradePnls(price);
@@ -1460,6 +1463,7 @@ let connectedWallet = null;
                 const priceInput = document.getElementById('order-price');
                 if (priceInput && currentLivePrice > 0 && !userHasEditedPrice) {
                     priceInput.value = currentLivePrice;
+                    if (document.getElementById('order-type')?.value === 'LIMIT') userHasEditedPrice = true;
                     calculateMetrics();
                 }
                 updateDisplayedOpenTradePnls(currentLivePrice);
@@ -1475,13 +1479,17 @@ let connectedWallet = null;
             const isLimit = String(orderType || 'MARKET').toUpperCase() === 'LIMIT';
             if (priceLabel) {
                 priceLabel.textContent = isLimit
-                    ? 'Limit trigger price'
+                    ? 'Limit price (Buy fills at/below; Sell fills at/above)'
                     : 'Live Reference Price (orders use a fresh quote)';
             }
             if (priceInput) {
                 priceInput.placeholder = isLimit ? 'Set trigger price' : 'Current market price';
-                if (currentLivePrice > 0 && !userHasEditedPrice) {
-                    priceInput.value = currentLivePrice;
+                if (isLimit) {
+                    if (currentLivePrice > 0 && !userHasEditedPrice) priceInput.value = currentLivePrice;
+                    userHasEditedPrice = true;
+                } else {
+                    userHasEditedPrice = false;
+                    if (currentLivePrice > 0) priceInput.value = currentLivePrice;
                 }
             }
             calculateMetrics();
@@ -1522,6 +1530,12 @@ let connectedWallet = null;
 
         function onPriceInputChanged() {
             userHasEditedPrice = true;
+            const orderTypeInput = document.getElementById('order-type');
+            if (orderTypeInput?.value === 'MARKET') {
+                orderTypeInput.value = 'LIMIT';
+                updateOrderType('LIMIT');
+                return;
+            }
             calculateMetrics();
         }
 
@@ -3029,16 +3043,17 @@ let connectedWallet = null;
             } catch (err) { console.error(err); }
         }
 
-        async function loadUserAccounts(wallet) {
+        async function loadUserAccounts(wallet, waitForPortfolio = false) {
             const synced = await silentSyncUserData(wallet);
-            renderAccountsPortfolioFlickerFree();
+            const portfolioRender = renderAccountsPortfolioFlickerFree();
+            if (waitForPortfolio) await portfolioRender;
             return synced;
         }
 
         async function loadCopyTradingPage() {
             const status = document.getElementById('copy-trading-status');
             try {
-                await loadUserAccounts(connectedWallet);
+                await loadUserAccounts(connectedWallet, true);
                 const response = await walletFetch('/api/trade-copy/groups');
                 const data = await response.json();
                 if (!response.ok) throw new Error(data.error || 'Unable to load copy-trading groups.');
@@ -3202,6 +3217,54 @@ let connectedWallet = null;
             return request;
         }
 
+        function renderAccountProgressStats(metrics, { compact = false } = {}) {
+            if (!metrics) return '';
+            const stats = [
+                {
+                    label: 'Profit target',
+                    percentage: metrics.profitProgress,
+                    current: metrics.currentProfit,
+                    target: metrics.profitTarget,
+                    detail: `Profit ${formatPerformanceMoney(metrics.currentProfit)} of ${formatPerformanceMoney(metrics.profitTarget)}`,
+                    tone: 'profit'
+                },
+                {
+                    label: 'Daily loss (DLL)',
+                    percentage: metrics.dllProgress,
+                    current: metrics.currentDLL,
+                    target: metrics.maxAllowedDLL,
+                    detail: `Loss used ${formatPerformanceMoney(metrics.currentDLL)} of ${formatPerformanceMoney(metrics.maxAllowedDLL)}`,
+                    tone: 'dll'
+                },
+                {
+                    label: 'Trailing MLL',
+                    percentage: metrics.ddProgress,
+                    current: metrics.currentDD,
+                    target: metrics.maxAllowedDD,
+                    detail: `Drawdown used ${formatPerformanceMoney(metrics.currentDD)} of ${formatPerformanceMoney(metrics.maxAllowedDD)}`,
+                    tone: 'mll'
+                }
+            ];
+            return stats.map(stat => {
+                const percentage = Number(stat.percentage);
+                const target = Number(stat.target);
+                const current = Number(stat.current);
+                if (!Number.isFinite(percentage) || !Number.isFinite(current) || !Number.isFinite(target) || target <= 0) return '';
+                const progress = Math.min(100, Math.max(0, percentage));
+                const percentLabel = `${progress.toFixed(1)}%`;
+                return `<div class="account-risk-item account-progress-item${compact ? ' is-compact' : ''} account-progress-${stat.tone}">
+                    <div class="account-progress-heading"><span>${stat.label}</span><strong>${percentLabel}</strong></div>
+                    <div class="account-progress-visuals">
+                        <span class="account-progress-donut" style="--progress-value:${progress}%" aria-hidden="true"></span>
+                        <div class="account-progress" role="progressbar" aria-label="${stat.label} progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${progress}" aria-valuetext="${percentLabel}">
+                            <i style="width:${progress}%"></i>
+                        </div>
+                    </div>
+                    <small>${stat.detail}</small>
+                </div>`;
+            }).join('');
+        }
+
         function renderCopyAccountOverview() {
             const container = document.getElementById('copy-account-overview');
             if (!container) return;
@@ -3224,11 +3287,13 @@ let connectedWallet = null;
             container.innerHTML = visibleAccounts.map(account => {
                 const assignment = assignments.get(account.id);
                 const permanentlyLocked = isPermanentlyLockedCopyAccount(account);
+                const progressMarkup = renderAccountProgressStats(accountProgressMetrics.get(String(account.id)), { compact: true });
                 return `<article class="copy-overview-account${permanentlyLocked ? ' is-permanently-locked' : ''}">
                     <div><strong>${escapeHTML(account.plan_name || 'Trading account')}</strong><code>${escapeHTML(account.id)}</code></div>
                     <span class="copy-overview-balance">Balance <strong>$${Number(account.current_balance || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong></span>
                     <span class="copy-overview-status">${escapeHTML(account.status || 'Unknown')}${Number(account.admin_frozen) === 1 ? ' · Admin frozen' : ''}${permanentlyLocked ? ' · Unavailable for copy trading' : ''}</span>
                     <span class="copy-overview-assignment">${permanentlyLocked ? 'Cannot join a copy group' : assignment ? `${assignment.role} · ${escapeHTML(assignment.name)}` : 'Available'}</span>
+                    ${progressMarkup ? `<div class="copy-overview-progress">${progressMarkup}</div>` : ''}
                 </article>`;
             }).join('');
         }
@@ -3257,6 +3322,7 @@ let connectedWallet = null;
                             <span>Balance</span><strong>$${Number(account.current_balance).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong>
                             ${account === group.leader ? '' : `<small>${Number(account.size_pct).toLocaleString()}% size</small>`}
                         </div>
+                        ${accountProgressMetrics.has(String(account.id)) ? `<div class="copy-group-account-progress">${renderAccountProgressStats(accountProgressMetrics.get(String(account.id)), { compact: true })}</div>` : ''}
                     </article>
                 `).join('');
                 const hasLeader = Boolean(group.leader);
@@ -3496,6 +3562,7 @@ let connectedWallet = null;
                 Object.assign(acc, details.account);
                 const m = details.metrics;
                 const trades = details.trades;
+                accountProgressMetrics.set(String(acc.id), m);
                 const isMllAccount = isPermanentlyLockedCopyAccount(acc);
                 if (!isActivePortfolioAccount(acc) && !(showPermanentlyLockedPortfolioAccounts && isMllAccount)) {
                     document.getElementById(`acc-card-${acc.id}`)?.remove();
@@ -3523,23 +3590,7 @@ let connectedWallet = null;
                                 <div class="account-preview-stat dashboard-tile"><span>Total profit</span><strong id="profit-val-${acc.id}">$${m.currentProfit.toLocaleString()}</strong></div>
                                 <div class="account-preview-stat dashboard-tile"><span>Account status</span><strong id="status-val-${acc.id}">${acc.status}</strong></div>
                             </div>
-                            <div class="account-risk-preview">
-                                <div class="account-risk-item">
-                                    <div><span>Profit target</span><strong id="p-prog-val-${acc.id}">${m.profitProgress}%</strong></div>
-                                    <div class="account-progress"><i id="p-prog-bar-${acc.id}"></i></div>
-                                    <small id="profit-target-${acc.id}"></small>
-                                </div>
-                                <div class="account-risk-item">
-                                    <div><span>Daily loss (DLL)</span><strong id="dll-prog-val-${acc.id}">${m.dllProgress}%</strong></div>
-                                    <div class="account-progress"><i id="dll-prog-bar-${acc.id}"></i></div>
-                                    <small id="dll-base-${acc.id}"></small>
-                                </div>
-                                <div class="account-risk-item">
-                                    <div><span>Trailing MLL</span><strong id="dd-prog-val-${acc.id}">${m.ddProgress}%</strong></div>
-                                    <div class="account-progress"><i id="dd-prog-bar-${acc.id}"></i></div>
-                                    <small id="mll-floor-${acc.id}"></small>
-                                </div>
-                            </div>
+                            <div class="account-risk-preview">${renderAccountProgressStats(m)}</div>
                             <div class="account-card-footer">
                                 <span>Consistency score: <strong id="cs-val-${acc.id}">${m.consistencyScore}%</strong></span>
                                 <details class="account-expanded">
@@ -3596,15 +3647,7 @@ let connectedWallet = null;
                 );
                 cardElem.querySelector(`#bal-val-${CSS.escape(acc.id)}`).innerText = `$${acc.current_balance.toLocaleString()}`;
                 cardElem.querySelector(`#profit-val-${CSS.escape(acc.id)}`).innerText = `$${m.currentProfit.toLocaleString()}`;
-                cardElem.querySelector(`#p-prog-val-${CSS.escape(acc.id)}`).innerText = `${m.profitProgress}%`;
-                cardElem.querySelector(`#p-prog-bar-${CSS.escape(acc.id)}`).style.width = `${m.profitProgress}%`;
-                cardElem.querySelector(`#profit-target-${CSS.escape(acc.id)}`).innerText = `Target: $${acc.profit_target.toLocaleString()}`;
-                cardElem.querySelector(`#dll-prog-val-${CSS.escape(acc.id)}`).innerText = `${m.dllProgress}%`;
-                cardElem.querySelector(`#dll-prog-bar-${CSS.escape(acc.id)}`).style.width = `${m.dllProgress}%`;
-                cardElem.querySelector(`#dd-prog-val-${CSS.escape(acc.id)}`).innerText = `${m.ddProgress}%`;
-                cardElem.querySelector(`#dd-prog-bar-${CSS.escape(acc.id)}`).style.width = `${m.ddProgress}%`;
-                cardElem.querySelector(`#dll-base-${CSS.escape(acc.id)}`).innerText = `Risk baseline: $${acc.daily_starting_balance.toLocaleString()}`;
-                cardElem.querySelector(`#mll-floor-${CSS.escape(acc.id)}`).innerText = `Breach floor: $${m.mllFloor.toLocaleString()}`;
+                cardElem.querySelector('.account-risk-preview').innerHTML = renderAccountProgressStats(m);
                 cardElem.querySelector(`#cs-val-${CSS.escape(acc.id)}`).innerText = `${m.consistencyScore}%`;
                 const statusLabel = acc.lock_reason === 'MLL' || Number(acc.permanent_lock) === 1
                     ? 'PERMANENTLY LOCKED — MLL'
@@ -4948,11 +4991,23 @@ let connectedWallet = null;
 
         async function monitorClientStops() {
             if (!connectedWallet || !selectedAccountId || !currentLivePrice) return;
+            const accountId = selectedAccountId;
             const selectedSymbol = document.getElementById('order-symbol')?.value;
             try {
-                const response = await walletFetch(`/api/trades/active?account_id=${encodeURIComponent(selectedAccountId)}&wallet=${encodeURIComponent(connectedWallet)}`);
+                const response = await walletFetch(`/api/trades/active?account_id=${encodeURIComponent(accountId)}&wallet=${encodeURIComponent(connectedWallet)}`);
                 const data = await response.json();
-                for (const trade of data.trades || []) {
+                const trades = data.trades || [];
+                const filledLimits = trades.filter(trade =>
+                    trade.symbol === selectedSymbol && trade.status === 'OPEN' && trade.order_type === 'LIMIT' &&
+                    displayedOpenTrades.some(previous => previous.id === trade.id && previous.status === 'PENDING')
+                );
+                if (filledLimits.length && selectedAccountId === accountId) {
+                    await loadOpenTrades(accountId);
+                    const fill = filledLimits[0];
+                    const fillPrice = Number(fill.entry_price).toLocaleString(undefined, { maximumFractionDigits: 8 });
+                    setTradeFeedback(`${fill.symbol} limit order filled at ${fillPrice}.`);
+                }
+                for (const trade of trades) {
                     if (trade.status !== 'OPEN' || trade.symbol !== selectedSymbol || closingTradeIds.has(trade.id)) continue;
                     const hitStop = trade.side === 'BUY'
                         ? (trade.sl && currentLivePrice <= trade.sl) || (trade.tp && currentLivePrice >= trade.tp)
@@ -5065,9 +5120,11 @@ let connectedWallet = null;
                 const tradeMarket = findConfiguredMarket(trd.symbol);
                 const isForex = trd.market_type === 'FOREX';
                 const quoteToUsdRate = isForex ? getClientForexQuoteToUsdRate(tradeMarket?.quote_currency) : 1;
-                const pnl = Number.isFinite(Number(trd.live_pnl))
-                    ? Number(trd.live_pnl)
-                    : priceDiff * trd.units * quoteToUsdRate;
+                const pnl = trd.status === 'PENDING'
+                    ? 0
+                    : Number.isFinite(Number(trd.live_pnl))
+                        ? Number(trd.live_pnl)
+                        : priceDiff * trd.units * quoteToUsdRate;
                 const pnlColor = pnl >= 0 ? '#34d399' : '#ef4444';
                 const leverageDisplay = isForex
                     ? `${Number(trd.lot_size).toFixed(2)} lots · ${trd.leverage || 1}x`
@@ -5080,6 +5137,10 @@ let connectedWallet = null;
                 const target = trd.sl_tp_mode === 'amount' ? trd.tp_amount : trd.tp;
                 const pricePrecision = isForex ? (tradeMarket?.quote_currency === 'JPY' ? 3 : 5) : 0;
                 const isPending = trd.status === 'PENDING';
+                const tradeStatusLabel = isPending
+                    ? 'Pending limit order'
+                    : trd.order_type === 'LIMIT' ? 'Filled limit order' : '';
+                const tradeStatusMarkup = tradeStatusLabel ? `<br><small>${tradeStatusLabel}</small>` : '';
                 const entryDisplay = Number(trd.entry_price).toLocaleString(undefined, {
                     minimumFractionDigits: pricePrecision,
                     maximumFractionDigits: pricePrecision
@@ -5094,7 +5155,7 @@ let connectedWallet = null;
                 tbody.innerHTML += `
                     <tr>
                         <td><code>${trd.id}</code></td>
-                        <td>${trd.symbol}${isPending ? '<br><small>Pending limit order</small>' : ''}</td>
+                        <td>${trd.symbol}${tradeStatusMarkup}</td>
                         <td><span style="color: ${trd.side === 'BUY' ? '#34d399' : '#ef4444'}; font-weight: bold;">${trd.side}</span></td>
                         <td>${leverageDisplay}</td>
                         <td class="open-trade-value">${isForex ? entryDisplay : `$${formatOpenTradeValue(trd.entry_price)}`}</td>
@@ -5114,7 +5175,7 @@ let connectedWallet = null;
             if (!selectedSymbol || !tbody) return;
 
             for (const trade of displayedOpenTrades) {
-                if (trade.symbol !== selectedSymbol) continue;
+                if (trade.status !== 'OPEN' || trade.symbol !== selectedSymbol) continue;
                 const priceDiff = trade.side === 'BUY'
                     ? currentPrice - Number(trade.entry_price)
                     : Number(trade.entry_price) - currentPrice;
@@ -5133,6 +5194,7 @@ let connectedWallet = null;
         }
 
         async function executeTrade(side) {
+            if (tradeExecutionInProgress) return;
             if (!selectedAccountId || !activeAccount) { setTradeFeedback('Select or purchase an active trading account first.'); return; }
             const symbol = document.getElementById('order-symbol').value;
             const selectedMarket = marketsData.find(market => market.symbol === symbol);
@@ -5179,6 +5241,7 @@ let connectedWallet = null;
             const buyButton = document.querySelector('.btn-buy[onclick*="executeTrade"]');
             const sellButton = document.querySelector('.btn-sell[onclick*="executeTrade"]');
             setTradeFeedback('');
+            tradeExecutionInProgress = true;
             if (buyButton) buyButton.disabled = true;
             if (sellButton) sellButton.disabled = true;
 
@@ -5208,9 +5271,14 @@ let connectedWallet = null;
                 });
                 const data = await res.json();
                 if (data.success) {
+                    const resultPrice = Number(data.execution_price ?? price).toLocaleString(undefined, { maximumFractionDigits: 8 });
                     if (data.status === 'PENDING' && !data.copy_results) {
                         const triggerText = Number(price).toLocaleString(undefined, { maximumFractionDigits: 8 });
                         setTradeFeedback(`Limit order queued at ${triggerText}; waiting for the market to reach the trigger.`);
+                    } else if (orderType === 'LIMIT' && data.status === 'OPEN' && !data.copy_results) {
+                        setTradeFeedback(`Limit order filled at ${resultPrice}.`);
+                    } else if (orderType === 'MARKET' && !data.copy_results) {
+                        setTradeFeedback(`Market order opened at ${resultPrice}.`);
                     }
                     if (data.copy_results) {
                         const succeeded = data.copy_results.filter(result => result.success).length;
@@ -5232,12 +5300,14 @@ let connectedWallet = null;
                 console.error('Unable to execute trade:', err);
                 setTradeFeedback(err.message || 'Unable to execute trade.');
             } finally {
+                tradeExecutionInProgress = false;
                 if (buyButton) buyButton.disabled = false;
                 if (sellButton) sellButton.disabled = false;
             }
         }
 
         async function closeTrade(tradeId, currentPrice, automatic = false) {
+            const closingAccountId = selectedAccountId;
             try {
                 const res = await walletFetch('/api/trades/close', {
                     method: 'POST',
@@ -5246,7 +5316,17 @@ let connectedWallet = null;
                 });
                 const data = await res.json();
                 if (data.success) {
-                    if (Array.isArray(data.copy_close_results)) {
+                    try {
+                        await loadOpenTrades(closingAccountId);
+                    } catch (refreshError) {
+                        console.warn('Trade closed but the open-trades list could not be refreshed:', refreshError);
+                    }
+                    if (data.lock) {
+                        const limitName = data.lock.reason === 'MLL' ? 'MLL' : 'DLL';
+                        setTradeFeedback(data.risk_breach_settled
+                            ? `${limitName} risk limit reached; remaining open and pending orders were closed.`
+                            : `Trade closed. The account remains locked due to ${limitName}.`);
+                    } else if (Array.isArray(data.copy_close_results)) {
                         const failedCopies = data.copy_close_results.filter(result => !result.success);
                         setTradeFeedback(failedCopies.length
                             ? `Leader position closed; ${failedCopies.length} copied follower position(s) could not be closed.`

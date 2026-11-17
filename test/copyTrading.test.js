@@ -75,3 +75,20 @@ test('copy-trading page includes the group wizard and can be put under maintenan
   assert.match(appJs, /visibleAccounts = userAccounts\.filter\(account =>[\s\S]*?hidePermanentlyLockedCopyAccounts/);
   assert.match(appJs, /No accounts to show\. Turn off “Hide permanently locked accounts”/);
 });
+
+test('account and copy-trading views show API-backed goal and risk progress', () => {
+  assert.match(serverJs, /const totalProfit = account\.current_equity - account\.initial_balance;/);
+  assert.match(serverJs, /profitProgress: profitProgress\.toFixed\(1\)[\s\S]*?currentProfit: totalProfit[\s\S]*?ddProgress: ddProgress\.toFixed\(1\)[\s\S]*?maxAllowedDD,[\s\S]*?currentDD,[\s\S]*?dllProgress: dllProgress\.toFixed\(1\)[\s\S]*?maxAllowedDLL,[\s\S]*?currentDLL/);
+  assert.match(appJs, /function renderAccountProgressStats\(metrics, \{ compact = false \} = \{\}\)/);
+  assert.match(appJs, /!Number\.isFinite\(percentage\)[\s\S]*?target <= 0/);
+  assert.match(appJs, /role="progressbar" aria-label="\$\{stat\.label\} progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="\$\{progress\}"/);
+  assert.match(appJs, /class="account-progress-donut"[\s\S]*?aria-hidden="true"/);
+  assert.match(appJs, /accountProgressMetrics\.set\(String\(acc\.id\), m\)/);
+  assert.match(appJs, /renderAccountProgressStats\(m\)/);
+  assert.match(appJs, /renderAccountProgressStats\(accountProgressMetrics\.get\(String\(account\.id\)\), \{ compact: true \}\)/);
+  assert.match(appJs, /copy-group-account-progress[\s\S]*?renderAccountProgressStats\(accountProgressMetrics\.get\(String\(account\.id\)\), \{ compact: true \}\)/);
+  assert.match(appJs, /async function loadUserAccounts\(wallet, waitForPortfolio = false\)[\s\S]*?if \(waitForPortfolio\) await portfolioRender/);
+  assert.match(appJs, /async function loadCopyTradingPage\(\)[\s\S]*?await loadUserAccounts\(connectedWallet, true\)/);
+  assert.match(appCss, /background: conic-gradient\(var\(--progress-color, #34d399\) var\(--progress-value, 0%\), #1f2937 0\)/);
+  assert.match(appCss, /\.copy-overview-progress, \.copy-group-account-progress/);
+});

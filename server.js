@@ -96,6 +96,7 @@ const requestMap = new Map();
 const copyFlatteningWallets = new Set();
 const inFlightTradeExecutions = new Map();
 const tradeExecutionWaiters = new Map();
+const inFlightAccountTradeRequests = new Set();
 
 function trackTradeExecution(walletAddress, response) {
   inFlightTradeExecutions.set(walletAddress, (inFlightTradeExecutions.get(walletAddress) || 0) + 1);
@@ -4579,7 +4580,7 @@ app.post('/api/trades/execute', sensitiveLimiter, requireWalletSession, requireU
   const slTpMode = req.body?.sl_tp_mode || 'price';
   const slAmount = req.body?.sl_amount == null ? null : Number(req.body.sl_amount);
   const tpAmount = req.body?.tp_amount == null ? null : Number(req.body.tp_amount);
-  const orderType = String(req.body?.order_type || 'MARKET').toUpperCase();
+  const orderType = String(req.body?.order_type || '').toUpperCase();
   const triggerPrice = req.body?.trigger_price == null ? null : Number(req.body.trigger_price);
   const lotSize = req.body?.lot_size == null ? null : Number(req.body.lot_size);
   const market = supportedMarkets.find(item => item.symbol === symbol);
@@ -4603,6 +4604,19 @@ app.post('/api/trades/execute', sensitiveLimiter, requireWalletSession, requireU
   if (copyFlatteningWallets.has(req.walletAddress)) {
     return res.status(409).json({ error: 'Copy-trading emergency stop is in progress. Wait before opening another trade.' });
   }
+  const accountTradeRequestKey = `${req.walletAddress.toLowerCase()}:${accountId}`;
+  if (inFlightAccountTradeRequests.has(accountTradeRequestKey)) {
+    return res.status(409).json({ error: 'A trade request for this account is already processing. Wait for it to finish before submitting another.' });
+  }
+  inFlightAccountTradeRequests.add(accountTradeRequestKey);
+  let accountTradeRequestReleased = false;
+  const releaseAccountTradeRequest = () => {
+    if (accountTradeRequestReleased) return;
+    accountTradeRequestReleased = true;
+    inFlightAccountTradeRequests.delete(accountTradeRequestKey);
+  };
+  res.once('finish', releaseAccountTradeRequest);
+  res.once('close', releaseAccountTradeRequest);
   const releaseExecution = trackTradeExecution(req.walletAddress, res);
   const respond = (status, body) => {
     releaseExecution();
@@ -4779,9 +4793,15 @@ function closeTradeForWallet(tradeId, walletAddress, callback) {
                       if (accountErr || !account) return db.run('ROLLBACK', () => callback({ status: 500, error: 'Unable to verify account limits.' }));
                       const breach = getRiskBreach(account, account);
                       const activeLock = breach || getActiveLock(account);
-                      const commit = (lock = null) => db.run('COMMIT', (commitErr) => {
+                      const commit = (lock = null, riskBreachSettled = false) => db.run('COMMIT', (commitErr) => {
                         if (commitErr) return callback({ status: 500, error: 'Unable to commit trade settlement.' });
-                        callback(null, { success: true, pnl, lock, trade_id: tradeId });
+                        callback(null, {
+                          success: true,
+                          pnl,
+                          lock,
+                          trade_id: tradeId,
+                          ...(riskBreachSettled ? { risk_breach_settled: true } : {})
+                        });
                       });
                       if (!breach) return commit(activeLock);
                       settleBreachWithinTransaction(account, breach, (lockErr, appliedLock) => {
@@ -4790,7 +4810,7 @@ function closeTradeForWallet(tradeId, walletAddress, callback) {
                           reason: appliedLock.reason,
                           permanent: appliedLock.permanent,
                           lockedUntil: appliedLock.lockedUntil
-                        });
+                        }, true);
                       });
                     });
                 }

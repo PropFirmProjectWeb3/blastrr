@@ -169,8 +169,8 @@ test('admin can toggle maintenance for each public page and set an outage messag
 });
 
 test('trading terminal HTML loads its external stylesheet and application script', () => {
-  assert.match(appHtml, /href="\/css\/app\.css\?v=20261117-live-margin-estimate"/);
-  assert.match(appHtml, /src="\/js\/app\.js\?v=20261117-limit-order-safety" defer/);
+  assert.match(appHtml, /href="\/css\/app\.css\?v=20261117-account-progress"/);
+  assert.match(appHtml, /src="\/js\/app\.js\?v=20261117-limit-order-pnl-account-progress" defer/);
   assert.doesNotMatch(appHtml, /<style[\s>]/i);
   assert.doesNotMatch(appHtml, /<script>\s*[\s\S]*?\bfunction\s/m);
   assert.match(appHtml, /id="nav-menu"/);

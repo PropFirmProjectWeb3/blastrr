@@ -3289,11 +3289,8 @@ let connectedWallet = null;
                 const percentLabel = `${progress.toFixed(1)}%`;
                 return `<div class="account-risk-item account-progress-item${compact ? ' is-compact' : ''} account-progress-${stat.tone}">
                     <div class="account-progress-heading"><span>${stat.label}</span><strong>${percentLabel}</strong></div>
-                    <div class="account-progress-visuals">
-                        <span class="account-progress-donut" style="--progress-value:${progress}%" aria-hidden="true"></span>
-                        <div class="account-progress" role="progressbar" aria-label="${stat.label} progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${progress}" aria-valuetext="${percentLabel}">
-                            <i style="width:${progress}%"></i>
-                        </div>
+                    <div class="account-progress" role="progressbar" aria-label="${stat.label} progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${progress}" aria-valuetext="${percentLabel}">
+                        <i style="width:${progress}%"></i>
                     </div>
                     <small>${stat.detail}</small>
                 </div>`;
@@ -3324,10 +3321,14 @@ let connectedWallet = null;
                 const permanentlyLocked = isPermanentlyLockedCopyAccount(account);
                 const progressMarkup = renderAccountProgressStats(accountProgressMetrics.get(String(account.id)), { compact: true });
                 return `<article class="copy-overview-account${permanentlyLocked ? ' is-permanently-locked' : ''}">
-                    <div><strong>${escapeHTML(account.plan_name || 'Trading account')}</strong><code>${escapeHTML(account.id)}</code></div>
-                    <span class="copy-overview-balance">Balance <strong>$${Number(account.current_balance || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong></span>
-                    <span class="copy-overview-status">${escapeHTML(account.status || 'Unknown')}${Number(account.admin_frozen) === 1 ? ' · Admin frozen' : ''}${permanentlyLocked ? ' · Unavailable for copy trading' : ''}</span>
-                    <span class="copy-overview-assignment">${permanentlyLocked ? 'Cannot join a copy group' : assignment ? `${assignment.role} · ${escapeHTML(assignment.name)}` : 'Available'}</span>
+                    <div class="copy-overview-heading">
+                        <div class="copy-overview-identity"><strong>${escapeHTML(account.plan_name || 'Trading account')}</strong><code>${escapeHTML(account.id)}</code></div>
+                        <span class="copy-overview-balance"><span>Balance</span><strong>$${Number(account.current_balance || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong></span>
+                    </div>
+                    <div class="copy-overview-meta">
+                        <span class="copy-overview-status">${escapeHTML(account.status || 'Unknown')}${Number(account.admin_frozen) === 1 ? ' · Admin frozen' : ''}${permanentlyLocked ? ' · Unavailable for copy trading' : ''}</span>
+                        <span class="copy-overview-assignment">${permanentlyLocked ? 'Cannot join a copy group' : assignment ? `${assignment.role} · ${escapeHTML(assignment.name)}` : 'Available'}</span>
+                    </div>
                     ${progressMarkup ? `<div class="copy-overview-progress">${progressMarkup}</div>` : ''}
                 </article>`;
             }).join('');

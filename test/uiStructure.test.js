@@ -169,8 +169,8 @@ test('admin can toggle maintenance for each public page and set an outage messag
 });
 
 test('trading terminal HTML loads its external stylesheet and application script', () => {
-  assert.match(appHtml, /href="\/css\/app\.css\?v=20261117-terminal-modes"/);
-  assert.match(appHtml, /src="\/js\/app\.js\?v=20261117-terminal-modes" defer/);
+  assert.match(appHtml, /href="\/css\/app\.css\?v=20261117-account-risk-polish"/);
+  assert.match(appHtml, /src="\/js\/app\.js\?v=20261117-account-risk-polish" defer/);
   assert.doesNotMatch(appHtml, /<style[\s>]/i);
   assert.doesNotMatch(appHtml, /<script>\s*[\s\S]*?\bfunction\s/m);
   assert.match(appHtml, /id="nav-menu"/);
@@ -578,7 +578,8 @@ test('account cards expose expandable trade history and daily profit charts', ()
   assert.match(appJs, /walletFetch\(`\/api\/accounts\/details/);
   assert.match(appJs, /id="profit-target-\$\{acc\.id\}"/);
   assert.match(appJs, /Target: \$\$\{acc\.profit_target\.toLocaleString\(\)\}/);
-  assert.match(appCss, /\.account-risk-item \{ display: grid; grid-template-rows: 18px 7px 14px;/);
+  assert.match(appCss, /\.account-risk-preview \{ display: grid; grid-template-columns: repeat\(auto-fit, minmax\(min\(100%, 190px\), 1fr\)\);/);
+  assert.match(appCss, /\.account-progress \{ display: block; width: 100%; height: 5px;/);
 });
 
 test('expanded accounts show a responsive daily trade calendar and save text-only journal entries', () => {

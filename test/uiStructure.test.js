@@ -576,6 +576,11 @@ test('landing navigation links to the unified terminal instead of legacy spot an
 
 test('account cards expose expandable trade history and daily profit charts', () => {
   assert.match(appJs, /<details class="account-expanded"/);
+  const accountCard = appJs.slice(appJs.indexOf('<article id="acc-card-${acc.id}"'), appJs.indexOf('</article>', appJs.indexOf('<article id="acc-card-${acc.id}"')));
+  assert.ok(accountCard.indexOf('class="account-risk-preview"') < accountCard.indexOf('<details class="account-expanded"'));
+  assert.ok(accountCard.indexOf('<details class="account-expanded"') < accountCard.indexOf('class="account-card-header"'));
+  assert.match(accountCard, /<details class="account-expanded">[\s\S]*?<div class="account-expanded-content">[\s\S]*?<div id="account-performance-\$\{acc\.id\}"/);
+  assert.match(appCss, /\.account-expanded-content \{ display: grid; gap: 14px;/);
   assert.match(appJs, /renderDailyProfitChart/);
   assert.match(appJs, /Daily profit by date/);
   assert.match(appJs, /walletFetch\(`\/api\/accounts\/details/);

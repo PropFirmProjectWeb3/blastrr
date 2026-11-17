@@ -461,9 +461,10 @@
         .account-card-footer { align-items: flex-start; flex-wrap: wrap; font-size: 13px; color: #9ca3af; }
         .account-card-footer > span { padding-top: 10px; }
         .account-card-footer > span strong { color: #c084fc; }
-        .account-expanded { flex: 1 1 100%; border-top: 1px solid rgba(255, 255, 255, 0.06); margin-top: 8px; }
+        .account-expanded { display: block; min-width: 0; border-top: 1px solid rgba(255, 255, 255, 0.06); margin-top: 8px; }
         .account-expanded > summary { cursor: pointer; padding: 14px 0 4px; color: #c084fc; font-weight: 700; }
         .account-expanded > summary:hover { color: #e9d5ff; }
+        .account-expanded-content { display: grid; gap: 14px; padding-top: 10px; }
         .account-profit-section { margin: 18px 0 24px; }
         .account-profit-section h3, .account-trades-heading { color: #e5e7eb; font-size: 14px; }
         .account-profit-chart { display: grid; grid-template-columns: minmax(0, 1fr) minmax(200px, 0.55fr); gap: 14px; align-items: start; }

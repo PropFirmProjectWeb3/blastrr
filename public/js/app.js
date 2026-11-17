@@ -3509,28 +3509,30 @@ let connectedWallet = null;
                 if (!cardElem) {
                     const cardHtml = `
                         <article id="acc-card-${acc.id}" class="account-card">
-                            <div class="account-card-header">
-                                <div>
-                                    <span class="account-plan-name">${acc.plan_name}</span>
-                                    <code class="account-id">${acc.id}</code>
-                                </div>
-                                <div class="account-card-actions">
-                                    <button id="withdraw-btn-${acc.id}" class="btn-wallet" onclick="requestWithdrawal('${acc.id}')">Request Withdrawal</button>
-                                    <button class="btn-wallet" onclick="selectAccountAndTrade('${acc.id}')">Select in Terminal</button>
-                                </div>
-                            </div>
-                            <div id="account-performance-${acc.id}" class="account-performance-header"></div>
-                            <div class="account-preview-grid">
-                                <div class="account-preview-stat dashboard-tile"><span>Initial capital</span><strong>$${acc.initial_balance.toLocaleString()}</strong></div>
-                                <div class="account-preview-stat dashboard-tile"><span>Current balance</span><strong id="bal-val-${acc.id}">$${acc.current_balance.toLocaleString()}</strong></div>
-                                <div class="account-preview-stat dashboard-tile"><span>Total profit</span><strong id="profit-val-${acc.id}">$${m.currentProfit.toLocaleString()}</strong></div>
-                                <div class="account-preview-stat dashboard-tile"><span>Account status</span><strong id="status-val-${acc.id}">${acc.status}</strong></div>
-                            </div>
                             <div class="account-risk-preview">${renderAccountProgressStats(m)}</div>
-                            <div class="account-card-footer">
-                                <span>Consistency score: <strong id="cs-val-${acc.id}">${m.consistencyScore}%</strong></span>
-                                <details class="account-expanded">
-                                    <summary>Expand account performance and trades</summary>
+                            <details class="account-expanded">
+                                <summary>Account details, performance and trades</summary>
+                                <div class="account-expanded-content">
+                                    <div class="account-card-header">
+                                        <div>
+                                            <span class="account-plan-name">${acc.plan_name}</span>
+                                            <code class="account-id">${acc.id}</code>
+                                        </div>
+                                        <div class="account-card-actions">
+                                            <button id="withdraw-btn-${acc.id}" class="btn-wallet" onclick="requestWithdrawal('${acc.id}')">Request Withdrawal</button>
+                                            <button class="btn-wallet" onclick="selectAccountAndTrade('${acc.id}')">Select in Terminal</button>
+                                        </div>
+                                    </div>
+                                    <div id="account-performance-${acc.id}" class="account-performance-header"></div>
+                                    <div class="account-preview-grid">
+                                        <div class="account-preview-stat dashboard-tile"><span>Initial capital</span><strong>$${acc.initial_balance.toLocaleString()}</strong></div>
+                                        <div class="account-preview-stat dashboard-tile"><span>Current balance</span><strong id="bal-val-${acc.id}">$${acc.current_balance.toLocaleString()}</strong></div>
+                                        <div class="account-preview-stat dashboard-tile"><span>Total profit</span><strong id="profit-val-${acc.id}">$${m.currentProfit.toLocaleString()}</strong></div>
+                                        <div class="account-preview-stat dashboard-tile"><span>Account status</span><strong id="status-val-${acc.id}">${acc.status}</strong></div>
+                                    </div>
+                                    <div class="account-card-footer">
+                                        <span>Consistency score: <strong id="cs-val-${acc.id}">${m.consistencyScore}%</strong></span>
+                                    </div>
                                     <section class="account-profit-section">
                                         <h3>Daily profit</h3>
                                         <div id="profit-chart-${acc.id}" class="account-profit-chart"></div>
@@ -3566,8 +3568,8 @@ let connectedWallet = null;
                                             <tbody id="trades-body-${acc.id}"></tbody>
                                         </table>
                                     </div>
-                                </details>
-                            </div>
+                                </div>
+                            </details>
                         </article>
                     `;
                     container.insertAdjacentHTML('beforeend', cardHtml);

@@ -1501,7 +1501,7 @@ let connectedWallet = null;
             const shortcuts = document.getElementById('order-size-shortcuts');
             const marketHours = document.getElementById('market-hours-status');
             const selectedMarket = marketsData.find(market => market.symbol === document.getElementById('order-symbol')?.value);
-            if (sizeLabel) sizeLabel.textContent = isForex ? 'Position size (lots)' : 'Collateral Margin ($ USD)';
+            if (sizeLabel) sizeLabel.textContent = isForex ? 'Base position size (lots at 1x)' : 'Collateral Margin ($ USD)';
             if (sizeInput) {
                 sizeInput.min = isForex ? '0.01' : '10';
                 sizeInput.step = isForex ? '0.01' : 'any';
@@ -1587,7 +1587,7 @@ let connectedWallet = null;
             let notional = marginInput * leverage;
             if (isForex && selectedMarket) {
                 const quoteToUsd = getClientForexQuoteToUsdRate(selectedMarket.quote_currency);
-                const units = sizeInput * Number(selectedMarket.lot_units);
+                const units = sizeInput * leverage * Number(selectedMarket.lot_units);
                 notional = Number.isFinite(quoteToUsd) ? units * priceInputVal * quoteToUsd : 0;
                 marginInput = notional / leverage;
             }
@@ -1595,7 +1595,13 @@ let connectedWallet = null;
             const notionalLabel = document.getElementById('notional-exposure-label');
             if (notionalLabel) notionalLabel.innerText = `$${notional.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
             const marginLabel = document.getElementById('position-margin-label');
-            if (marginLabel) marginLabel.innerText = `Margin: $${marginInput.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+            if (marginLabel) {
+                const forexLots = sizeInput * leverage;
+                const marginText = `Margin: $${marginInput.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+                marginLabel.innerText = isForex
+                    ? `${forexLots.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} lots at ${leverage}x · ${marginText}`
+                    : marginText;
+            }
 
             const liqLabel = document.getElementById('liquidation-price-label');
             if (liqLabel) {
@@ -5127,7 +5133,7 @@ let connectedWallet = null;
             const tpValue = document.getElementById('order-tp').value;
             const sl = slValue === '' ? null : Number(slValue);
             const tp = tpValue === '' ? null : Number(tpValue);
-            const lotSize = isForex ? enteredSize : null;
+            const lotSize = isForex ? enteredSize * leverage : null;
             const quoteToUsdRate = isForex ? getClientForexQuoteToUsdRate(selectedMarket.quote_currency) : 1;
             const forexNotional = isForex
                 ? lotSize * Number(selectedMarket.lot_units) * price * quoteToUsdRate

@@ -12,7 +12,6 @@ const {
   calculateForexMargin,
   getQuoteToUsdRate,
   parseForexChartHistory,
-  parseSwissquotePrice,
   resolveForexStopTargetPrices
 } = require('./forexRules');
 const supportedMarkets = [...markets, ...forexMarkets];
@@ -31,6 +30,8 @@ const { getProtectedPayoutBalance, getAvailableGrossWithdrawal, splitWithdrawal 
 const { resolveStopTargetPrices } = require('./tradeRules');
 const { isLimitOrderTriggered } = require('./limitOrderRules');
 const { calculateTradePerformance } = require('./performanceRules');
+const { MarketDataService } = require('./marketDataService');
+const { createMarketDataProviders } = require('./marketDataProviders');
 
 const app = express();
 const PORT = process.env.PORT || 4480;
@@ -257,11 +258,8 @@ const WALLET_SESSION_DURATION_MS = 12 * 60 * 60 * 1000;
 const LOGIN_IP_RETENTION_DAYS = 180;
 setTimeout(cleanupExpiredLoginIpEvents, 5000);
 setInterval(cleanupExpiredLoginIpEvents, 24 * 60 * 60 * 1000);
-const marketPriceCache = new Map();
 const forexChartHistoryCache = new Map();
-const forexPriceStreamClients = new Set();
-let forexPriceStreamInterval = null;
-let forexPricePollInFlight = false;
+const marketPriceStreamClients = new Set();
 const forexChartTimeframes = Object.freeze({
   '1m': { interval: '1m', range: '5d', barSeconds: 60 },
   '5m': { interval: '5m', range: '5d', barSeconds: 300 },
@@ -283,6 +281,37 @@ const legacyTradeMarkets = new Map([
   ['CAPITALCOM:US100', { source: 'BITGET_PERP', pair: 'NDX100USDT' }],
   ['TVC:USOIL', { source: 'SIMULATED', pair: 'CL', base: 72, amplitude: 0.8 }]
 ]);
+
+const marketDataMarkets = [
+  ...Array.from(legacyTradeMarkets, ([symbol, market]) => ({
+    ...market,
+    symbol,
+    type: market.source === 'SIMULATED' ? 'CFD' : 'FUTURE'
+  })),
+  ...supportedMarkets
+];
+const marketDataService = new MarketDataService({
+  markets: marketDataMarkets,
+  providers: createMarketDataProviders(),
+  onProviderError: ({ source, symbol, error }) => {
+    console.warn(`Market data provider ${source}${symbol ? ` (${symbol})` : ''}:`, error.message);
+  }
+});
+
+function broadcastMarketDataQuote(quote) {
+  const message = `data: ${JSON.stringify(quote)}\n\n`;
+  for (const client of marketPriceStreamClients) {
+    if (client.res.destroyed || client.res.writableEnded) {
+      clearInterval(client.heartbeat);
+      marketPriceStreamClients.delete(client);
+    } else if (client.filter(quote)) {
+      client.res.write(message);
+    }
+  }
+}
+
+marketDataService.on('quote', broadcastMarketDataQuote);
+marketDataService.start();
 
 function getTradeMarket(symbol) {
   return supportedMarkets.find(item => item.symbol === symbol) || legacyTradeMarkets.get(symbol);
@@ -315,7 +344,7 @@ function getForexChartHistory(market, timeframe) {
           }
           const history = parseForexChartHistory(payload, config.barSeconds);
           if (!market.history_symbol) return resolve(history);
-          getSwissquoteQuote(market).then(quote => {
+          getAuthoritativeQuote(market, 72 * 60 * 60 * 1000).then(quote => {
             const latestClose = history.candles[history.candles.length - 1].close;
             const offset = quote.price - latestClose;
             const shiftPrice = value => value == null ? null : value + offset;
@@ -350,110 +379,19 @@ function getForexChartHistory(market, timeframe) {
   return historyPromise;
 }
 
-function getSwissquoteQuote(market, maxAgeMs = 72 * 60 * 60 * 1000) {
-  const cacheKey = `SWISSQUOTE:${market.pair}`;
-  const cached = marketPriceCache.get(cacheKey);
-  if (cached?.quote && cached.expiresAt > Date.now()) {
-    if (Date.now() - cached.publishedAt > maxAgeMs) {
-      return Promise.reject(new Error('Swissquote price is stale; forex trading is unavailable until live prices resume.'));
-    }
-    return Promise.resolve(cached.quote);
-  }
-  if (cached?.promise) return cached.promise;
+const FOREX_MAX_QUOTE_AGE_MS = 30000;
+const CRYPTO_MAX_QUOTE_AGE_MS = 5000;
 
-  const pairPath = market.pair.split('/').map(encodeURIComponent).join('/');
-  const url = `https://forex-data-feed.swissquote.com/public-quotes/bboquotes/instrument/${pairPath}`;
-  const quotePromise = new Promise((resolve, reject) => {
-    const request = https.get(url, { timeout: 5000 }, response => {
-      let body = '';
-      response.setEncoding('utf8');
-      response.on('data', chunk => { body += chunk; });
-      response.on('end', () => {
-        if (response.statusCode !== 200) return reject(new Error(`Swissquote returned HTTP ${response.statusCode}.`));
-        try {
-          const quote = parseSwissquotePrice(JSON.parse(body));
-          if (Date.now() - quote.publishedAt > maxAgeMs) {
-            return reject(new Error('Swissquote price is stale; forex trading is unavailable until live prices resume.'));
-          }
-          resolve(quote);
-        } catch (error) {
-          reject(new Error(`Unable to parse Swissquote price: ${error.message}`));
-        }
-      });
-    });
-    request.on('timeout', () => request.destroy(new Error('Swissquote price request timed out.')));
-    request.on('error', reject);
-  });
-  marketPriceCache.set(cacheKey, { promise: quotePromise });
-  quotePromise.then(quote => {
-    marketPriceCache.set(cacheKey, { quote, price: quote.price, publishedAt: quote.publishedAt, expiresAt: Date.now() + 1000 });
-  }).catch(() => marketPriceCache.delete(cacheKey));
-  return quotePromise;
+function getMarketQuoteMaxAgeMs(market) {
+  return market?.asset_class === 'FOREX' ? FOREX_MAX_QUOTE_AGE_MS : CRYPTO_MAX_QUOTE_AGE_MS;
 }
 
-function getAuthoritativePrice(market, maxAgeMs = 72 * 60 * 60 * 1000) {
-  if (market.source === 'SIMULATED') {
-    const wave = Math.sin(Date.now() / 2000) * market.amplitude;
-    return Promise.resolve(Number((market.base + wave).toFixed(2)));
-  }
-  if (market.source === 'SWISSQUOTE') {
-    return getSwissquoteQuote(market, maxAgeMs).then(quote => quote.price);
-  }
-  if (!['BINANCE_SPOT', 'BINANCE_PERP', 'BITGET_PERP'].includes(market.source)) {
-    return Promise.reject(new Error(`Unsupported market source: ${market.source}`));
-  }
+function getAuthoritativeQuote(market, maxAgeMs = getMarketQuoteMaxAgeMs(market)) {
+  return Promise.resolve().then(() => marketDataService.getQuote(market.symbol, maxAgeMs));
+}
 
-  const cacheKey = `${market.source}:${market.pair}`;
-  const cached = marketPriceCache.get(cacheKey);
-  if (cached?.price && cached.expiresAt > Date.now()) {
-    return Promise.resolve(cached.price);
-  }
-  if (cached?.promise) return cached.promise;
-
-  let url;
-  if (market.source === 'BINANCE_PERP') {
-    url = `https://fapi.binance.com/fapi/v1/ticker/price?symbol=${encodeURIComponent(market.pair)}`;
-  } else if (market.source === 'BINANCE_SPOT') {
-    url = `https://api.binance.com/api/v3/ticker/price?symbol=${encodeURIComponent(market.pair)}`;
-  } else if (market.source === 'BITGET_PERP') {
-    url = `https://api.bitget.com/api/v2/mix/market/ticker?productType=USDT-FUTURES&symbol=${encodeURIComponent(market.pair)}`;
-  }
-  const pricePromise = new Promise((resolve, reject) => {
-    const request = https.get(url, { timeout: 5000 }, (response) => {
-      let body = '';
-      response.setEncoding('utf8');
-      response.on('data', chunk => { body += chunk; });
-      response.on('end', () => {
-        if (response.statusCode !== 200) return reject(new Error(`Market provider returned HTTP ${response.statusCode}.`));
-        try {
-          const parsed = JSON.parse(body);
-          let priceValue;
-          if (market.source === 'BITGET_PERP') {
-            if (parsed.code !== '00000') return reject(new Error(`Bitget market provider error: ${parsed.msg || parsed.code}.`));
-            const ticker = parsed.data?.[0];
-            if (ticker?.symbol !== market.pair) return reject(new Error('Bitget returned an unexpected market symbol.'));
-            priceValue = ticker.markPrice;
-          } else {
-            priceValue = parsed.price;
-          }
-          const price = Number(priceValue);
-          if (!Number.isFinite(price) || price <= 0) return reject(new Error('Market provider returned an invalid price.'));
-          resolve(price);
-        } catch (error) {
-          reject(new Error(`Unable to parse market provider response: ${error.message}`));
-        }
-      });
-    });
-    request.on('timeout', () => request.destroy(new Error('Market price request timed out.')));
-    request.on('error', reject);
-  });
-  marketPriceCache.set(cacheKey, { promise: pricePromise });
-  pricePromise.then(price => {
-    marketPriceCache.set(cacheKey, { price, expiresAt: Date.now() + 2000 });
-  }).catch(() => {
-    marketPriceCache.delete(cacheKey);
-  });
-  return pricePromise;
+function getAuthoritativePrice(market, maxAgeMs = getMarketQuoteMaxAgeMs(market)) {
+  return getAuthoritativeQuote(market, maxAgeMs).then(quote => quote.price);
 }
 
 function getForexQuoteToUsdRate(market, pricesBySymbol) {
@@ -461,7 +399,7 @@ function getForexQuoteToUsdRate(market, pricesBySymbol) {
   return getQuoteToUsdRate(market.quote_currency, pricesBySymbol);
 }
 
-function getLiveForexQuoteToUsdRate(market, maxAgeMs) {
+function getLiveForexQuoteToUsdRate(market, maxAgeMs = getMarketQuoteMaxAgeMs(market)) {
   if (market.asset_class !== 'FOREX' || market.quote_currency === 'USD') return Promise.resolve(1);
   const symbol = USD_CONVERSION_SYMBOLS[market.quote_currency];
   const conversionMarket = getTradeMarket(symbol);
@@ -487,37 +425,6 @@ function loadTradePrices(trades) {
   }
   return Promise.all([...requiredMarkets].map(async ([symbol, market]) => [symbol, await getAuthoritativePrice(market)]))
     .then(prices => new Map(prices));
-}
-
-function broadcastForexPrices() {
-  if (!forexPriceStreamClients.size || forexPricePollInFlight) return;
-  forexPricePollInFlight = true;
-  Promise.all(forexMarkets.map(async market => {
-    try {
-      return { market, quote: await getSwissquoteQuote(market) };
-    } catch (error) {
-      console.warn(`Unable to refresh Swissquote ${market.pair}:`, error.message);
-      return { market, quote: null };
-    }
-  })).then(results => {
-    for (const { market, quote } of results) {
-      if (!quote) continue;
-      const message = `data: ${JSON.stringify({
-        symbol: market.symbol,
-        pair: market.pair,
-        price: quote.price,
-        bid: quote.bid,
-        ask: quote.ask,
-        publishTime: quote.publishedAt
-      })}\n\n`;
-      for (const client of forexPriceStreamClients) {
-        if (client.writableEnded) forexPriceStreamClients.delete(client);
-        else client.write(message);
-      }
-    }
-  }).finally(() => {
-    forexPricePollInFlight = false;
-  });
 }
 
 function loadAccountWithLiveRisk(accountId, callback) {
@@ -1079,7 +986,7 @@ function checkPendingLimitOrders() {
       }
       Promise.all([...marketsBySymbol].map(async ([symbol, market]) => {
         try {
-          const maxQuoteAgeMs = market.asset_class === 'FOREX' ? 30000 : 72 * 60 * 60 * 1000;
+          const maxQuoteAgeMs = getMarketQuoteMaxAgeMs(market);
           return [symbol, await getAuthoritativePrice(market, maxQuoteAgeMs)];
         } catch (priceError) {
           console.warn(`Unable to check pending ${symbol} limit orders:`, priceError.message);
@@ -4393,7 +4300,7 @@ function executeTradeForAccount(accountId, order, walletAddress, callback) {
           if (!isForex && requestedMargin > account.current_balance) {
             return callback({ status: 400, error: `Insufficient available balance ($${account.current_balance.toFixed(2)} available).` });
           }
-          const maxQuoteAgeMs = isForex ? 30000 : 72 * 60 * 60 * 1000;
+          const maxQuoteAgeMs = getMarketQuoteMaxAgeMs(market);
           Promise.all([
             getAuthoritativePrice(market, maxQuoteAgeMs),
             getLiveForexQuoteToUsdRate(market, maxQuoteAgeMs)
@@ -4767,7 +4674,7 @@ function closeTradeForWallet(tradeId, walletAddress, callback) {
           : getAuthoritativePrice(market);
         const conversionPromise = trade.status === 'PENDING'
           ? Promise.resolve(1)
-          : getLiveForexQuoteToUsdRate(market, 72 * 60 * 60 * 1000);
+          : getLiveForexQuoteToUsdRate(market);
         Promise.all([pricePromise, conversionPromise]).then(([price, quoteToUsdRate]) => {
         const pnl = trade.status === 'PENDING'
           ? 0
@@ -4875,6 +4782,71 @@ function closeOutstandingCopyTrades(walletAddress, callback) {
     }
   );
 }
+
+const stopOrderChecksInProgress = new Set();
+let stopOrderSweepInProgress = false;
+function checkServerStopOrders() {
+  if (stopOrderSweepInProgress) return;
+  stopOrderSweepInProgress = true;
+  db.all(
+    `SELECT t.id, t.symbol, t.side, t.sl, t.tp, a.wallet_address
+     FROM trades t JOIN accounts a ON a.id = t.account_id
+     WHERE t.status = 'OPEN' AND (t.sl IS NOT NULL OR t.tp IS NOT NULL)`,
+    [],
+    (err, trades) => {
+      if (err) {
+        stopOrderSweepInProgress = false;
+        console.error('Unable to load open stop orders:', err.message);
+        return;
+      }
+      const triggeredTrades = [];
+      for (const trade of trades) {
+        if (stopOrderChecksInProgress.has(trade.id)) continue;
+        const market = getTradeMarket(trade.symbol);
+        if (!market) continue;
+        try {
+          const price = marketDataService.getQuote(market.symbol, getMarketQuoteMaxAgeMs(market)).price;
+          const stopLoss = trade.sl == null ? null : Number(trade.sl);
+          const takeProfit = trade.tp == null ? null : Number(trade.tp);
+          const hitStop = trade.side === 'BUY'
+            ? (stopLoss !== null && price <= stopLoss) || (takeProfit !== null && price >= takeProfit)
+            : (stopLoss !== null && price >= stopLoss) || (takeProfit !== null && price <= takeProfit);
+          if (hitStop) triggeredTrades.push(trade);
+        } catch {
+          // A stale quote cannot safely trigger a stop; fresh execution prices are required to settle.
+        }
+      }
+
+      const closeNext = index => {
+        if (index >= triggeredTrades.length) {
+          stopOrderSweepInProgress = false;
+          return;
+        }
+        const trade = triggeredTrades[index];
+        stopOrderChecksInProgress.add(trade.id);
+        closeTradeForWallet(trade.id, trade.wallet_address.toLowerCase(), closeErr => {
+          if (closeErr && closeErr.status !== 404) {
+            console.error(`Unable to execute stop order for trade ${trade.id}:`, closeErr.error);
+          }
+          if (!closeErr) {
+            closeOutstandingCopyTrades(trade.wallet_address, copyErr => {
+              if (copyErr) console.error('Unable to close copied trades after stop execution:', copyErr.message);
+              stopOrderChecksInProgress.delete(trade.id);
+              closeNext(index + 1);
+            });
+          } else {
+            stopOrderChecksInProgress.delete(trade.id);
+            closeNext(index + 1);
+          }
+        });
+      };
+      closeNext(0);
+    }
+  );
+}
+
+setTimeout(checkServerStopOrders, 2000);
+setInterval(checkServerStopOrders, 1000);
 
 app.post('/api/trades/close', sensitiveLimiter, requireWalletSession, (req, res) => {
   const tradeId = req.body?.trade_id;
@@ -5155,7 +5127,7 @@ app.get('/api/forex/candles', (req, res) => {
     });
 });
 
-app.get('/api/forex/stream', (req, res) => {
+function streamMarketData(req, res, filter = () => true) {
   res.set({
     'Content-Type': 'text/event-stream',
     'Cache-Control': 'no-cache, no-transform',
@@ -5164,20 +5136,34 @@ app.get('/api/forex/stream', (req, res) => {
   });
   res.flushHeaders?.();
   res.write('retry: 3000\n\n');
-  forexPriceStreamClients.add(res);
-  if (!forexPriceStreamInterval) {
-    forexPriceStreamInterval = setInterval(broadcastForexPrices, 1000);
-    broadcastForexPrices();
+  const client = {
+    res,
+    filter,
+    heartbeat: setInterval(() => {
+      if (!res.destroyed && !res.writableEnded) res.write(': heartbeat\n\n');
+    }, 20000)
+  };
+  marketPriceStreamClients.add(client);
+  for (const quote of marketDataService.getLatestQuotes()) {
+    if (filter(quote)) res.write(`data: ${JSON.stringify(quote)}\n\n`);
   }
+  let removed = false;
   const removeClient = () => {
-    forexPriceStreamClients.delete(res);
-    if (!forexPriceStreamClients.size && forexPriceStreamInterval) {
-      clearInterval(forexPriceStreamInterval);
-      forexPriceStreamInterval = null;
-    }
+    if (removed) return;
+    removed = true;
+    clearInterval(client.heartbeat);
+    marketPriceStreamClients.delete(client);
   };
   req.on('close', removeClient);
   res.on('close', removeClient);
+}
+
+app.get('/api/market-data/stream', (req, res) => {
+  streamMarketData(req, res);
+});
+
+app.get('/api/forex/stream', (req, res) => {
+  streamMarketData(req, res, quote => quote.assetClass === 'FOREX');
 });
 
 app.use('/api', (req, res) => {

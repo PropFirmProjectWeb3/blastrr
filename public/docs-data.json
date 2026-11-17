@@ -108,7 +108,8 @@
         "title": "Market Data",
         "items": [
           "The terminal's selected-market bar shows mid price, bid/ask, 24-hour percentage change, high, low, and quote volume in USDT.",
-          "The scrolling bottom ticker shows price and 24-hour percentage change from Binance Spot streaming ticker data for configured pairs.",
+          "Live quotes for the selected market, chart, and scrolling ticker are distributed from Blastrr's server-side market data stream; the server shares provider feeds across connected users.",
+          "Historical chart candles are loaded when a market or timeframe is selected; live chart updates then use the shared market data stream.",
           "Market data is provided for reference in the simulated terminal. Data delays, exchange availability, and simulated execution can cause differences from a live exchange."
         ]
       },

@@ -24,12 +24,16 @@ test('invalid limit order values cannot trigger', () => {
   assert.equal(isLimitOrderTriggered('SELL', 100, Number.NaN), false);
 });
 
-test('triggered limits are activated by the server and pending orders are excluded from client stops', () => {
+test('triggered limits and protective stops are monitored by the server', () => {
   assert.match(serverJs, /function checkPendingLimitOrders\(\)/);
   assert.match(serverJs, /setInterval\(checkPendingLimitOrders, 1000\)/);
   assert.match(serverJs, /UPDATE trades SET status = 'OPEN', entry_price = \?, size_usd = \?, units = \?[\s\S]*?status = 'PENDING'/);
+  assert.match(serverJs, /function checkServerStopOrders\(\)/);
+  assert.match(serverJs, /setInterval\(checkServerStopOrders, 1000\)/);
+  assert.match(serverJs, /closeTradeForWallet\(trade\.id, trade\.wallet_address\.toLowerCase\(\)/);
   const stopMonitor = appJs.slice(appJs.indexOf('async function monitorClientStops'), appJs.indexOf('async function signedTradeAuthorization'));
-  assert.match(stopMonitor, /trade\.status !== 'OPEN'/);
+  assert.doesNotMatch(stopMonitor, /closeTrade\(/);
+  assert.doesNotMatch(stopMonitor, /hitStop/);
   assert.match(appJs, /Limit price \(Buy fills at\/below; Sell fills at\/above\)/);
   assert.match(appJs, /if \(isLimit\) \{[\s\S]*?userHasEditedPrice = true/);
   assert.match(appJs, /if \(orderTypeInput\?\.value === 'MARKET'\)/);

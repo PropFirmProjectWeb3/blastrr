@@ -9,6 +9,7 @@ const appCss = fs.readFileSync('public/css/app.css', 'utf8');
 const landingHtml = fs.readFileSync('public/index.html', 'utf8');
 const databaseJs = fs.readFileSync('database.js', 'utf8');
 const serverJs = fs.readFileSync('server.js', 'utf8');
+const marketDataProvidersJs = fs.readFileSync('marketDataProviders.js', 'utf8');
 const faqHtml = fs.readFileSync('public/faq.html', 'utf8');
 const faqJs = fs.readFileSync('public/js/faq.js', 'utf8');
 const faqCss = fs.readFileSync('public/css/faq.css', 'utf8');
@@ -115,10 +116,12 @@ test('trading terminal displays spot stats and puts account selection first in t
   assert.match(appHtml, /id="market-ticker-track" class="market-ticker-track"/);
   assert.match(appJs, /function initializeMarketPriceTicker\(\)/);
   assert.match(appJs, /market\.source === 'BINANCE_SPOT'/);
-  assert.match(appJs, /wss:\/\/stream\.binance\.com:9443\/stream\?streams=/);
-  assert.match(appJs, /ticker\?\.s/);
-  assert.match(appJs, /ticker\.c/);
-  assert.match(appJs, /ticker\.P/);
+  assert.match(appJs, /new EventSource/);
+  assert.match(appJs, /\/api\/market-data\/stream/);
+  assert.match(appJs, /applyMarketDataQuote\(JSON\.parse\(event\.data\)\)/);
+  const liveQuoteHandler = appJs.slice(appJs.indexOf('function applyMarketDataQuote'), appJs.indexOf('function startPricePolling'));
+  assert.match(liveQuoteHandler, /updateLiveMarketChart\(market\.pair, price, publishTime\)/);
+  assert.match(appJs, /update\.priceChangePercent/);
   const marketBarStart = appHtml.indexOf('<div class="chart-market-bar"');
   const accountSelect = appHtml.indexOf('id="active-account-select"');
   const chartFrame = appHtml.indexOf('id="tradingview-widget-container"');
@@ -524,9 +527,11 @@ test('chart account selector excludes risk-locked accounts and clears when none 
 });
 
 test('market charts and prices use Binance and Bitget data with trade overlays', () => {
-  assert.match(appJs, /setInterval\(\(\) => fetchPrice\(pair, type, source, generation\), 1000\)/);
-  assert.match(appJs, /https:\/\/api\.binance\.com\/api\/v3\/ticker\/24hr\?symbol=/);
-  assert.match(appJs, /https:\/\/api\.bitget\.com\/api\/v2\/mix\/market\/ticker\?productType=USDT-FUTURES&symbol=/);
+  assert.doesNotMatch(appJs, /api\.binance\.com\/api\/v3\/ticker\/24hr|api\.bitget\.com\/api\/v2\/mix\/market\/ticker/);
+  assert.match(appJs, /connectMarketDataStream\(\)/);
+  assert.match(serverJs, /app\.get\('\/api\/market-data\/stream'/);
+  assert.match(marketDataProvidersJs, /https:\/\/api\.binance\.com\/api\/v3\/ticker\/price\?symbol=/);
+  assert.match(marketDataProvidersJs, /https:\/\/api\.bitget\.com\/api\/v2\/mix\/market\/ticker\?productType=USDT-FUTURES&symbol=/);
   assert.match(appJs, /https:\/\/api\.bitget\.com\/api\/v2\/mix\/market\/candles\?productType=USDT-FUTURES/);
   assert.match(appJs, /https:\/\/api\.binance\.com\/api\/v3\/klines\?symbol=/);
   assert.match(appJs, /https:\/\/fapi\.binance\.com\/fapi\/v1\/klines\?symbol=/);
@@ -534,9 +539,9 @@ test('market charts and prices use Binance and Bitget data with trade overlays',
   assert.match(appJs, /liveMarketCandleSeries\.createPriceLine/);
   assert.match(appJs, /liveMarketCandleSeries\.setMarkers/);
   assert.doesNotMatch(appHtml, /Open trades: entry, SL &amp; TP levels/);
-  assert.match(appJs, /data\?\.code !== '00000'/);
-  assert.match(appJs, /ticker\?\.symbol !== pair/);
-  assert.match(appJs, /price = Number\(ticker\.markPrice\)/);
+  assert.match(marketDataProvidersJs, /payload\.code !== '00000'/);
+  assert.match(marketDataProvidersJs, /ticker\?\.symbol !== market\.pair/);
+  assert.match(marketDataProvidersJs, /price = Number\(ticker\.markPrice/);
   assert.match(appJs, /function updateLiveMarketChart\(pair, priceValue, timestampValue\)/);
   assert.match(appJs, /liveMarketCandleSeries\.update/);
   assert.match(appJs, /initLiveMarketChart\(opt\.dataset\.pair, opt\.dataset\.source\)/);
@@ -544,11 +549,8 @@ test('market charts and prices use Binance and Bitget data with trade overlays',
   assert.match(appHtml, /lightweight-charts@4\.2\.3\/dist\/lightweight-charts\.standalone\.production\.js/);
   assert.doesNotMatch(appJs, /\/api\/market\/price/);
   assert.doesNotMatch(appJs, /api\.bybit\.com|api\.nasdaq\.com/);
-  assert.match(serverJs, /api\.binance\.com\/api\/v3\/ticker\/price\?symbol=/);
-  assert.match(serverJs, /api\.bitget\.com\/api\/v2\/mix\/market\/ticker\?productType=USDT-FUTURES&symbol=/);
-  assert.match(serverJs, /parsed\.code !== '00000'/);
-  assert.match(serverJs, /ticker\?\.symbol !== market\.pair/);
-  assert.match(serverJs, /priceValue = ticker\.markPrice/);
+  assert.match(serverJs, /getAuthoritativePrice\(market/);
+  assert.match(serverJs, /getAuthoritativeQuote\(market/);
   assert.match(serverJs, /market\.source === 'BITGET_PERP' \? marketPrice \* 0\.0005 : 5/);
   assert.match(serverJs, /const legacyTradeMarkets = new Map/);
   assert.match(serverJs, /function getTradeMarket\(symbol\)/);
@@ -662,7 +664,7 @@ test('Forex order execution can resolve quote-to-USD conversion outside the metr
 
   const helper = appJs.slice(helperStart, metricsStart);
   const getRate = new vm.Script(`${helper}\ngetClientForexQuoteToUsdRate`).runInNewContext({
-    forexPricesBySymbol: new Map([['FX:USDJPY', { price: 150 }]])
+    marketQuotesBySymbol: new Map([['FX:USDJPY', { price: 150 }]])
   });
   assert.equal(getRate('USD'), 1);
   assert.equal(getRate('JPY'), 1 / 150);

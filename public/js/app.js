@@ -52,16 +52,12 @@ let connectedWallet = null;
         let liveMarketChartGeneration = 0;
         let liveMarketTradeLines = [];
         let liveMarketTradeMarkers = [];
-        let livePriceRequestGeneration = 0;
         let activePromoCode = null;
         let battlePassDiscountBonusPct = 0;
         let standardDiscountPct = 90;
         let plansData = [];
         let planLoadAttempts = 0;
-        let livePriceInterval = null;
-        let marketTickerSocket = null;
-        let marketTickerReconnectTimer = null;
-        let marketTickerReconnectAttempts = 0;
+        let marketDataStream = null;
         let marketTickerItems = new Map();
         let marketChatSymbol = null;
         let marketChatGeneration = 0;
@@ -103,9 +99,7 @@ let connectedWallet = null;
                 let cryptoMarketsData = [];
                 let forexMarketsData = [];
                 let tradingMarketMode = 'CRYPTO';
-                let forexPriceStream = null;
-                let forexPriceGeneration = 0;
-                const forexPricesBySymbol = new Map();
+                const marketQuotesBySymbol = new Map();
                 let forexChartStats = null;
                 let forexChartStatsSymbol = null;
                 let liveMarketChartHistoryFailed = false;
@@ -822,7 +816,7 @@ let connectedWallet = null;
                     liveMarketChartHistoryFailed = false;
                     liveMarketChartStatus.remove();
                     liveMarketChartStatus = null;
-                    const lastTick = forexPricesBySymbol.get(forexMarket.symbol);
+                    const lastTick = marketQuotesBySymbol.get(forexMarket.symbol);
                     if (lastTick) {
                         updateLiveMarketChart(pair, lastTick.price, lastTick.publishTime);
                         renderForexChartStats(forexMarket, lastTick);
@@ -1246,60 +1240,91 @@ let connectedWallet = null;
                     onSymbolChanged(select.value);
                 }
             });
-            connectMarketPriceTicker(markets);
+            connectMarketDataStream();
         }
 
-        function connectMarketPriceTicker(markets) {
-            const status = document.getElementById('market-ticker-status');
-            if (!markets.length) {
-                if (status) status.textContent = 'No spot markets configured';
-                return;
-            }
-            if (typeof WebSocket === 'undefined') {
-                if (status) status.textContent = 'Live prices unavailable';
-                return;
+        function connectMarketDataStream() {
+            if (marketDataStream || typeof EventSource === 'undefined') return;
+            const stream = new EventSource('/api/market-data/stream');
+            marketDataStream = stream;
+            stream.onopen = () => {
+                const status = document.getElementById('market-ticker-status');
+                if (status) status.textContent = 'LIVE · SERVER MARKET DATA';
+                const forexStatus = document.getElementById('market-hours-status');
+                const selectedMarket = marketsData.find(market => market.symbol === document.getElementById('order-symbol')?.value);
+                if (forexStatus && selectedMarket?.asset_class === 'FOREX') forexStatus.lastChild.textContent = 'SWISSQUOTE · LIVE';
+            };
+            stream.onmessage = event => {
+                try {
+                    applyMarketDataQuote(JSON.parse(event.data));
+                } catch (error) {
+                    console.warn('Invalid server market data update:', error);
+                }
+            };
+            stream.onerror = () => {
+                const status = document.getElementById('market-ticker-status');
+                if (status) status.textContent = 'Reconnecting to server market data';
+                const forexStatus = document.getElementById('market-hours-status');
+                const selectedMarket = marketsData.find(market => market.symbol === document.getElementById('order-symbol')?.value);
+                if (forexStatus && selectedMarket?.asset_class === 'FOREX') forexStatus.lastChild.textContent = 'FOREX · RECONNECTING';
+            };
+        }
+
+        function applyMarketDataQuote(update) {
+            const market = [...cryptoMarketsData, ...forexMarketsData].find(item => item.symbol === update?.symbol);
+            const price = Number(update?.price);
+            const publishTime = Number(update?.publishedAt ?? update?.publishTime);
+            if (!market || !Number.isFinite(price) || price <= 0 || !Number.isFinite(publishTime)) return;
+            const quote = {
+                ...update,
+                price,
+                bid: Number(update.bid),
+                ask: Number(update.ask),
+                publishTime
+            };
+            marketQuotesBySymbol.set(market.symbol, quote);
+
+            const tickerItems = marketTickerItems.get(market.pair);
+            if (tickerItems && Number.isFinite(Number(update.priceChangePercent))) {
+                const formattedPrice = new Intl.NumberFormat(undefined, {
+                    style: 'currency',
+                    currency: 'USD',
+                    maximumSignificantDigits: 8
+                }).format(price);
+                const change = Number(update.priceChangePercent);
+                const formattedChange = `${change >= 0 ? '+' : ''}${change.toFixed(2)}%`;
+                tickerItems.forEach(item => {
+                    item.price.textContent = formattedPrice;
+                    item.change.textContent = formattedChange;
+                    item.change.classList.toggle('is-positive', change > 0);
+                    item.change.classList.toggle('is-negative', change < 0);
+                });
             }
 
-            const streams = markets.map(market => `${market.pair.toLowerCase()}@ticker`).join('/');
-            const socket = new WebSocket(`wss://stream.binance.com:9443/stream?streams=${streams}`);
-            marketTickerSocket = socket;
-            socket.addEventListener('open', () => {
-                marketTickerReconnectAttempts = 0;
-                if (status) status.textContent = 'LIVE · BINANCE SPOT';
-            });
-            socket.addEventListener('message', event => {
-                try {
-                    const ticker = JSON.parse(event.data)?.data;
-                    const items = marketTickerItems.get(ticker?.s);
-                    if (!items) return;
-                    const price = Number(ticker.c);
-                    const change = Number(ticker.P);
-                    if (!Number.isFinite(price) || price <= 0 || !Number.isFinite(change)) return;
-                    const formattedPrice = new Intl.NumberFormat(undefined, {
-                        style: 'currency',
-                        currency: 'USD',
-                        maximumSignificantDigits: 8
-                    }).format(price);
-                    const formattedChange = `${change >= 0 ? '+' : ''}${change.toFixed(2)}%`;
-                    items.forEach(item => {
-                        item.price.textContent = formattedPrice;
-                        item.change.textContent = formattedChange;
-                        item.change.classList.toggle('is-positive', change > 0);
-                        item.change.classList.toggle('is-negative', change < 0);
-                    });
-                } catch (error) {
-                    console.warn('Invalid Binance spot ticker message:', error);
-                }
-            });
-            socket.addEventListener('close', () => {
-                if (marketTickerSocket !== socket) return;
-                if (status) status.textContent = 'Reconnecting to spot markets';
-                const delay = Math.min(30000, 1000 * (2 ** marketTickerReconnectAttempts));
-                marketTickerReconnectAttempts += 1;
-                clearTimeout(marketTickerReconnectTimer);
-                marketTickerReconnectTimer = setTimeout(() => connectMarketPriceTicker(markets), delay);
-            });
-            socket.addEventListener('error', () => socket.close());
+            if (market.symbol !== document.getElementById('order-symbol')?.value) {
+                calculateMetrics();
+                updateDisplayedOpenTradePnls(currentLivePrice);
+                return;
+            }
+            const status = document.getElementById('market-hours-status');
+            if (status && market.asset_class === 'FOREX') {
+                status.lastChild.textContent = Date.now() - publishTime > 30000
+                    ? 'MARKET CLOSED · LAST QUOTE'
+                    : 'SWISSQUOTE · LIVE';
+            }
+            currentLivePrice = price;
+            updateMarketTabTitle(price, market.pair);
+            updateLiveMarketChart(market.pair, price, publishTime);
+            if (market.asset_class === 'FOREX') renderForexChartStats(market, quote);
+            else renderChartMarketStats(quote);
+            const priceInput = document.getElementById('order-price');
+            if (priceInput && !userHasEditedPrice) {
+                priceInput.value = price;
+                if (document.getElementById('order-type')?.value === 'LIMIT') userHasEditedPrice = true;
+                calculateMetrics();
+            }
+            updateDisplayedOpenTradePnls(price);
+            monitorClientStops();
         }
 
         function renderChartMarketStats(ticker) {
@@ -1311,8 +1336,8 @@ let connectedWallet = null;
                 ? Math.min(8, Math.ceil(-Math.log10(pipSize)) + 1)
                 : 2;
             const priceStyle = isForex ? 'number' : 'currency';
-            const bidPrice = Number(ticker.bidPr ?? ticker.bidPrice);
-            const askPrice = Number(ticker.askPr ?? ticker.askPrice);
+            const bidPrice = Number(ticker.bidPr ?? ticker.bidPrice ?? ticker.bid);
+            const askPrice = Number(ticker.askPr ?? ticker.askPrice ?? ticker.ask);
             const lastPrice = Number(ticker.lastPr ?? ticker.lastPrice ?? ticker.price);
             const midPrice = Number.isFinite(bidPrice) && bidPrice > 0 && Number.isFinite(askPrice) && askPrice > 0
                 ? (bidPrice + askPrice) / 2
@@ -1345,133 +1370,8 @@ let connectedWallet = null;
             }
         }
 
-        function startPricePolling(pair, type, source) {
-            if (livePriceInterval) clearInterval(livePriceInterval);
-            const generation = ++livePriceRequestGeneration;
-            if (source === 'SWISSQUOTE') {
-                connectForexPriceTicker();
-                return;
-            }
-            disconnectForexPriceTicker();
-            fetchPrice(pair, type, source, generation);
-            livePriceInterval = setInterval(() => fetchPrice(pair, type, source, generation), 1000);
-        }
-
-        function disconnectForexPriceTicker() {
-            forexPriceGeneration++;
-            forexPriceStream?.close();
-            forexPriceStream = null;
-        }
-
-        function connectForexPriceTicker() {
-            if (forexPriceStream || tradingMarketMode !== 'FOREX') return;
-            if (typeof EventSource === 'undefined') {
-                const status = document.getElementById('market-hours-status');
-                if (status) status.lastChild.textContent = 'FOREX · FEED UNAVAILABLE';
-                return;
-            }
-            const generation = ++forexPriceGeneration;
-            const status = document.getElementById('market-hours-status');
-            if (status) status.lastChild.textContent = 'FOREX · CONNECTING';
-            const stream = new EventSource('/api/forex/stream');
-            forexPriceStream = stream;
-            stream.onopen = () => {
-                if (generation !== forexPriceGeneration || forexPriceStream !== stream) return;
-                if (status) status.lastChild.textContent = 'SWISSQUOTE · LIVE';
-            };
-            stream.onmessage = event => {
-                if (generation !== forexPriceGeneration) return;
-                try {
-                    const update = JSON.parse(event.data);
-                    const market = forexMarketsData.find(item => item.symbol === update.symbol);
-                    if (!market) return;
-                    const price = Number(update.price);
-                    const publishTime = Number(update.publishTime);
-                    if (!Number.isFinite(price) || price <= 0 || !Number.isFinite(publishTime)) return;
-                    const quote = { price, bid: Number(update.bid), ask: Number(update.ask), publishTime };
-                    forexPricesBySymbol.set(market.symbol, quote);
-                    if (market.symbol !== document.getElementById('order-symbol')?.value) {
-                        calculateMetrics();
-                        updateDisplayedOpenTradePnls(currentLivePrice);
-                        return;
-                    }
-                    const marketHoursStatus = document.getElementById('market-hours-status');
-                    if (marketHoursStatus) {
-                        marketHoursStatus.lastChild.textContent = Date.now() - publishTime > 30000
-                            ? 'MARKET CLOSED · LAST QUOTE'
-                            : 'SWISSQUOTE · LIVE';
-                    }
-                    currentLivePrice = price;
-                    updateMarketTabTitle(price, market.pair);
-                    updateLiveMarketChart(market.pair, price, publishTime);
-                    renderForexChartStats(market, quote);
-                    const priceInput = document.getElementById('order-price');
-                    if (priceInput && !userHasEditedPrice) {
-                        priceInput.value = price;
-                        if (document.getElementById('order-type')?.value === 'LIMIT') userHasEditedPrice = true;
-                        calculateMetrics();
-                    }
-                    updateDisplayedOpenTradePnls(price);
-                    monitorClientStops();
-                } catch (error) {
-                    console.warn('Invalid Swissquote price update:', error);
-                }
-            };
-            stream.onerror = () => {
-                if (generation === forexPriceGeneration && status) status.lastChild.textContent = 'FOREX · RECONNECTING';
-            };
-        }
-
-        async function fetchPrice(pair, type, source, generation) {
-            try {
-                const endpoint = source === 'BINANCE_SPOT'
-                    ? `https://api.binance.com/api/v3/ticker/24hr?symbol=${encodeURIComponent(pair)}`
-                    : source === 'BINANCE_PERP'
-                        ? `https://fapi.binance.com/fapi/v1/ticker/24hr?symbol=${encodeURIComponent(pair)}`
-                        : source === 'BITGET_PERP'
-                            ? `https://api.bitget.com/api/v2/mix/market/ticker?productType=USDT-FUTURES&symbol=${encodeURIComponent(pair)}`
-                            : null;
-                if (!endpoint) throw new Error(`Unsupported market price source: ${source}`);
-                const res = await fetch(endpoint);
-                if (!res.ok) throw new Error(`Market price request failed (${res.status}).`);
-                const data = await res.json();
-                let price;
-                if (source === 'BINANCE_SPOT') {
-                    price = Number(data?.lastPrice);
-                    if (generation === livePriceRequestGeneration) updateLiveMarketChart(pair, price, Date.now());
-                } else {
-                    if (source === 'BITGET_PERP') {
-                        if (data?.code !== '00000') throw new Error(`Bitget price request failed (${data?.msg || data?.code}).`);
-                        const ticker = data.data?.[0];
-                        if (ticker?.symbol !== pair) throw new Error('Bitget returned an unexpected market symbol.');
-                        price = Number(ticker.markPrice);
-                        if (generation === livePriceRequestGeneration) updateLiveMarketChart(pair, price, ticker.ts);
-                        if (generation === livePriceRequestGeneration) renderChartMarketStats(ticker);
-                    } else {
-                        price = Number(data?.lastPrice);
-                        if (generation === livePriceRequestGeneration) {
-                            updateLiveMarketChart(pair, price, Date.now());
-                            renderChartMarketStats(data);
-                        }
-                    }
-                }
-                if (!Number.isFinite(price) || price <= 0) throw new Error('Market provider returned an invalid price.');
-                if (generation !== livePriceRequestGeneration) return;
-                if (source === 'BINANCE_SPOT') renderChartMarketStats(data);
-                currentLivePrice = price;
-                updateMarketTabTitle(price, pair);
-
-                const priceInput = document.getElementById('order-price');
-                if (priceInput && currentLivePrice > 0 && !userHasEditedPrice) {
-                    priceInput.value = currentLivePrice;
-                    if (document.getElementById('order-type')?.value === 'LIMIT') userHasEditedPrice = true;
-                    calculateMetrics();
-                }
-                updateDisplayedOpenTradePnls(currentLivePrice);
-                monitorClientStops();
-            } catch (err) { 
-                console.warn("Price feed warning for", pair, err); 
-            }
+        function startPricePolling() {
+            connectMarketDataStream();
         }
 
         function updateOrderType(orderType) {
@@ -1614,7 +1514,7 @@ let connectedWallet = null;
                 CHF: ['FX:USDCHF', true],
                 CAD: ['FX:USDCAD', true]
             }[currency];
-            const rate = forexPricesBySymbol.get(conversion?.[0])?.price;
+            const rate = marketQuotesBySymbol.get(conversion?.[0])?.price;
             if (!Number.isFinite(rate) || rate <= 0) return currency === 'USD' ? 1 : NaN;
             return conversion[1] ? 1 / rate : rate;
         }
@@ -5026,7 +4926,7 @@ let connectedWallet = null;
         }
 
         async function monitorClientStops() {
-            if (!connectedWallet || !selectedAccountId || !currentLivePrice) return;
+            if (!connectedWallet || !selectedAccountId) return;
             const accountId = selectedAccountId;
             const selectedSymbol = document.getElementById('order-symbol')?.value;
             try {
@@ -5043,18 +4943,8 @@ let connectedWallet = null;
                     const fillPrice = Number(fill.entry_price).toLocaleString(undefined, { maximumFractionDigits: 8 });
                     setTradeFeedback(`${fill.symbol} limit order filled at ${fillPrice}.`);
                 }
-                for (const trade of trades) {
-                    if (trade.status !== 'OPEN' || trade.symbol !== selectedSymbol || closingTradeIds.has(trade.id)) continue;
-                    const hitStop = trade.side === 'BUY'
-                        ? (trade.sl && currentLivePrice <= trade.sl) || (trade.tp && currentLivePrice >= trade.tp)
-                        : (trade.sl && currentLivePrice >= trade.sl) || (trade.tp && currentLivePrice <= trade.tp);
-                    if (hitStop) {
-                        closingTradeIds.add(trade.id);
-                        await closeTrade(trade.id, currentLivePrice, true);
-                    }
-                }
             } catch (error) {
-                console.warn('Unable to check browser-side stop orders:', error);
+                console.warn('Unable to check pending limit fills:', error);
             }
         }
 

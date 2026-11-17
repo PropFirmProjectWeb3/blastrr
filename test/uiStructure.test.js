@@ -165,7 +165,7 @@ test('admin can toggle maintenance for each public page and set an outage messag
 
 test('trading terminal HTML loads its external stylesheet and application script', () => {
   assert.match(appHtml, /href="\/css\/app\.css\?v=20261118-account-performance"/);
-  assert.match(appHtml, /src="\/js\/app\.js\?v=20261117-forex-leverage-sizing" defer/);
+  assert.match(appHtml, /src="\/js\/app\.js\?v=20261117-forex-margin-check" defer/);
   assert.doesNotMatch(appHtml, /<style[\s>]/i);
   assert.doesNotMatch(appHtml, /<script>\s*[\s\S]*?\bfunction\s/m);
   assert.match(appHtml, /id="nav-menu"/);
@@ -651,11 +651,15 @@ test('Forex order execution can resolve quote-to-USD conversion outside the metr
   assert.equal(getRate('JPY'), 1 / 150);
 });
 
-test('Forex leverage scales the submitted position lots and displayed exposure', () => {
-  assert.match(appJs, /sizeLabel\.textContent = isForex \? 'Base position size \(lots at 1x\)'/);
-  assert.match(appJs, /const units = sizeInput \* leverage \* Number\(selectedMarket\.lot_units\)/);
-  assert.match(appJs, /const forexLots = sizeInput \* leverage/);
-  assert.match(appJs, /const lotSize = isForex \? enteredSize \* leverage : null/);
+test('Forex checks required margin rather than rejecting position notional', () => {
+  assert.match(appJs, /sizeLabel\.textContent = isForex \? 'Position size \(lots\)'/);
+  assert.match(appJs, /const units = sizeInput \* Number\(selectedMarket\.lot_units\)/);
+  assert.match(appJs, /marginInput = notional \/ leverage/);
+  assert.match(appJs, /const lotSize = isForex \? enteredSize : null/);
+  assert.match(appJs, /const sizeUsd = isForex \? marginUsed : enteredSize/);
+  assert.match(appJs, /sizeUsd > activeAccount\.current_balance/);
+  assert.match(serverJs, /if \(!isForex && requestedMargin > account\.current_balance\)/);
+  assert.match(serverJs, /if \(margin > account\.current_balance\)/);
   assert.match(serverJs, /calculateForexMargin\(lotSize, executionPrice, leverage/);
 });
 

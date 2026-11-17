@@ -120,13 +120,12 @@ test('forex margin is standard-lot notional converted to USD and divided by leve
   });
 });
 
-test('leveraged forex sizing increases actual lots while keeping margin tied to base lots', () => {
-  const baseLots = 0.1;
+test('leveraged forex margin is based on position notional rather than full notional', () => {
   const leverage = 20;
-  assert.deepEqual(calculateForexMargin(baseLots * leverage, 1.1, leverage, 1), {
-    units: 200000,
-    notionalUsd: 220000,
-    marginUsd: 11000
+  assert.deepEqual(calculateForexMargin(0.1, 1.1, leverage, 1), {
+    units: 10000,
+    notionalUsd: 11000,
+    marginUsd: 550
   });
 });
 

@@ -1,5 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
+const forexMarkets = require('../public/config/forexMarkets.json');
 const {
   calculateForexMargin,
   calculateForexPnl,
@@ -17,6 +18,28 @@ const prices = new Map([
   ['FX:USDCAD', 1.35],
   ['FX:GBPUSD', 1.25]
 ]);
+
+test('XAU/USD is configured as a Swissquote Forex market with standard gold lots', () => {
+  const gold = forexMarkets.find(market => market.symbol === 'FX:XAUUSD');
+  assert.deepEqual({
+    pair: gold?.pair,
+    source: gold?.source,
+    historySymbol: gold?.history_symbol,
+    pipSize: gold?.pip_size,
+    lotUnits: gold?.lot_units
+  }, {
+    pair: 'XAU/USD',
+    source: 'SWISSQUOTE',
+    historySymbol: 'GC=F',
+    pipSize: 0.01,
+    lotUnits: 100
+  });
+  assert.deepEqual(calculateForexMargin(0.01, 2000, 50, 1, gold.lot_units), {
+    units: 1,
+    notionalUsd: 2000,
+    marginUsd: 40
+  });
+});
 
 test('forex conversions use USD quotes and invert non-USD quote pairs', () => {
   assert.equal(getQuoteToUsdRate('USD', prices), 1);
@@ -62,6 +85,31 @@ test('Forex chart candles use New York time across daylight-saving changes', () 
   assert.equal(history.stats.referencePrice, 1.05);
   assert.equal(history.stats.highPrice, 1.2);
   assert.equal(history.stats.lowPrice, 1.09);
+});
+
+test('flat Forex price samples are rendered as candles using the prior close', () => {
+  const firstTime = Date.UTC(2026, 2, 8, 12, 0) / 1000;
+  const secondTime = firstTime + 60;
+  const history = parseForexChartHistory({
+    chart: {
+      result: [{
+        timestamp: [firstTime, secondTime],
+        indicators: {
+          quote: [{
+            open: [1.1, 1.101],
+            high: [1.1, 1.101],
+            low: [1.1, 1.101],
+            close: [1.1, 1.101]
+          }]
+        }
+      }]
+    }
+  }, 60, secondTime + 60);
+  assert.deepEqual(history.candles.map(({ open, high, low, close }) => ({ open, high, low, close })), [
+    { open: 1.1, high: 1.1, low: 1.1, close: 1.1 },
+    { open: 1.1, high: 1.101, low: 1.1, close: 1.101 }
+  ]);
+  assert.equal(history.stats.quoteUpdates24h, 2);
 });
 
 test('forex margin is standard-lot notional converted to USD and divided by leverage', () => {

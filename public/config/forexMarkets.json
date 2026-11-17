@@ -89,5 +89,19 @@
     "quote_currency": "USD",
     "pip_size": 0.0001,
     "lot_units": 100000
+  },
+  {
+    "label": "XAU/USD",
+    "symbol": "FX:XAUUSD",
+    "pair": "XAU/USD",
+    "type": "FOREX",
+    "asset_class": "FOREX",
+    "group": "Metals",
+    "source": "SWISSQUOTE",
+    "history_symbol": "GC=F",
+    "base_currency": "XAU",
+    "quote_currency": "USD",
+    "pip_size": 0.01,
+    "lot_units": 100
   }
 ]

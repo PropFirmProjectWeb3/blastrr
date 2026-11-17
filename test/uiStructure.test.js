@@ -591,14 +591,16 @@ test('expanded accounts show a responsive daily trade calendar and save text-onl
   assert.match(appCss, /@media \(max-width: 700px\)[\s\S]*?\.account-calendar-day \{ min-height: 69px/);
 });
 
-test('accounts view keeps temporary DLL locks visible and can hide permanent MLL locks', () => {
-  assert.match(appHtml, /id="accounts-hide-permanent" type="checkbox" checked/);
-  assert.match(appHtml, /Hide permanently locked accounts/);
-  assert.match(appJs, /function togglePermanentlyLockedAccounts\(checked\)/);
-  assert.match(appJs, /acc\.lock_reason === 'MLL'/);
-  assert.match(appJs, /hidePermanentlyLockedAccounts && isPermanentlyLocked/);
-  assert.doesNotMatch(appJs, /isActive = acc\.status === 'ACTIVE'[\s\S]*?hidePermanentlyLockedAccounts/);
-  assert.match(appJs, /No accounts to show\. Turn off “Hide permanently locked accounts”/);
+test('account performance summaries include active and soft DLL-locked accounts only', () => {
+  assert.doesNotMatch(appHtml, /accounts-hide-permanent|Hide permanently locked accounts/);
+  assert.match(appHtml, /Totals include active accounts and soft-locked DLL accounts; MLL-locked accounts are excluded/);
+  assert.match(appJs, /function isActivePortfolioAccount\(account\)/);
+  assert.match(appJs, /account\?\.status === 'ACTIVE'/);
+  assert.match(appJs, /No active, unlocked accounts available to display/);
+  assert.match(serverJs, /const activeAccounts = allAccounts\.filter\(account =>[\s\S]*?account\.status === 'ACTIVE'/);
+  assert.match(serverJs, /const dllLockedAccounts = allAccounts\.filter\(account =>[\s\S]*?account\.lockReason === 'DLL'/);
+  assert.match(serverJs, /dllLockedAccountCount: dllLockedAccounts\.length/);
+  assert.match(appJs, /\['DLL-locked accounts', Number\(metrics\.dllLockedAccountCount \|\| 0\)/);
   assert.match(appJs, /account\?\.lock_reason === 'DLL'/);
   assert.match(appJs, /account\?\.lock_reason === 'MLL'/);
 });

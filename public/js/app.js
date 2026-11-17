@@ -81,7 +81,6 @@ let connectedWallet = null;
         let adminUserSearchQuery = '';
         let tradeCopyGroups = [];
         let tradeCopyWizard = null;
-        let hidePermanentlyLockedAccounts = true;
         let hidePermanentlyLockedCopyAccounts = true;
         let walletSessionToken = null;
         let walletSessionOwner = null;
@@ -178,7 +177,8 @@ let connectedWallet = null;
                     ? ((price / referencePrice) - 1) * 100
                     : undefined,
                 high24h: Number.isFinite(highPrice) && highPrice > 0 ? Math.max(highPrice, price) : price,
-                low24h: Number.isFinite(lowPrice) && lowPrice > 0 ? Math.min(lowPrice, price) : price
+                low24h: Number.isFinite(lowPrice) && lowPrice > 0 ? Math.min(lowPrice, price) : price,
+                quoteUpdates24h: stats?.quoteUpdates24h
             });
         }
 
@@ -772,7 +772,9 @@ let connectedWallet = null;
             attribution.rel = 'noopener noreferrer';
             attribution.textContent = 'Charts by TradingView';
             attribution.title = source === 'SWISSQUOTE'
-                ? 'Forex history: Yahoo Finance · Live quotes: Swissquote · Chart times: New York'
+                ? (forexMarket?.history_symbol
+                    ? 'Gold history: Yahoo Finance COMEX futures, rebased to Swissquote XAU/USD spot · Chart times: New York'
+                    : 'Forex history: Yahoo Finance · Live quotes: Swissquote · Chart times: New York')
                 : 'Charts by TradingView';
             chartHost.append(liveMarketChartStatus, attribution);
             container.replaceChildren(chartHost);
@@ -998,7 +1000,9 @@ let connectedWallet = null;
             marketChatSymbol = symbol;
             marketChatGeneration++;
             const room = document.getElementById('market-chat-room');
+            const messages = document.getElementById('market-chat-messages');
             if (room) room.textContent = `${label || symbol} · public room`;
+            if (messages) messages.innerHTML = '<p class="market-chat-empty">Loading room messages…</p>';
             marketChatFeedback = '';
             marketChatFeedbackIsError = false;
             updateMarketChatControls();
@@ -1095,6 +1099,7 @@ let connectedWallet = null;
                 if (wasNearBottom || messages.length <= 1) messagesElement.scrollTop = messagesElement.scrollHeight;
             } catch (error) {
                 if (generation === marketChatGeneration) {
+                    messagesElement.innerHTML = '<p class="market-chat-empty">Unable to load this market’s chat room.</p>';
                     marketChatFeedback = 'Public chat is temporarily unavailable.';
                     marketChatFeedbackIsError = true;
                     updateMarketChatControls();
@@ -1328,9 +1333,10 @@ let connectedWallet = null;
             const volumeLabel = document.getElementById('chart-volume-24h')?.previousElementSibling;
             const volumeStat = document.getElementById('chart-volume-24h');
             if (selectedMarket?.asset_class === 'FOREX') {
-                if (volumeLabel) volumeLabel.textContent = 'Spot volume';
-                if (volumeStat) volumeStat.textContent = 'N/A';
-                volumeStat?.parentElement?.setAttribute('title', 'Spot Forex has no centralized volume feed.');
+                const quoteUpdates = Number(ticker.quoteUpdates24h);
+                if (volumeLabel) volumeLabel.textContent = 'Quote samples (24h)';
+                if (volumeStat) volumeStat.textContent = Number.isFinite(quoteUpdates) ? Math.floor(quoteUpdates).toLocaleString() : '—';
+                volumeStat?.parentElement?.setAttribute('title', 'Count of valid historical quote samples; spot Forex has no centralized traded-volume feed.');
             } else {
                 if (volumeLabel) volumeLabel.textContent = '24h Volume (USDT)';
                 volumeStat?.parentElement?.removeAttribute('title');
@@ -3032,7 +3038,6 @@ let connectedWallet = null;
             const status = document.getElementById('copy-trading-status');
             try {
                 await loadUserAccounts(connectedWallet);
-                await loadAccountPerformance();
                 const response = await walletFetch('/api/trade-copy/groups');
                 const data = await response.json();
                 if (!response.ok) throw new Error(data.error || 'Unable to load copy-trading groups.');
@@ -3065,7 +3070,8 @@ let connectedWallet = null;
             const items = [];
             if (scope === 'overall') {
                 items.push(
-                    ['Accounts', Number(metrics.accountCount || 0).toLocaleString()],
+                    ['Active accounts', Number(metrics.activeAccountCount ?? metrics.accountCount ?? 0).toLocaleString()],
+                    ['DLL-locked accounts', Number(metrics.dllLockedAccountCount || 0).toLocaleString()],
                     ['Starting capital', formatPerformanceMoney(metrics.initialBalance)],
                     ['Current balance', formatPerformanceMoney(metrics.currentBalance)]
                 );
@@ -3455,16 +3461,18 @@ let connectedWallet = null;
             }
         }
 
-        function togglePermanentlyLockedAccounts(checked) {
-            hidePermanentlyLockedAccounts = checked;
-            renderAccountsPortfolioFlickerFree();
+        function isActivePortfolioAccount(account) {
+            return account?.status === 'ACTIVE' &&
+                !account.lock_reason &&
+                Number(account.permanent_lock) !== 1 &&
+                Number(account.admin_frozen) !== 1;
         }
 
         async function renderAccountsPortfolioFlickerFree() {
             const container = document.getElementById('accounts-portfolio-container');
             if (!container) return;
-            await loadAccountPerformance();
             if (userAccounts.length === 0) {
+                await loadAccountPerformance();
                 container.innerHTML = '<p class="workspace-empty-state">No accounts found. Purchase a plan in the marketplace!</p>';
                 return;
             }
@@ -3482,10 +3490,7 @@ let connectedWallet = null;
                 Object.assign(acc, details.account);
                 const m = details.metrics;
                 const trades = details.trades;
-                const isPermanentlyLocked = acc.lock_reason === 'MLL' ||
-                    Number(acc.permanent_lock) === 1 ||
-                    acc.status === 'PERMANENTLY_LOCKED';
-                if (hidePermanentlyLockedAccounts && isPermanentlyLocked) {
+                if (!isActivePortfolioAccount(acc)) {
                     document.getElementById(`acc-card-${acc.id}`)?.remove();
                     continue;
                 }
@@ -3652,12 +3657,11 @@ let connectedWallet = null;
                 cardElem._calendarJournals = details.journalEntries || [];
                 renderAccountTradeCalendar(cardElem, acc, trades, details.journalEntries || []);
             }
+            await loadAccountPerformance();
             if (!container.querySelector('[id^="acc-card-"]')) {
                 const emptyMessage = document.createElement('p');
                 emptyMessage.className = 'account-chart-empty';
-                emptyMessage.textContent = hidePermanentlyLockedAccounts
-                    ? 'No accounts to show. Turn off “Hide permanently locked accounts” to review permanently locked accounts.'
-                    : 'No accounts found.';
+                emptyMessage.textContent = 'No active, unlocked accounts available to display. Soft-locked DLL accounts remain included in the portfolio summary above.';
                 container.replaceChildren(emptyMessage);
             }
         }

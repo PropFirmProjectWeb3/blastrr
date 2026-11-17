@@ -48,6 +48,7 @@ test('chat API, persistence, eligibility, and terminal surface are wired togethe
   assert.match(databaseJs, /idx_public_chat_wallet_created/);
   assert.match(serverJs, /app\.get\('\/api\/chat\/messages'/);
   assert.match(serverJs, /app\.post\('\/api\/chat\/messages', sensitiveLimiter, requireWalletSession, requireUserNotSuspended/);
+  assert.equal((serverJs.match(/supportedMarkets\.find\(item => item\.symbol === symbol && item\.enabled !== false\)/g) || []).length, 2);
   assert.match(serverJs, /COALESCE\(NULLIF\(u\.username, ''\), 'Trader'\) AS username/);
   assert.match(serverJs, /getBattlePassLevel\(message\.battlepass_xp\)/);
   assert.match(serverJs, /refreshRiskBaselines\(accountId/);
@@ -59,6 +60,7 @@ test('chat API, persistence, eligibility, and terminal surface are wired togethe
   assert.match(appHtml, /id="market-chat-form"/);
   assert.match(appHtml, /maxlength="500"/);
   assert.match(appJs, /function startMarketChat\(symbol, label\)/);
+  assert.match(appJs, /marketChatSymbol = symbol;[\s\S]*?Loading room messages…/);
   assert.match(appJs, /function updateMarketChatControls\(\)/);
   assert.match(appJs, /function postMarketChatMessage\(event\)/);
   assert.match(appJs, /escapeHTML\(message\.body\)/);
@@ -68,6 +70,8 @@ test('chat API, persistence, eligibility, and terminal surface are wired togethe
   assert.match(appJs, /class="market-chat-player-card" role="tooltip"/);
   assert.match(chatHtml, /id="chat-messages"[^>]*role="log"/);
   assert.match(chatHtml, /id="chat-market"/);
+  assert.match(chatJs, /fetch\('\/config\/forexMarkets\.json'\)/);
+  assert.match(chatJs, /state\.markets = \[\.\.\.cryptoMarkets, \.\.\.forexMarkets\]/);
   assert.match(chatJs, /event\.source !== window\.opener/);
   assert.match(chatJs, /Authorization: `Bearer \$\{state\.token\}`/);
   assert.match(chatJs, /class="chat-player-card" role="tooltip"/);

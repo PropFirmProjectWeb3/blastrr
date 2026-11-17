@@ -330,7 +330,7 @@
             <section class="account-performance-panel" aria-labelledby="accounts-performance-heading">
                 <div class="account-performance-panel-heading">
                     <div><span class="battlepass-eyebrow">PORTFOLIO PERFORMANCE</span><h2 id="accounts-performance-heading">Lifetime account performance</h2></div>
-                    <p>Closed-trade statistics across your accounts. Open trades and pending orders are shown separately.</p>
+                    <p>Totals include active accounts and soft-locked DLL accounts; MLL-locked accounts are excluded. Per-account summaries only show active accounts.</p>
                 </div>
                 <div id="accounts-performance-tabs" class="account-performance-tabs" role="tablist" aria-label="Performance summaries">
                     <button class="account-performance-tab is-active" type="button" role="tab" aria-selected="true" data-performance-account="overall">Overall</button>
@@ -340,10 +340,6 @@
                 </div>
             </section>
             <div class="workspace-toolbar">
-                <label class="account-filter-toggle">
-                    <input id="accounts-hide-permanent" type="checkbox" checked onchange="togglePermanentlyLockedAccounts(this.checked)">
-                    <span>Hide permanently locked accounts</span>
-                </label>
                 <button class="battlepass-secondary-button" type="button" onclick="manualRefreshData()">Refresh accounts</button>
             </div>
             <div id="accounts-portfolio-container" class="account-card-list">
@@ -359,7 +355,7 @@
             <section class="account-performance-panel copy-performance-panel" aria-labelledby="copy-performance-heading">
                 <div class="account-performance-panel-heading">
                     <div><span class="battlepass-eyebrow">PORTFOLIO PERFORMANCE</span><h2 id="copy-performance-heading">Overall account performance</h2></div>
-                    <p>Lifetime results across all your accounts, using closed trades.</p>
+                    <p>Lifetime results across active accounts and soft-locked DLL accounts; MLL-locked accounts are excluded.</p>
                 </div>
                 <div id="copy-overall-performance" class="performance-summary-grid" role="group" aria-label="Overall account performance metrics">
                     <p class="workspace-empty-state">Loading your performance…</p>
@@ -1043,6 +1039,6 @@
 
     <script src="https://unpkg.com/lightweight-charts@4.2.3/dist/lightweight-charts.standalone.production.js"></script>
     <script src="/js/chartIndicators.js?v=20261115-multi-account-checkout" defer></script>
-    <script src="/js/app.js?v=20261118-account-performance" defer></script>
+    <script src="/js/app.js?v=20261117-forex-xauusd-candles-chat" defer></script>
 </body>
 </html>

@@ -67,6 +67,7 @@
             if (generation === state.generation) renderMessages(Array.isArray(data.messages) ? data.messages : []);
         } catch (error) {
             if (generation !== state.generation) return;
+            messagesElement.innerHTML = '<p class="chat-empty">Unable to load this market’s chat room.</p>';
             status.textContent = error.message || 'Unable to load public chat.';
             status.classList.add('is-error');
         }
@@ -104,10 +105,17 @@
     }
 
     async function loadMarkets() {
-        const response = await fetch('/config/markets.json');
-        const markets = await response.json();
-        if (!response.ok || !Array.isArray(markets)) throw new Error('Unable to load markets.');
-        state.markets = markets.filter(market => market.enabled !== false);
+        const [cryptoResponse, forexResponse] = await Promise.all([
+            fetch('/config/markets.json'),
+            fetch('/config/forexMarkets.json')
+        ]);
+        if (!cryptoResponse.ok || !forexResponse.ok) throw new Error('Unable to load market rooms.');
+        const [cryptoMarkets, forexMarkets] = await Promise.all([
+            cryptoResponse.json(),
+            forexResponse.json()
+        ]);
+        if (!Array.isArray(cryptoMarkets) || !Array.isArray(forexMarkets)) throw new Error('Market room configuration is invalid.');
+        state.markets = [...cryptoMarkets, ...forexMarkets].filter(market => market.enabled !== false);
         marketSelect.innerHTML = state.markets.map(market =>
             `<option value="${escapeHTML(market.symbol)}">${escapeHTML(market.label || market.symbol)}</option>`
         ).join('');
@@ -117,6 +125,7 @@
             : state.markets[0]?.symbol || '';
         marketSelect.value = state.symbol;
         updateRoom();
+        messagesElement.innerHTML = '<p class="chat-empty">Loading room messages…</p>';
         await loadMessages();
     }
 
@@ -130,6 +139,7 @@
         state.symbol = marketSelect.value;
         state.generation++;
         updateRoom();
+        messagesElement.innerHTML = '<p class="chat-empty">Loading room messages…</p>';
         loadMessages();
     });
     form.addEventListener('submit', postMessage);

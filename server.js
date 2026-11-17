@@ -294,7 +294,7 @@ function getForexChartHistory(market, timeframe) {
   if (cached?.data && cached.expiresAt > Date.now()) return Promise.resolve(cached.data);
   if (cached?.promise) return cached.promise;
 
-  const yahooSymbol = `${market.base_currency}${market.quote_currency}=X`;
+  const yahooSymbol = market.history_symbol || `${market.base_currency}${market.quote_currency}=X`;
   const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(yahooSymbol)}?range=${config.range}&interval=${config.interval}`;
   const historyPromise = new Promise((resolve, reject) => {
     const request = https.get(url, {
@@ -311,7 +311,28 @@ function getForexChartHistory(market, timeframe) {
           if (payload.chart?.error) {
             return reject(new Error(payload.chart.error.description || 'Yahoo Finance returned a chart error.'));
           }
-          resolve(parseForexChartHistory(payload, config.barSeconds));
+          const history = parseForexChartHistory(payload, config.barSeconds);
+          if (!market.history_symbol) return resolve(history);
+          getSwissquoteQuote(market).then(quote => {
+            const latestClose = history.candles[history.candles.length - 1].close;
+            const offset = quote.price - latestClose;
+            const shiftPrice = value => value == null ? null : value + offset;
+            resolve({
+              candles: history.candles.map(candle => ({
+                ...candle,
+                open: shiftPrice(candle.open),
+                high: shiftPrice(candle.high),
+                low: shiftPrice(candle.low),
+                close: shiftPrice(candle.close)
+              })),
+              stats: {
+                ...history.stats,
+                referencePrice: shiftPrice(history.stats.referencePrice),
+                highPrice: shiftPrice(history.stats.highPrice),
+                lowPrice: shiftPrice(history.stats.lowPrice)
+              }
+            });
+          }).catch(reject);
         } catch (error) {
           reject(new Error(`Unable to parse Yahoo Finance Forex history: ${error.message}`));
         }
@@ -3026,6 +3047,7 @@ app.get('/api/accounts', requireWalletSession, (req, res) => {
 app.get('/api/accounts/performance', requireWalletSession, (req, res) => {
   db.all(
     `SELECT a.id AS account_id, p.name AS plan_name, a.initial_balance, a.current_balance,
+            a.status, a.lock_reason, a.permanent_lock, a.admin_frozen,
             t.id AS trade_id, t.status AS trade_status, t.pnl AS trade_pnl
      FROM accounts a
      JOIN plans p ON p.id = a.plan_id
@@ -3044,6 +3066,10 @@ app.get('/api/accounts/performance', requireWalletSession, (req, res) => {
             planName: row.plan_name || 'Trading account',
             initialBalance: Number(row.initial_balance || 0),
             currentBalance: Number(row.current_balance || 0),
+            status: row.status,
+            lockReason: row.lock_reason,
+            permanentLock: Number(row.permanent_lock) === 1,
+            adminFrozen: Number(row.admin_frozen) === 1,
             trades: []
           };
           accounts.set(row.account_id, account);
@@ -3051,20 +3077,38 @@ app.get('/api/accounts/performance', requireWalletSession, (req, res) => {
         if (row.trade_id) account.trades.push({ status: row.trade_status, pnl: row.trade_pnl });
       }
 
-      const accountSummaries = [...accounts.values()].map(account => ({
+      const allAccounts = [...accounts.values()];
+      const activeAccounts = allAccounts.filter(account =>
+        account.status === 'ACTIVE' &&
+        !account.lockReason &&
+        !account.permanentLock &&
+        !account.adminFrozen
+      );
+      const dllLockedAccounts = allAccounts.filter(account =>
+        account.status === 'LOCKED' &&
+        account.lockReason === 'DLL' &&
+        !account.permanentLock &&
+        !account.adminFrozen
+      );
+      const includedAccounts = [...activeAccounts, ...dllLockedAccounts];
+      const accountSummaries = activeAccounts.map(account => ({
         accountId: account.accountId,
         planName: account.planName,
         initialBalance: account.initialBalance,
         currentBalance: account.currentBalance,
         metrics: calculateTradePerformance(account.trades)
       }));
-      const allTrades = [...accounts.values()].flatMap(account => account.trades);
+      const allTrades = includedAccounts.flatMap(account => account.trades);
+      const includedInitialBalance = includedAccounts.reduce((total, account) => total + account.initialBalance, 0);
+      const includedCurrentBalance = includedAccounts.reduce((total, account) => total + account.currentBalance, 0);
       res.json({
         overall: {
           ...calculateTradePerformance(allTrades),
-          accountCount: accountSummaries.length,
-          initialBalance: accountSummaries.reduce((total, account) => total + account.initialBalance, 0),
-          currentBalance: accountSummaries.reduce((total, account) => total + account.currentBalance, 0)
+          accountCount: includedAccounts.length,
+          activeAccountCount: activeAccounts.length,
+          dllLockedAccountCount: dllLockedAccounts.length,
+          initialBalance: includedInitialBalance,
+          currentBalance: includedCurrentBalance
         },
         accounts: accountSummaries
       });
@@ -4759,7 +4803,7 @@ function findEligibleChatAccount(walletAddress, callback) {
 
 app.get('/api/chat/messages', (req, res) => {
   const symbol = req.query.symbol;
-  const market = markets.find(item => item.symbol === symbol && item.enabled !== false);
+  const market = supportedMarkets.find(item => item.symbol === symbol && item.enabled !== false);
   if (!market) return res.status(400).json({ error: 'Select a configured market to view its chat.' });
 
   db.all(
@@ -4791,7 +4835,7 @@ app.get('/api/chat/messages', (req, res) => {
 
 app.post('/api/chat/messages', sensitiveLimiter, requireWalletSession, requireUserNotSuspended, (req, res) => {
   const { symbol, message: rawMessage } = req.body || {};
-  const market = markets.find(item => item.symbol === symbol && item.enabled !== false);
+  const market = supportedMarkets.find(item => item.symbol === symbol && item.enabled !== false);
   if (!market) return res.status(400).json({ error: 'Select a configured market before posting.' });
   const moderated = moderateChatMessage(rawMessage);
   if (!moderated.valid) return res.status(400).json({ error: moderated.error });

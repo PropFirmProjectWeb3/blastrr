@@ -65,11 +65,14 @@ test('trade entry shows the selected account balance and balance percentage shor
   const entryAmount = appHtml.indexOf('id="order-size-usd"');
   assert.ok(accountSelect >= 0 && balanceField > accountSelect && entryAmount > balanceField);
   assert.match(appHtml, /id="available-bal-label"/);
+  assert.match(appHtml, /id="available-bal-detail"/);
   for (const percentage of [25, 50, 100]) {
     assert.match(appHtml, new RegExp(`setOrderSizeFromBalance\\(${percentage}\\)`));
   }
   assert.match(appJs, /function setOrderSizeFromBalance\(percentage\)/);
   assert.match(appJs, /Math\.floor\(balance \* percentage\) \/ 100/);
+  assert.match(appJs, /updateAvailableBalanceLabel\(marginInput\)/);
+  assert.match(appJs, /const remainingBalance = hasEstimate \? balance - estimatedMargin : balance/);
   assert.match(appCss, /\.selected-account-balance \{ display: flex/);
   assert.match(appCss, /\.balance-shortcut:disabled/);
 });
@@ -164,8 +167,8 @@ test('admin can toggle maintenance for each public page and set an outage messag
 });
 
 test('trading terminal HTML loads its external stylesheet and application script', () => {
-  assert.match(appHtml, /href="\/css\/app\.css\?v=20261118-account-performance"/);
-  assert.match(appHtml, /src="\/js\/app\.js\?v=20261117-forex-margin-check" defer/);
+  assert.match(appHtml, /href="\/css\/app\.css\?v=20261117-live-margin-estimate"/);
+  assert.match(appHtml, /src="\/js\/app\.js\?v=20261117-live-margin-estimate" defer/);
   assert.doesNotMatch(appHtml, /<style[\s>]/i);
   assert.doesNotMatch(appHtml, /<script>\s*[\s\S]*?\bfunction\s/m);
   assert.match(appHtml, /id="nav-menu"/);

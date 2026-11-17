@@ -1611,6 +1611,7 @@ let connectedWallet = null;
                     liqLabel.innerText = '—';
                 }
             }
+            updateAvailableBalanceLabel(marginInput);
         }
 
         function switchView(viewId) {
@@ -2921,7 +2922,7 @@ let connectedWallet = null;
                     selectElem.innerHTML = '<option value="">No Unlocked Accounts Available</option>';
                     const openList = document.getElementById('open-trades-list');
                     if (openList) openList.innerHTML = '<tr><td colspan="9" style="text-align: center; color: #6b7280; padding: 24px;">No unlocked accounts available.</td></tr>';
-                    updateAvailableBalanceLabel();
+                    calculateMetrics();
                 } else {
                     let selectHtml = '';
                     selectableAccounts.forEach((acc) => {
@@ -2933,7 +2934,7 @@ let connectedWallet = null;
                 }
 
                 if (selectedAccountId) {
-                    updateAvailableBalanceLabel();
+                    calculateMetrics();
                     loadOpenTrades(selectedAccountId);
                 }
 
@@ -4893,10 +4894,10 @@ let connectedWallet = null;
             if (!activeAccount) {
                 const selectElem = document.getElementById('active-account-select');
                 if (selectElem) selectElem.value = '';
-                updateAvailableBalanceLabel();
+                calculateMetrics();
                 return;
             }
-            updateAvailableBalanceLabel();
+            calculateMetrics();
             loadOpenTrades(selectedAccountId);
         }
 
@@ -4909,17 +4910,35 @@ let connectedWallet = null;
             selectedAccountId = activeAccount.id;
             const selectElem = document.getElementById('active-account-select');
             if (selectElem) selectElem.value = accId;
-            updateAvailableBalanceLabel();
+            calculateMetrics();
             switchView('tradeView');
             loadOpenTrades(accId);
         }
 
-        function updateAvailableBalanceLabel() {
+        function updateAvailableBalanceLabel(estimatedMargin) {
             const balanceLabel = document.getElementById('available-bal-label');
+            const balanceDetail = document.getElementById('available-bal-detail');
             const balanceValue = document.getElementById('selected-account-balance-value');
+            const orderSize = parseFloat(document.getElementById('order-size-usd')?.value) || 0;
             const balance = activeAccount ? Math.max(0, Number(activeAccount.current_balance) || 0) : 0;
-            if (balanceLabel) balanceLabel.textContent = activeAccount ? `Selected account balance · ${activeAccount.plan_name || 'Trading account'}` : 'Selected account balance';
-            if (balanceValue) balanceValue.textContent = `$${balance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+            const hasEstimate = Boolean(activeAccount && Number.isFinite(estimatedMargin) && estimatedMargin > 0);
+            const remainingBalance = hasEstimate ? balance - estimatedMargin : balance;
+            const formatMoney = amount => `$${amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+            const selectedMarket = marketsData.find(market => market.symbol === document.getElementById('order-symbol')?.value);
+            if (balanceLabel) balanceLabel.textContent = hasEstimate ? 'Available after estimated margin' : activeAccount ? 'Available account balance' : 'Selected account balance';
+            if (balanceDetail) {
+                balanceDetail.textContent = hasEstimate
+                    ? `Account ${formatMoney(balance)} · Estimated margin ${formatMoney(estimatedMargin)}`
+                    : !activeAccount
+                        ? 'Select an active account to estimate available balance.'
+                        : orderSize > 0 && selectedMarket?.asset_class === 'FOREX'
+                            ? 'Waiting for a live price to estimate required margin.'
+                            : 'Enter a position size to estimate margin used.';
+            }
+            if (balanceValue) {
+                balanceValue.textContent = formatMoney(remainingBalance);
+                balanceValue.classList.toggle('is-insufficient', hasEstimate && remainingBalance < 0);
+            }
             document.querySelectorAll('.balance-shortcut').forEach(button => { button.disabled = !activeAccount || balance <= 0; });
         }
 

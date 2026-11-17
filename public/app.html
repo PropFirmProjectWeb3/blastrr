@@ -7,7 +7,7 @@
     <link rel="icon" type="image/png" href="/favicon.png">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link rel="stylesheet" href="/css/app.css?v=20261118-account-performance">
+    <link rel="stylesheet" href="/css/app.css?v=20261117-live-margin-estimate">
 </head>
 <body class="auth-locked">
     <section id="wallet-login-gate" class="wallet-login-gate" aria-labelledby="wallet-login-title">
@@ -269,7 +269,10 @@
                         </div>
 
                         <div class="selected-account-balance" aria-live="polite">
-                            <span id="available-bal-label">Selected account balance</span>
+                            <div class="selected-account-balance-copy">
+                                <span id="available-bal-label">Available account balance</span>
+                                <small id="available-bal-detail">Enter a position size to estimate margin used.</small>
+                            </div>
                             <strong id="selected-account-balance-value">$0.00</strong>
                         </div>
 
@@ -1043,6 +1046,6 @@
 
     <script src="https://unpkg.com/lightweight-charts@4.2.3/dist/lightweight-charts.standalone.production.js"></script>
     <script src="/js/chartIndicators.js?v=20261115-multi-account-checkout" defer></script>
-    <script src="/js/app.js?v=20261117-forex-margin-check" defer></script>
+    <script src="/js/app.js?v=20261117-live-margin-estimate" defer></script>
 </body>
 </html>

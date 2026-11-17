@@ -410,6 +410,24 @@
             gap: 12px;
         }
         .account-card-header { min-width: 0; margin-bottom: 0; }
+        .account-performance-panel { display: grid; gap: 16px; margin: 0 0 18px; padding: 18px; border: 1px solid rgba(167, 139, 250, 0.18); border-radius: 15px; background: linear-gradient(145deg, rgba(24, 19, 38, 0.82), rgba(7, 8, 13, 0.9)); }
+        .account-performance-panel-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 14px; }
+        .account-performance-panel-heading h2 { margin: 4px 0 0; color: #f3f4f6; font-size: 18px; }
+        .account-performance-panel-heading p { max-width: 460px; margin: 4px 0 0; color: #9ca3af; font-size: 12px; line-height: 1.5; text-align: right; }
+        .account-performance-tabs { display: flex; gap: 8px; overflow-x: auto; padding: 0 0 4px; }
+        .account-performance-tab { flex: 0 0 auto; padding: 8px 13px; border: 1px solid rgba(203, 213, 225, 0.13); border-radius: 9px; background: rgba(5, 7, 11, 0.68); color: #a5aab3; font: inherit; font-size: 12px; font-weight: 700; cursor: pointer; }
+        .account-performance-tab:hover, .account-performance-tab:focus-visible { border-color: rgba(167, 139, 250, 0.45); color: #e9d5ff; outline: none; }
+        .account-performance-tab.is-active { border-color: rgba(167, 139, 250, 0.58); background: rgba(141, 77, 255, 0.15); color: #e9d5ff; }
+        .performance-summary-grid, .account-performance-header { display: grid; grid-template-columns: repeat(auto-fit, minmax(128px, 1fr)); gap: 9px; min-width: 0; }
+        .performance-stat { display: grid; align-content: space-between; gap: 9px; min-width: 0; padding: 11px 12px; border: 1px solid rgba(203, 213, 225, 0.085); border-radius: 10px; background: rgba(4, 3, 7, 0.72); }
+        .performance-stat > span { color: #9ca3af; font-size: 11px; line-height: 1.35; }
+        .performance-stat-value { color: #f3f4f6; font-size: 15px; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+        .performance-stat-value.is-positive { color: #6ee7b7; }
+        .performance-stat-value.is-negative { color: #fca5a5; }
+        .account-performance-header { grid-template-columns: repeat(auto-fit, minmax(112px, 1fr)); }
+        .account-performance-header .performance-stat { padding: 9px 10px; }
+        .account-performance-header .performance-stat-value { font-size: 13px; }
+        .account-performance-header .workspace-empty-state { grid-column: 1 / -1; padding: 10px; font-size: 11px; }
         .account-plan-name { color: #c084fc; font-size: 18px; font-weight: 800; }
         .account-id { margin-left: 10px; color: #9ca3af; font-size: 12px; }
         .account-card-actions { justify-content: flex-end; flex-wrap: wrap; }
@@ -1809,6 +1827,13 @@
             .app-page-heading { margin-bottom: 16px; }
             .app-page-heading h1 { font-size: clamp(25px, 8vw, 32px); }
             .app-page-heading .support-note { font-size: 12px; }
+            .account-performance-panel { padding: 14px; }
+            .account-performance-panel-heading { flex-direction: column; }
+            .account-performance-panel-heading p { text-align: left; }
+            .performance-summary-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+            .account-performance-header { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+            .account-card-header { align-items: flex-start; flex-direction: column; }
+            .account-card-actions { justify-content: flex-start; }
             .plans-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
             .plans-purchase-tools { grid-template-columns: minmax(0, 1fr); }
             .plans-purchase-tools { gap: 10px; padding: 13px; }

@@ -29,6 +29,7 @@ const {
 } = require('./riskRules');
 const { getProtectedPayoutBalance, getAvailableGrossWithdrawal, splitWithdrawal } = require('./payoutRules');
 const { resolveStopTargetPrices } = require('./tradeRules');
+const { calculateTradePerformance } = require('./performanceRules');
 
 const app = express();
 const PORT = process.env.PORT || 4480;
@@ -3018,6 +3019,55 @@ app.get('/api/accounts', requireWalletSession, (req, res) => {
     (err, rows) => {
       if (err) return res.status(500).json({ error: err.message });
       res.json({ accounts: rows || [] });
+    }
+  );
+});
+
+app.get('/api/accounts/performance', requireWalletSession, (req, res) => {
+  db.all(
+    `SELECT a.id AS account_id, p.name AS plan_name, a.initial_balance, a.current_balance,
+            t.id AS trade_id, t.status AS trade_status, t.pnl AS trade_pnl
+     FROM accounts a
+     JOIN plans p ON p.id = a.plan_id
+     LEFT JOIN trades t ON t.account_id = a.id
+     WHERE LOWER(a.wallet_address) = LOWER(?)
+     ORDER BY a.created_at, t.created_at`,
+    [req.walletAddress],
+    (err, rows) => {
+      if (err) return res.status(500).json({ error: 'Unable to load account performance.' });
+      const accounts = new Map();
+      for (const row of rows || []) {
+        let account = accounts.get(row.account_id);
+        if (!account) {
+          account = {
+            accountId: row.account_id,
+            planName: row.plan_name || 'Trading account',
+            initialBalance: Number(row.initial_balance || 0),
+            currentBalance: Number(row.current_balance || 0),
+            trades: []
+          };
+          accounts.set(row.account_id, account);
+        }
+        if (row.trade_id) account.trades.push({ status: row.trade_status, pnl: row.trade_pnl });
+      }
+
+      const accountSummaries = [...accounts.values()].map(account => ({
+        accountId: account.accountId,
+        planName: account.planName,
+        initialBalance: account.initialBalance,
+        currentBalance: account.currentBalance,
+        metrics: calculateTradePerformance(account.trades)
+      }));
+      const allTrades = [...accounts.values()].flatMap(account => account.trades);
+      res.json({
+        overall: {
+          ...calculateTradePerformance(allTrades),
+          accountCount: accountSummaries.length,
+          initialBalance: accountSummaries.reduce((total, account) => total + account.initialBalance, 0),
+          currentBalance: accountSummaries.reduce((total, account) => total + account.currentBalance, 0)
+        },
+        accounts: accountSummaries
+      });
     }
   );
 });

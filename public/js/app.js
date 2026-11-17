@@ -24,6 +24,10 @@ const CHART_INDICATOR_DEFINITIONS = Object.freeze({
 let connectedWallet = null;
         let availableWallets = [];
         let userAccounts = [];
+        let accountPerformanceData = { overall: null, accounts: [] };
+        let accountPerformanceRequest = null;
+        let accountPerformanceRequestWallet = null;
+        let selectedAccountsPerformanceTab = 'overall';
         let userReviewAccounts = [];
         let selectedAccountId = null;
         let activeAccount = null;
@@ -261,6 +265,10 @@ let connectedWallet = null;
             document.getElementById('withdrawal-certificates-list')?.addEventListener('click', downloadWithdrawalCertificate);
             document.getElementById('refresh-withdrawal-certificates')?.addEventListener('click', loadWithdrawalCertificates);
             document.getElementById('leaderboard-exclude-self')?.addEventListener('change', saveLeaderboardPreference);
+            document.getElementById('accounts-performance-tabs')?.addEventListener('click', event => {
+                const tab = event.target.closest('[data-performance-account]');
+                if (tab) selectAccountsPerformanceTab(tab.dataset.performanceAccount);
+            });
             document.getElementById('chart-timeframe')?.addEventListener('change', reloadLiveMarketChart);
             document.getElementById('chart-indicator-add')?.addEventListener('click', addChartIndicator);
             document.getElementById('chart-indicator-select')?.addEventListener('change', renderActiveChartIndicators);
@@ -2801,6 +2809,10 @@ let connectedWallet = null;
             if (changedWallet) {
                 resetDashboardToTradeView();
                 userAccounts = [];
+                accountPerformanceData = { overall: null, accounts: [] };
+                selectedAccountsPerformanceTab = 'overall';
+                renderPerformanceUnavailable();
+                renderAccountsPerformanceTabs();
                 tradeCopyGroups = [];
                 renderCopyTradingGroups();
                 renderCopyAccountOverview();
@@ -2939,6 +2951,10 @@ let connectedWallet = null;
             lockDashboard('Your wallet has been disconnected. Sign in again to access your dashboard.');
             availableWallets = [];
             userAccounts = [];
+            accountPerformanceData = { overall: null, accounts: [] };
+            selectedAccountsPerformanceTab = 'overall';
+            renderPerformanceUnavailable();
+            renderAccountsPerformanceTabs();
             tradeCopyGroups = [];
             renderCopyTradingGroups();
             renderCopyAccountOverview();
@@ -3016,6 +3032,7 @@ let connectedWallet = null;
             const status = document.getElementById('copy-trading-status');
             try {
                 await loadUserAccounts(connectedWallet);
+                await loadAccountPerformance();
                 const response = await walletFetch('/api/trade-copy/groups');
                 const data = await response.json();
                 if (!response.ok) throw new Error(data.error || 'Unable to load copy-trading groups.');
@@ -3026,6 +3043,156 @@ let connectedWallet = null;
             } catch (error) {
                 if (status) status.textContent = error.message || 'Unable to load copy-trading groups.';
             }
+        }
+
+        function formatPerformanceMoney(value) {
+            if (value === null || value === undefined || value === '') return '—';
+            const amount = Number(value);
+            if (!Number.isFinite(amount)) return '—';
+            const sign = amount < 0 ? '−' : '';
+            return `${sign}$${Math.abs(amount).toLocaleString(undefined, {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2
+            })}`;
+        }
+
+        function renderPerformanceMetrics(container, metrics, { scope = 'overall' } = {}) {
+            if (!container) return;
+            if (!metrics) {
+                container.innerHTML = '<p class="workspace-empty-state">Performance data is unavailable. Refresh to try again.</p>';
+                return;
+            }
+            const items = [];
+            if (scope === 'overall') {
+                items.push(
+                    ['Accounts', Number(metrics.accountCount || 0).toLocaleString()],
+                    ['Starting capital', formatPerformanceMoney(metrics.initialBalance)],
+                    ['Current balance', formatPerformanceMoney(metrics.currentBalance)]
+                );
+            }
+            items.push(
+                ['Closed trades', Number(metrics.closedTrades || 0).toLocaleString()],
+                ['Wins / losses', `${Number(metrics.winningTrades || 0).toLocaleString()} / ${Number(metrics.losingTrades || 0).toLocaleString()}`],
+                ['Win rate', metrics.winRatePercent != null && Number.isFinite(Number(metrics.winRatePercent)) ? `${Number(metrics.winRatePercent).toFixed(1)}%` : '—'],
+                ['Average win', formatPerformanceMoney(metrics.averageWin)],
+                ['Average loss', formatPerformanceMoney(metrics.averageLoss)],
+                ['Break-even trades', Number(metrics.breakEvenTrades || 0).toLocaleString()],
+                ['Avg win/loss (R:R)', metrics.winLossRatio != null && Number.isFinite(Number(metrics.winLossRatio)) ? `${Number(metrics.winLossRatio).toFixed(2)} : 1` : '—'],
+                ['Profit factor', metrics.profitFactor != null && Number.isFinite(Number(metrics.profitFactor)) ? Number(metrics.profitFactor).toFixed(2) : '—'],
+                ['Net realized P&L', formatPerformanceMoney(metrics.netRealizedPnl)],
+                ['Expectancy / trade', formatPerformanceMoney(metrics.expectancy)],
+                ['Best trade', formatPerformanceMoney(metrics.bestTrade)],
+                ['Worst trade', formatPerformanceMoney(metrics.worstTrade)],
+                ['Open positions', Number(metrics.openTrades || 0).toLocaleString()],
+                ['Pending orders', Number(metrics.pendingOrders || 0).toLocaleString()]
+            );
+            container.innerHTML = items.map(([label, value]) => {
+                const numericValue = Number(String(value).replace(/[−$,]/g, ''));
+                const hasNumericValue = value !== '—' && Number.isFinite(numericValue);
+                let tone = '';
+                if (hasNumericValue && (label === 'Net realized P&L' || label === 'Expectancy / trade')) {
+                    tone = numericValue >= 0 ? ' is-positive' : ' is-negative';
+                } else if (hasNumericValue && (label === 'Average win' || label === 'Best trade')) {
+                    tone = ' is-positive';
+                } else if (hasNumericValue && (label === 'Average loss' || label === 'Worst trade')) {
+                    tone = ' is-negative';
+                }
+                const title = label === 'Avg win/loss (R:R)'
+                    ? 'Average winning PnL divided by the absolute average losing PnL.'
+                    : label === 'Profit factor'
+                        ? 'Gross profit divided by gross losses.'
+                        : '';
+                return `<div class="performance-stat"><span${title ? ` title="${title}"` : ''}>${label}</span><strong class="performance-stat-value${tone}">${value}</strong></div>`;
+            }).join('');
+        }
+
+        function renderAccountsPerformanceTabs() {
+            const tabs = document.getElementById('accounts-performance-tabs');
+            const summary = document.getElementById('accounts-performance-summary');
+            if (!tabs || !summary) return;
+            const accounts = accountPerformanceData.accounts || [];
+            const selectedExists = selectedAccountsPerformanceTab === 'overall' ||
+                accounts.some(account => String(account.accountId) === selectedAccountsPerformanceTab);
+            if (!selectedExists) selectedAccountsPerformanceTab = 'overall';
+            tabs.innerHTML = [
+                { id: 'overall', label: 'Overall' },
+                ...accounts.map(account => ({ id: String(account.accountId), label: account.planName }))
+            ].map(tab => `<button id="account-performance-tab-${escapeHTML(tab.id)}" class="account-performance-tab${selectedAccountsPerformanceTab === tab.id ? ' is-active' : ''}"
+                type="button" role="tab" aria-selected="${selectedAccountsPerformanceTab === tab.id}"
+                aria-controls="accounts-performance-summary"
+                data-performance-account="${escapeHTML(tab.id)}">${escapeHTML(tab.label)}</button>`).join('');
+            const selectedAccount = accounts.find(account => String(account.accountId) === selectedAccountsPerformanceTab);
+            const overall = selectedAccountsPerformanceTab === 'overall';
+            const heading = document.getElementById('accounts-performance-heading');
+            summary.setAttribute('aria-labelledby', `account-performance-tab-${selectedAccountsPerformanceTab}`);
+            if (heading) heading.textContent = overall
+                ? 'Lifetime account performance'
+                : `${selectedAccount.planName} performance`;
+            renderPerformanceMetrics(summary, overall ? accountPerformanceData.overall : selectedAccount?.metrics, {
+                scope: overall ? 'overall' : 'account'
+            });
+        }
+
+        function selectAccountsPerformanceTab(accountId) {
+            if (accountId !== 'overall' &&
+                !(accountPerformanceData.accounts || []).some(account => String(account.accountId) === accountId)) return;
+            selectedAccountsPerformanceTab = accountId;
+            renderAccountsPerformanceTabs();
+        }
+
+        function renderPortfolioPerformance() {
+            renderPerformanceMetrics(
+                document.getElementById('copy-overall-performance'),
+                accountPerformanceData.overall,
+                { scope: 'overall' }
+            );
+            renderAccountsPerformanceTabs();
+            for (const account of accountPerformanceData.accounts || []) {
+                const container = document.getElementById(`account-performance-${account.accountId}`);
+                if (container) renderPerformanceMetrics(container, account.metrics, { scope: 'account' });
+            }
+        }
+
+        function renderPerformanceUnavailable() {
+            const message = '<p class="workspace-empty-state">Performance data is unavailable. Refresh to try again.</p>';
+            for (const id of ['accounts-performance-summary', 'copy-overall-performance']) {
+                const container = document.getElementById(id);
+                if (container) container.innerHTML = message;
+            }
+            document.querySelectorAll('.account-performance-header').forEach(container => {
+                container.innerHTML = message;
+            });
+        }
+
+        async function loadAccountPerformance() {
+            const wallet = connectedWallet?.toLowerCase();
+            if (!wallet) return false;
+            if (accountPerformanceRequest && accountPerformanceRequestWallet === wallet) {
+                return accountPerformanceRequest;
+            }
+            const request = Promise.resolve().then(async () => {
+                try {
+                    const response = await walletFetch('/api/accounts/performance');
+                    const data = await response.json();
+                    if (!response.ok) throw new Error(data.error || 'Unable to load account performance.');
+                    if (wallet !== connectedWallet?.toLowerCase()) return false;
+                    accountPerformanceData = data;
+                    renderPortfolioPerformance();
+                    return true;
+                } catch (error) {
+                    console.error('Unable to load portfolio performance:', error);
+                    if (wallet === connectedWallet?.toLowerCase()) renderPerformanceUnavailable();
+                    return false;
+                } finally {
+                    if (accountPerformanceRequest === request) {
+                        accountPerformanceRequest = null;
+                        accountPerformanceRequestWallet = null;
+                    }
+                }
+            });
+            accountPerformanceRequest = request;
+            accountPerformanceRequestWallet = wallet;
+            return request;
         }
 
         function renderCopyAccountOverview() {
@@ -3296,6 +3463,7 @@ let connectedWallet = null;
         async function renderAccountsPortfolioFlickerFree() {
             const container = document.getElementById('accounts-portfolio-container');
             if (!container) return;
+            await loadAccountPerformance();
             if (userAccounts.length === 0) {
                 container.innerHTML = '<p class="workspace-empty-state">No accounts found. Purchase a plan in the marketplace!</p>';
                 return;
@@ -3336,6 +3504,7 @@ let connectedWallet = null;
                                     <button class="btn-wallet" onclick="selectAccountAndTrade('${acc.id}')">Select in Terminal</button>
                                 </div>
                             </div>
+                            <div id="account-performance-${acc.id}" class="account-performance-header"></div>
                             <div class="account-preview-grid">
                                 <div class="account-preview-stat dashboard-tile"><span>Initial capital</span><strong>$${acc.initial_balance.toLocaleString()}</strong></div>
                                 <div class="account-preview-stat dashboard-tile"><span>Current balance</span><strong id="bal-val-${acc.id}">$${acc.current_balance.toLocaleString()}</strong></div>
@@ -3407,6 +3576,12 @@ let connectedWallet = null;
                     bindAccountCalendarControls(cardElem);
                 }
 
+                const accountPerformance = accountPerformanceData.accounts.find(item => String(item.accountId) === String(acc.id));
+                renderPerformanceMetrics(
+                    cardElem.querySelector(`#account-performance-${CSS.escape(acc.id)}`),
+                    accountPerformance?.metrics,
+                    { scope: 'account' }
+                );
                 cardElem.querySelector(`#bal-val-${CSS.escape(acc.id)}`).innerText = `$${acc.current_balance.toLocaleString()}`;
                 cardElem.querySelector(`#profit-val-${CSS.escape(acc.id)}`).innerText = `$${m.currentProfit.toLocaleString()}`;
                 cardElem.querySelector(`#p-prog-val-${CSS.escape(acc.id)}`).innerText = `${m.profitProgress}%`;

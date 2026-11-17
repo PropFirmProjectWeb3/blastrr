@@ -7,7 +7,7 @@
     <link rel="icon" type="image/png" href="/favicon.png">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link rel="stylesheet" href="/css/app.css?v=20261116-certificate-share">
+    <link rel="stylesheet" href="/css/app.css?v=20261118-account-performance">
 </head>
 <body class="auth-locked">
     <section id="wallet-login-gate" class="wallet-login-gate" aria-labelledby="wallet-login-title">
@@ -327,6 +327,18 @@
                 <div><span class="battlepass-eyebrow">YOUR ACCOUNTS</span><h1>Account portfolio</h1></div>
                 <p class="support-note">Review account performance, limits, and status. Expand an account for trade history and daily results.</p>
             </div>
+            <section class="account-performance-panel" aria-labelledby="accounts-performance-heading">
+                <div class="account-performance-panel-heading">
+                    <div><span class="battlepass-eyebrow">PORTFOLIO PERFORMANCE</span><h2 id="accounts-performance-heading">Lifetime account performance</h2></div>
+                    <p>Closed-trade statistics across your accounts. Open trades and pending orders are shown separately.</p>
+                </div>
+                <div id="accounts-performance-tabs" class="account-performance-tabs" role="tablist" aria-label="Performance summaries">
+                    <button class="account-performance-tab is-active" type="button" role="tab" aria-selected="true" data-performance-account="overall">Overall</button>
+                </div>
+                <div id="accounts-performance-summary" class="performance-summary-grid" role="tabpanel" aria-labelledby="accounts-performance-heading">
+                    <p class="workspace-empty-state">Loading your performance…</p>
+                </div>
+            </section>
             <div class="workspace-toolbar">
                 <label class="account-filter-toggle">
                     <input id="accounts-hide-permanent" type="checkbox" checked onchange="togglePermanentlyLockedAccounts(this.checked)">
@@ -344,6 +356,15 @@
                 <div><span class="battlepass-eyebrow">TRADE AS A GROUP</span><h1>Copy trading</h1></div>
                 <p class="support-note">Choose a leader account and assign follower accounts. Each follower copies the leader’s submitted size at its own execution price.</p>
             </div>
+            <section class="account-performance-panel copy-performance-panel" aria-labelledby="copy-performance-heading">
+                <div class="account-performance-panel-heading">
+                    <div><span class="battlepass-eyebrow">PORTFOLIO PERFORMANCE</span><h2 id="copy-performance-heading">Overall account performance</h2></div>
+                    <p>Lifetime results across all your accounts, using closed trades.</p>
+                </div>
+                <div id="copy-overall-performance" class="performance-summary-grid" role="group" aria-label="Overall account performance metrics">
+                    <p class="workspace-empty-state">Loading your performance…</p>
+                </div>
+            </section>
             <div class="copy-trading-toolbar">
                 <p class="copy-trading-warning">Copy trading uses simulated accounts. Follower orders can fail independently when an account is locked or lacks available balance.</p>
                 <div class="copy-trading-toolbar-actions">
@@ -1022,6 +1043,6 @@
 
     <script src="https://unpkg.com/lightweight-charts@4.2.3/dist/lightweight-charts.standalone.production.js"></script>
     <script src="/js/chartIndicators.js?v=20261115-multi-account-checkout" defer></script>
-    <script src="/js/app.js?v=20261117-forex-chart-history-ny" defer></script>
+    <script src="/js/app.js?v=20261118-account-performance" defer></script>
 </body>
 </html>

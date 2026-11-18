@@ -2,13 +2,13 @@
   {
     "id": "platform-overview",
     "title": "Platform Overview",
-    "summary": "How Blastrr's simulated crypto trading accounts, wallet access, and market data work.",
+    "summary": "How Blastrr's simulated Forex and crypto trading accounts, wallet access, and market data work.",
     "groups": [
       {
         "title": "What Blastrr Provides",
         "paragraphs": [
-          "Blastrr provides simulated crypto trading accounts with plan rules, a browser-based trading terminal, and account and profile tools. Trading balances, orders, positions, and performance are simulated.",
-          "The terminal uses live market data for configured Binance Spot pairs as a reference for simulated prices. Simulated orders are not sent to Binance or another live exchange."
+          "Blastrr provides simulated Forex and crypto trading accounts with plan rules, a browser-based trading terminal, and account and profile tools. Trading balances, orders, positions, and performance are simulated.",
+          "The terminal uses live market data for configured Forex instruments and crypto markets as a reference for simulated prices. Simulated orders are not sent to a live exchange."
         ]
       },
       {
@@ -47,16 +47,17 @@
         "title": "Select an Account and Market",
         "items": [
           "Choose an active account from Select your account in the order-entry card.",
-          "Select a market from the terminal's market selector. Only pairs listed there are available.",
-          "Use the bottom scrolling ticker to review live prices for configured Binance Spot pairs; clicking a pair selects it in the terminal."
+          "Choose the Forex or Crypto market mode, then select an enabled instrument. The terminal's market selector is the source of truth if availability changes.",
+          "The bottom scrolling ticker shows configured Binance Spot pairs; clicking a pair selects it. Forex prices and chart data appear when a Forex instrument is selected."
         ]
       },
       {
         "title": "Place a Simulated Trade",
         "items": [
-          "Enter margin and choose one of the execution multipliers offered by the order ticket.",
-          "Optionally enter Stop Loss and Take Profit prices.",
-          "Review the reference price, position notional, available balance, and risk information.",
+          "Choose Market or Limit entry. A limit order remains pending until its trigger condition is met; Buy limits trigger at or below the limit price, and Sell limits at or above it.",
+          "For Forex, enter position size in lots at 1x; for Crypto, enter USD collateral margin. Choose an available leverage multiplier.",
+          "Optionally set Stop Loss and Take Profit. Forex defaults to pip distances, Crypto to trigger prices; the ticket also offers a dollar P&L mode.",
+          "Review the reference price, position notional, estimated margin, available balance, and risk information.",
           "Choose Buy / Long or Sell / Short to submit a simulated trade."
         ]
       },
@@ -71,7 +72,7 @@
   {
     "id": "trading-markets",
     "title": "Trading Markets",
-    "summary": "The Binance Spot USDT pairs currently listed in the terminal and the market data they display.",
+    "summary": "Configured Forex instruments and Binance Spot crypto pairs, plus the market data and hours shown in the terminal.",
     "groups": [
       {
         "title": "Configured Binance Spot Pairs",
@@ -105,18 +106,37 @@
         }
       },
       {
+        "title": "Forex and Metals",
+        "paragraphs": [
+          "The current Forex selector lists seven major currency pairs and XAU/USD. The selector is the source of truth if configured instruments change."
+        ],
+        "table": {
+          "headers": ["Category", "Instrument"],
+          "rows": [
+            ["Forex Majors", "EUR/USD"],
+            ["Forex Majors", "GBP/USD"],
+            ["Forex Majors", "USD/JPY"],
+            ["Forex Majors", "USD/CHF"],
+            ["Forex Majors", "AUD/USD"],
+            ["Forex Majors", "USD/CAD"],
+            ["Forex Majors", "NZD/USD"],
+            ["Metals", "XAU/USD"]
+          ]
+        }
+      },
+      {
         "title": "Market Data",
         "items": [
-          "The terminal's selected-market bar shows mid price, bid/ask, 24-hour percentage change, high, low, and quote volume in USDT.",
-          "Live quotes for the selected market, chart, and scrolling ticker are distributed from Blastrr's server-side market data stream; the server shares provider feeds across connected users.",
-          "Historical chart candles are loaded when a market or timeframe is selected; live chart updates then use the shared market data stream.",
+          "The selected-market bar shows the live quote and bid/ask where available. Crypto instruments also show 24-hour change, high, low, and quote volume in USDT.",
+          "Live Forex quotes are supplied by Swissquote; configured Binance Spot quotes and the Forex feed are distributed through Blastrr's shared market data stream.",
+          "Historical chart candles are loaded when a market or timeframe is selected; Forex history uses a separate data feed from its live quotes.",
           "Market data is provided for reference in the simulated terminal. Data delays, exchange availability, and simulated execution can cause differences from a live exchange."
         ]
       },
       {
         "title": "Availability",
         "paragraphs": [
-          "Crypto markets are generally available 24 hours a day, seven days a week. Binance, network, or Blastrr maintenance and service interruptions may temporarily affect data or access."
+          "Forex currency pairs generally quote around the clock on weekdays; weekends, holidays, and provider sessions can affect availability. XAU/USD may follow its own instrument sessions. Crypto Spot markets generally trade 24/7, subject to exchange or Blastrr maintenance."
         ]
       }
     ]
@@ -124,24 +144,26 @@
   {
     "id": "trade-controls",
     "title": "Trade Entry & Controls",
-    "summary": "The controls available for simulated Buy/Long and Sell/Short trades.",
+    "summary": "Market and limit entries, position sizing, leverage, and protection controls for simulated Forex and crypto trades.",
     "groups": [
       {
         "title": "Order Entry",
         "paragraphs": [
-          "The current order ticket submits a simulated Buy / Long or Sell / Short trade using the displayed live reference price. Use the controls currently shown in the ticket."
+          "The order ticket supports simulated Market and Limit entries. Market orders use a fresh reference quote; limit orders wait for the market to reach the trigger price."
         ],
         "items": [
-          "Select an active account and one of the listed Spot markets.",
-          "Enter a margin amount and choose an available execution multiplier: 1x, 2x, 5x, 10x, 20x, or 50x.",
-          "Optionally enter Stop Loss and Take Profit price levels.",
-          "Review the reference price, notional estimate, and available balance before submitting."
+          "Select an active account and an enabled Forex or Crypto instrument.",
+          "For a limit order, set the trigger price. A Buy limit can trigger at or below that price; a Sell limit can trigger at or above it. Pending orders are listed separately from open positions.",
+          "For Forex, enter the base position size in lots at 1x. For Crypto, enter USD collateral margin. Available multipliers are 1x, 2x, 5x, 10x, 20x, and 50x.",
+          "Forex Stop Loss and Take Profit inputs use pip distances by default; Crypto inputs use trigger prices. The order ticket also offers a dollar P&L mode.",
+          "Review the reference price, notional estimate, margin, and available balance before submitting."
         ]
       },
       {
         "title": "Position Monitoring",
         "items": [
           "Review open positions and their simulated entry, margin, notional, Stop Loss/Take Profit, and live PnL in Open Positions & PnL.",
+          "Forex positions display size in lots; their PnL and risk estimates use the selected Forex quote and currency conversion where required.",
           "The displayed price is a market-data reference. Simulated results may differ from live exchange execution.",
           "Use only the account and trade controls currently shown in the app."
         ]
@@ -149,7 +171,8 @@
       {
         "title": "Position Size and Leverage",
         "paragraphs": [
-          "The order ticket uses the entered margin and selected multiplier to calculate simulated position notional. A higher multiplier increases notional exposure and magnifies the effect of price movements on simulated PnL.",
+          "For Crypto, the entered USD collateral margin and selected multiplier determine simulated position notional. For Forex, the entered lot size is the base size at 1x and the selected multiplier adjusts the position exposure.",
+          "Available multipliers are 1x, 2x, 5x, 10x, 20x, and 50x. Higher leverage increases notional exposure and magnifies the effect of price movements on simulated PnL; the terminal's instrument and account controls take precedence.",
           "Use the account balance and risk limits shown in the app. A displayed estimate is not a guarantee of execution or account outcome."
         ]
       }
@@ -278,7 +301,7 @@
       {
         "title": "Market Data and Service Interruptions",
         "paragraphs": [
-          "Market prices depend on Binance Spot data and network connectivity. If prices stop updating, refresh the app and wait for the feed to recover before relying on a quote.",
+          "Forex live quotes are supplied by Swissquote and may be stale while an instrument's market is closed. Crypto Spot prices use configured Binance market data. If prices stop updating, do not rely on a stale quote; wait for the feed to recover before trading.",
           "Blastrr administrators may place individual pages into maintenance. During an outage, follow the message shown in the app rather than assuming a specific return time."
         ]
       },

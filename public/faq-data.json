@@ -4,7 +4,7 @@
     "items": [
       {
         "question": "What is Blastrr?",
-        "answer": "Blastrr provides simulated crypto trading accounts. You select a plan, connect a supported Web3 wallet, and trade with simulated account balances using market prices from the pairs shown in the terminal. Simulated results do not represent real exchange trades or guarantee a reward or payment."
+        "answer": "Blastrr provides simulated Forex and crypto trading accounts. You select a plan, connect a supported Web3 wallet, and trade with simulated account balances using market data for instruments shown in the terminal. Simulated results are not live exchange trades and do not guarantee a reward or payment."
       },
       {
         "question": "How do I log in?",
@@ -54,31 +54,31 @@
     "items": [
       {
         "question": "Which markets can I trade?",
-        "answer": "The terminal currently lists 20 Binance Spot crypto pairs quoted in USDT. The market selector and scrolling price ticker show the configured pairs; availability can change."
+        "answer": "The terminal has separate Forex and Crypto market modes. Forex currently lists EUR/USD, GBP/USD, USD/JPY, USD/CHF, AUD/USD, USD/CAD, NZD/USD, and XAU/USD. Crypto currently lists 20 Binance Spot pairs quoted in USDT. Check the terminal's market selectors for current availability."
       },
       {
         "question": "Are prices live?",
-        "answer": "The terminal displays market data for the selected pair, and the bottom ticker receives streaming Binance Spot ticker updates for configured pairs. Market data is a reference for simulated trading; it is not an exchange execution or a promise of an identical fill."
+        "answer": "The terminal streams live Forex quotes from Swissquote and configured crypto prices from Binance Spot. Forex chart history uses a separate data feed from its live quote. Feeds can be delayed or unavailable; prices are references for simulated trading and do not promise an identical live-market fill."
       },
       {
         "question": "When can I trade?",
-        "answer": "Crypto markets are generally available 24/7, subject to Binance market availability, Blastrr maintenance, and service interruptions."
+        "answer": "Forex currency pairs generally quote around the clock on weekdays, with weekend and holiday closures; XAU/USD may follow its own instrument sessions. Crypto Spot markets generally trade 24/7. Provider or platform maintenance can affect availability, and Forex quotes may be stale while markets are closed."
       },
       {
         "question": "How do I place a trade?",
-        "answer": "In the terminal, select an account and market, choose an execution multiplier from the available options, enter margin and any Stop Loss or Take Profit values, review the displayed estimates, then choose Buy / Long or Sell / Short. Orders and balances are simulated."
+        "answer": "Select an account, choose Forex or Crypto mode and an instrument, then select Market or Limit entry. Forex position size is entered in lots at 1x; Crypto size is entered as USD collateral margin. Choose an available leverage multiplier, set optional Stop Loss and Take Profit values, review the estimates, then submit Buy / Long or Sell / Short. Orders and balances are simulated."
       },
       {
         "question": "Does the app support limit, stop-limit, or pending entry orders?",
-        "answer": "The current order ticket submits Buy / Long or Sell / Short trades using the displayed live reference price. It does not expose separate limit or stop-limit entry-order controls."
+        "answer": "Yes. Choose Limit Orders in the terminal and set a trigger price. A Buy limit can trigger when the market reaches or falls below the limit; a Sell limit can trigger when it reaches or rises above the limit. Until triggered, the order appears under Pending Limit Orders; filled orders move to open positions. Orders are simulated."
       },
       {
         "question": "Can I set a Stop Loss or Take Profit?",
-        "answer": "The order ticket provides optional Stop Loss and Take Profit price fields when opening a simulated position. Use the controls shown in the app; do not assume chart-drag editing or other controls that are not displayed."
+        "answer": "Yes. Forex Stop Loss and Take Profit inputs use pip distances by default; Crypto inputs use trigger prices. You can switch either market mode to dollar P&L amounts with the order-ticket control. These protections are part of simulated positions."
       },
       {
         "question": "What do the market information fields show?",
-        "answer": "For the selected Spot pair, the chart toolbar shows mid price, bid/ask, 24-hour change, high, low, and quote volume in USDT. Futures-only statistics such as funding rate and open interest are not used for these Spot markets."
+        "answer": "The selected-market bar shows the live price, bid/ask, 24-hour change, high, and low where available. Crypto Spot instruments also show quote volume in USDT. Forex instruments do not have the same USDT volume field."
       }
     ]
   },
@@ -103,11 +103,11 @@
       },
       {
         "question": "What does leverage mean in the order ticket?",
-        "answer": "The order ticket offers 1x, 2x, 5x, 10x, 20x, and 50x execution multipliers. A higher multiplier increases simulated position notional for the entered margin and increases exposure to price movements. Available controls and account rules in the app take precedence."
+        "answer": "The terminal offers 1x, 2x, 5x, 10x, 20x, and 50x multipliers on eligible instruments. In Forex mode, the lot-size field is the base position size at 1x; the multiplier increases simulated exposure. In Crypto mode, the multiplier applies to the USD collateral margin. Higher leverage magnifies the effect of price moves on simulated PnL, including losses. Check the instrument and account controls in the app."
       },
       {
         "question": "Are trades real exchange orders?",
-        "answer": "No. Trades, positions, balances, and PnL in Blastrr are simulated. Binance Spot prices are used as market data, but Blastrr does not submit these simulated orders to Binance's exchange order book."
+        "answer": "No. Forex and crypto trades, positions, balances, and PnL in Blastrr are simulated. Market data is used as a reference, but Blastrr does not submit these simulated orders to an exchange order book."
       }
     ]
   },
@@ -179,7 +179,7 @@
     "items": [
       {
         "question": "What should I do if the market ticker or prices stop updating?",
-        "answer": "Check your internet connection and refresh the app. Binance or Blastrr may be temporarily unavailable. Do not rely on a stale quote; wait for live data to resume before submitting a simulated trade."
+        "answer": "Check your internet connection and refresh the app. Forex prices may not update while the relevant market is closed; a provider or Blastrr may also be temporarily unavailable. Do not rely on a stale quote; wait for live data to resume before submitting a simulated trade."
       },
       {
         "question": "What if I cannot connect my wallet?",

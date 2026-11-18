@@ -295,6 +295,7 @@ test('TradingView Lightweight Chart and order buttons use matching candle and br
   assert.match(appJs, /background: \{ color: LIVE_CHART_THEME\.background \}/);
   assert.match(appJs, /upColor: LIVE_CHART_THEME\.up/);
   assert.match(appJs, /downColor: LIVE_CHART_THEME\.down/);
+  assert.match(appJs, /borderVisible: true,[\s\S]*?borderUpColor: LIVE_CHART_THEME\.up,[\s\S]*?wickVisible: true,[\s\S]*?wickUpColor: LIVE_CHART_THEME\.up/);
   assert.match(appCss, /\.order-actions \.btn-buy\s*\{[^}]*#72f0c3/);
   assert.match(appCss, /\.order-actions \.btn-sell\s*\{[^}]*#ff638e/);
   assert.match(appCss, /\.order-actions button\.btn-buy:not\(\.nav-tab\):not\(\.admin-section-tab\)\s*\{[^}]*rgba\(114, 240, 195, 0\.2\)[^}]*color: #72f0c3[^}]*rgba\(114, 240, 195, 0\.08\)/);

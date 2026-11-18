@@ -131,15 +131,21 @@ function parseForexChartHistory(payload, intervalSeconds = 60, nowSeconds = Math
     candle.close = close;
   });
 
-  const candles = [...groupedCandles.values()].sort((left, right) => left.time - right.time);
-  if (!candles.length) throw new Error('Yahoo Finance returned no valid Forex candles.');
-  for (let index = 1; index < candles.length; index += 1) {
-    const candle = candles[index];
-    if (candle.open !== candle.high || candle.open !== candle.low || candle.open !== candle.close) continue;
-    const previousClose = candles[index - 1].close;
-    candle.open = previousClose;
-    candle.high = Math.max(candle.high, previousClose);
-    candle.low = Math.min(candle.low, previousClose);
+  const rawCandles = [...groupedCandles.values()].sort((left, right) => left.time - right.time);
+  if (!rawCandles.length) throw new Error('Yahoo Finance returned no valid Forex candles.');
+  const candles = [];
+  for (const candle of rawCandles) {
+    const previousCandle = candles[candles.length - 1];
+    const isFlat = candle.open === candle.high &&
+      candle.open === candle.low &&
+      candle.open === candle.close;
+    if (previousCandle && isFlat && candle.close === previousCandle.close) continue;
+    if (previousCandle && isFlat) {
+      candle.open = previousCandle.close;
+      candle.high = Math.max(candle.high, previousCandle.close);
+      candle.low = Math.min(candle.low, previousCandle.close);
+    }
+    candles.push(candle);
   }
   const dayStart = nowSeconds - 24 * 60 * 60;
   const recentCandles = candles.filter(candle => candle.time >= dayStart);

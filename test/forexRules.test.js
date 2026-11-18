@@ -87,19 +87,20 @@ test('Forex chart candles use New York time across daylight-saving changes', () 
   assert.equal(history.stats.lowPrice, 1.09);
 });
 
-test('flat Forex price samples are rendered as candles using the prior close', () => {
+test('flat Forex samples become price-change candles and repeated unchanged bars are omitted', () => {
   const firstTime = Date.UTC(2026, 2, 8, 12, 0) / 1000;
   const secondTime = firstTime + 60;
+  const thirdTime = secondTime + 60;
   const history = parseForexChartHistory({
     chart: {
       result: [{
-        timestamp: [firstTime, secondTime],
+        timestamp: [firstTime, secondTime, thirdTime],
         indicators: {
           quote: [{
-            open: [1.1, 1.101],
-            high: [1.1, 1.101],
-            low: [1.1, 1.101],
-            close: [1.1, 1.101]
+            open: [1.1, 1.101, 1.101],
+            high: [1.1, 1.101, 1.101],
+            low: [1.1, 1.101, 1.101],
+            close: [1.1, 1.101, 1.101]
           }]
         }
       }]

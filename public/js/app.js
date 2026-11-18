@@ -781,7 +781,10 @@ let connectedWallet = null;
             liveMarketCandleSeries = liveMarketChart.addCandlestickSeries({
                 upColor: LIVE_CHART_THEME.up,
                 downColor: LIVE_CHART_THEME.down,
-                borderVisible: false,
+                borderVisible: true,
+                borderUpColor: LIVE_CHART_THEME.up,
+                borderDownColor: LIVE_CHART_THEME.down,
+                wickVisible: true,
                 wickUpColor: LIVE_CHART_THEME.up,
                 wickDownColor: LIVE_CHART_THEME.down,
                 ...(forexPricePrecision ? {

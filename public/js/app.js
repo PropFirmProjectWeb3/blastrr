@@ -7,6 +7,17 @@ const LIVE_CHART_THEME = Object.freeze({
     up: '#72f0c3',
     down: '#ff638e'
 });
+const CHART_AXIS_TIME_FORMATTERS = Object.freeze({
+    year: new Intl.DateTimeFormat('en-US', { timeZone: 'America/New_York', year: 'numeric' }),
+    month: new Intl.DateTimeFormat('en-US', { timeZone: 'America/New_York', month: 'short', year: '2-digit' }),
+    day: new Intl.DateTimeFormat('en-US', { timeZone: 'America/New_York', month: 'short', day: 'numeric' }),
+    time: new Intl.DateTimeFormat('en-GB', {
+        timeZone: 'America/New_York',
+        hour: '2-digit',
+        minute: '2-digit',
+        hourCycle: 'h23'
+    })
+});
 const CHART_INDICATOR_DEFINITIONS = Object.freeze({
     VOLUME: { label: 'Volume', parameters: [] },
     SMA: { label: 'Simple moving average', parameters: [['period', 'Period', 20, 2, 200, 1]] },
@@ -48,6 +59,12 @@ let connectedWallet = null;
         let liveMarketIndicatorSeries = {};
         let activeChartIndicators = [];
         let nextChartIndicatorId = 1;
+        let activeChartDrawingTool = null;
+        let liveMarketDrawings = [];
+        let liveMarketDrawingAnchor = null;
+        let liveMarketDrawingSvg = null;
+        let liveMarketDrawingHost = null;
+        let liveMarketDrawingsStorageKey = null;
         let liveMarketTimeframeSeconds = 60;
         let liveMarketChartGeneration = 0;
         let liveMarketTradeLines = [];
@@ -268,6 +285,24 @@ let connectedWallet = null;
                 if (tab) selectAccountsPerformanceTab(tab.dataset.performanceAccount);
             });
             document.getElementById('chart-timeframe')?.addEventListener('change', reloadLiveMarketChart);
+            document.getElementById('chart-drawing-toolbar')?.addEventListener('click', event => {
+                const toolButton = event.target.closest('[data-chart-drawing-tool]');
+                if (toolButton) {
+                    selectChartDrawingTool(toolButton.dataset.chartDrawingTool);
+                    return;
+                }
+                const actionButton = event.target.closest('[data-chart-drawing-action]');
+                if (actionButton?.dataset.chartDrawingAction === 'undo') undoLastChartDrawing();
+                if (actionButton?.dataset.chartDrawingAction === 'clear') clearLiveChartDrawings();
+                if (actionButton?.dataset.chartDrawingAction === 'live') {
+                    selectChartDrawingTool('select');
+                    liveMarketChart?.timeScale().scrollToRealTime();
+                    chartDrawingStatus('Showing the latest live data.');
+                }
+            });
+            document.addEventListener('keydown', event => {
+                if (event.key === 'Escape' && activeChartDrawingTool) selectChartDrawingTool('select');
+            });
             document.getElementById('chart-indicator-add')?.addEventListener('click', addChartIndicator);
             document.getElementById('chart-indicator-select')?.addEventListener('change', renderActiveChartIndicators);
             document.getElementById('chart-active-indicators')?.addEventListener('click', event => {
@@ -450,6 +485,11 @@ let connectedWallet = null;
             liveMarketIndicatorSeries = {};
             liveMarketTradeLines = [];
             liveMarketTradeMarkers = [];
+            liveMarketDrawings = [];
+            liveMarketDrawingAnchor = null;
+            liveMarketDrawingSvg = null;
+            liveMarketDrawingHost = null;
+            liveMarketDrawingsStorageKey = null;
         }
 
         function defaultChartIndicatorParams(type) {
@@ -521,6 +561,295 @@ let connectedWallet = null;
             }
         }
 
+        function chartDrawingStatus(message) {
+            const status = document.getElementById('chart-drawing-status');
+            if (status) status.textContent = message;
+        }
+
+        function selectChartDrawingTool(tool) {
+            const supportedTools = ['trendline', 'horizontal', 'vertical', 'rectangle', 'measure', 'fib'];
+            activeChartDrawingTool = supportedTools.includes(tool) ? tool : null;
+            liveMarketDrawingAnchor = null;
+            liveMarketDrawingHost?.classList.toggle('is-drawing', Boolean(activeChartDrawingTool));
+            document.querySelectorAll('[data-chart-drawing-tool]').forEach(button => {
+                const isActive = activeChartDrawingTool
+                    ? button.dataset.chartDrawingTool === activeChartDrawingTool
+                    : button.dataset.chartDrawingTool === 'select';
+                button.classList.toggle('is-active', isActive);
+                button.setAttribute('aria-pressed', String(isActive));
+            });
+            const instructions = {
+                trendline: 'Click two points to draw a trendline.',
+                horizontal: 'Click a price level to place a horizontal line.',
+                vertical: 'Click a time to place a vertical line.',
+                rectangle: 'Click two opposite corners to draw a rectangle.',
+                measure: 'Click two points to measure price and percentage change.',
+                fib: 'Click a swing high/low and an endpoint to draw Fibonacci retracements.'
+            };
+            chartDrawingStatus(activeChartDrawingTool
+                ? instructions[activeChartDrawingTool]
+                : 'Drag chart to pan; drag the price axis to scale. Drawings save in this browser.');
+            renderLiveChartDrawings();
+        }
+
+        function undoLastChartDrawing() {
+            if (liveMarketDrawingAnchor) {
+                liveMarketDrawingAnchor = null;
+                chartDrawingStatus('Pending drawing cancelled.');
+                renderLiveChartDrawings();
+                return;
+            }
+            if (!liveMarketDrawings.length) return;
+            liveMarketDrawings.pop();
+            saveLiveChartDrawings();
+            renderLiveChartDrawings();
+            chartDrawingStatus('Last drawing removed.');
+        }
+
+        function clearLiveChartDrawings() {
+            if (!liveMarketDrawings.length && !liveMarketDrawingAnchor) return;
+            if (!window.confirm('Clear drawings for this market and timeframe?')) return;
+            liveMarketDrawings = [];
+            liveMarketDrawingAnchor = null;
+            saveLiveChartDrawings();
+            renderLiveChartDrawings();
+            chartDrawingStatus('Drawings cleared for this market and timeframe.');
+        }
+
+        function chartDrawingTimeToSeconds(time) {
+            if (typeof time === 'number' && Number.isFinite(time)) return time;
+            if (typeof time === 'string') {
+                const parsed = Date.parse(time);
+                return Number.isFinite(parsed) ? Math.floor(parsed / 1000) : null;
+            }
+            if (time && Number.isFinite(time.year) && Number.isFinite(time.month) && Number.isFinite(time.day)) {
+                return Date.UTC(time.year, time.month - 1, time.day) / 1000;
+            }
+            return null;
+        }
+
+        function chartDrawingStorageKey(source, pair, timeframe) {
+            const wallet = connectedWallet?.toLowerCase() || 'guest';
+            return `blastrr.chart-drawings.v1:${wallet}:${source}:${pair}:${timeframe}`;
+        }
+
+        function loadLiveChartDrawings() {
+            if (!liveMarketDrawingsStorageKey) return;
+            try {
+                const stored = JSON.parse(window.localStorage.getItem(liveMarketDrawingsStorageKey) || '[]');
+                const types = new Set(['trendline', 'horizontal', 'vertical', 'rectangle', 'measure', 'fib']);
+                liveMarketDrawings = Array.isArray(stored) ? stored.filter(drawing => {
+                    if (!drawing || !types.has(drawing.type) || !Array.isArray(drawing.points)) return false;
+                    const expectedPoints = ['horizontal', 'vertical'].includes(drawing.type) ? 1 : 2;
+                    return drawing.points.length === expectedPoints &&
+                        drawing.points.every(point => Number.isFinite(point?.time) && Number.isFinite(point?.price));
+                }).slice(-500) : [];
+            } catch (error) {
+                liveMarketDrawings = [];
+                console.error('Unable to load saved chart drawings:', error.message);
+                chartDrawingStatus('Saved drawings could not be loaded in this browser.');
+            }
+        }
+
+        function saveLiveChartDrawings() {
+            if (!liveMarketDrawingsStorageKey) return;
+            try {
+                window.localStorage.setItem(liveMarketDrawingsStorageKey, JSON.stringify(liveMarketDrawings));
+            } catch (error) {
+                console.error('Unable to save chart drawings:', error.message);
+                chartDrawingStatus('Drawings are visible now but could not be saved in this browser.');
+            }
+        }
+
+        function chartDrawingPointFromEvent(event) {
+            if (!liveMarketChart || !liveMarketCandleSeries || !liveMarketDrawingHost) return null;
+            const bounds = liveMarketDrawingHost.getBoundingClientRect();
+            const x = event.clientX - bounds.left;
+            const y = event.clientY - bounds.top;
+            const plotWidth = liveMarketChart.timeScale().width();
+            if (x < 0 || x > plotWidth || y < 0 || y > liveMarketDrawingHost.clientHeight - 28) return null;
+            const time = chartDrawingTimeToSeconds(liveMarketChart.timeScale().coordinateToTime(x));
+            const price = liveMarketCandleSeries.coordinateToPrice(y);
+            if (!Number.isFinite(time) || !Number.isFinite(price)) return null;
+            return { time, price };
+        }
+
+        function createChartDrawingSvgElement(name, attributes = {}) {
+            const element = document.createElementNS('http://www.w3.org/2000/svg', name);
+            Object.entries(attributes).forEach(([key, value]) => element.setAttribute(key, String(value)));
+            return element;
+        }
+
+        function chartDrawingCoordinates(point) {
+            const x = liveMarketChart.timeScale().timeToCoordinate(point.time);
+            const y = liveMarketCandleSeries.priceToCoordinate(point.price);
+            return {
+                x: Number.isFinite(x) ? x : null,
+                y: Number.isFinite(y) ? y : null
+            };
+        }
+
+        function renderLiveChartDrawing(drawing, preview = false) {
+            const points = drawing.points.map(chartDrawingCoordinates);
+            const svg = liveMarketDrawingSvg;
+            const plotWidth = liveMarketChart.timeScale().width();
+            const plotHeight = Math.max(0, liveMarketDrawingHost.clientHeight - 28);
+            const colors = {
+                trendline: '#38bdf8',
+                horizontal: '#fbbf24',
+                vertical: '#f472b6',
+                rectangle: '#a78bfa',
+                measure: '#34d399',
+                fib: '#fbbf24'
+            };
+            const color = colors[drawing.type];
+            const opacity = preview ? 0.65 : 0.95;
+            const lineAttributes = {
+                stroke: color,
+                'stroke-width': 1.5,
+                'stroke-opacity': opacity,
+                'vector-effect': 'non-scaling-stroke',
+                ...(preview ? { 'stroke-dasharray': '5 4' } : {})
+            };
+            const addLine = (x1, y1, x2, y2, extra = {}) => {
+                svg.append(createChartDrawingSvgElement('line', { ...lineAttributes, x1, y1, x2, y2, ...extra }));
+            };
+
+            if (drawing.type === 'horizontal' && Number.isFinite(points[0].y)) {
+                addLine(0, points[0].y, plotWidth, points[0].y);
+            } else if (drawing.type === 'vertical' && Number.isFinite(points[0].x)) {
+                addLine(points[0].x, 0, points[0].x, plotHeight);
+            } else if (['trendline', 'measure'].includes(drawing.type) &&
+                points.every(point => Number.isFinite(point.x) && Number.isFinite(point.y))) {
+                addLine(points[0].x, points[0].y, points[1].x, points[1].y);
+                if (drawing.type === 'measure') {
+                    const delta = drawing.points[1].price - drawing.points[0].price;
+                    const percent = drawing.points[0].price ? delta / drawing.points[0].price * 100 : 0;
+                    const label = createChartDrawingSvgElement('text', {
+                        x: Math.min(plotWidth - 8, Math.max(8, (points[0].x + points[1].x) / 2 + 8)),
+                        y: Math.min(plotHeight - 8, Math.max(14, (points[0].y + points[1].y) / 2 - 8)),
+                        class: 'live-market-chart-drawing-measure-label',
+                        opacity
+                    });
+                    label.textContent = `${delta >= 0 ? '+' : ''}${delta.toPrecision(6)} (${percent.toFixed(2)}%)`;
+                    svg.append(label);
+                }
+            } else if (drawing.type === 'rectangle' &&
+                points.every(point => Number.isFinite(point.x) && Number.isFinite(point.y))) {
+                const x = Math.min(points[0].x, points[1].x);
+                const y = Math.min(points[0].y, points[1].y);
+                svg.append(createChartDrawingSvgElement('rect', {
+                    x,
+                    y,
+                    width: Math.abs(points[1].x - points[0].x),
+                    height: Math.abs(points[1].y - points[0].y),
+                    ...lineAttributes,
+                    fill: color,
+                    'fill-opacity': preview ? 0.08 : 0.12
+                }));
+            } else if (drawing.type === 'fib' &&
+                points.every(point => Number.isFinite(point.x) && Number.isFinite(point.y))) {
+                const levels = [
+                    [0, '0%'], [0.236, '23.6%'], [0.382, '38.2%'], [0.5, '50%'],
+                    [0.618, '61.8%'], [0.786, '78.6%'], [1, '100%']
+                ];
+                const startX = Math.min(points[0].x, points[1].x);
+                levels.forEach(([ratio, label]) => {
+                    const price = drawing.points[0].price +
+                        (drawing.points[1].price - drawing.points[0].price) * ratio;
+                    const y = liveMarketCandleSeries.priceToCoordinate(price);
+                    if (!Number.isFinite(y)) return;
+                    addLine(startX, y, plotWidth, y, { 'stroke-opacity': ratio === 0 || ratio === 1 ? opacity : opacity * 0.65 });
+                    const levelLabel = createChartDrawingSvgElement('text', {
+                        x: plotWidth - 5,
+                        y: Math.max(10, y - 3),
+                        fill: color,
+                        opacity,
+                        'font-size': 9,
+                        'text-anchor': 'end'
+                    });
+                    levelLabel.textContent = label;
+                    svg.append(levelLabel);
+                });
+            }
+        }
+
+        function renderLiveChartDrawings(previewPoint = null) {
+            if (!liveMarketDrawingSvg || !liveMarketChart || !liveMarketCandleSeries || !liveMarketDrawingHost) return;
+            const width = liveMarketDrawingHost.clientWidth;
+            const height = liveMarketDrawingHost.clientHeight;
+            liveMarketDrawingSvg.setAttribute('viewBox', `0 0 ${width} ${height}`);
+            liveMarketDrawingSvg.replaceChildren();
+            liveMarketDrawings.forEach(drawing => renderLiveChartDrawing(drawing));
+            if (activeChartDrawingTool && liveMarketDrawingAnchor && previewPoint) {
+                renderLiveChartDrawing({
+                    type: activeChartDrawingTool,
+                    points: [liveMarketDrawingAnchor, previewPoint]
+                }, true);
+            }
+        }
+
+        function setupLiveChartDrawings(host, source, pair, timeframe) {
+            liveMarketDrawingHost = host;
+            liveMarketDrawingSvg = createChartDrawingSvgElement('svg', {
+                class: 'live-market-chart-drawings',
+                'aria-hidden': 'true'
+            });
+            host.append(liveMarketDrawingSvg);
+            liveMarketDrawingsStorageKey = chartDrawingStorageKey(source, pair, timeframe);
+            liveMarketDrawings = [];
+            liveMarketDrawingAnchor = null;
+            loadLiveChartDrawings();
+            host.addEventListener('pointerdown', event => {
+                if (!activeChartDrawingTool || event.button !== 0) return;
+                const point = chartDrawingPointFromEvent(event);
+                if (!point) return;
+                event.preventDefault();
+                event.stopPropagation();
+                if (['horizontal', 'vertical'].includes(activeChartDrawingTool)) {
+                    liveMarketDrawings.push({
+                        id: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
+                        type: activeChartDrawingTool,
+                        points: [point]
+                    });
+                    saveLiveChartDrawings();
+                    renderLiveChartDrawings();
+                    chartDrawingStatus(`Click chart to place another ${activeChartDrawingTool === 'horizontal' ? 'horizontal line' : 'vertical line'}.`);
+                    return;
+                }
+                if (!liveMarketDrawingAnchor) {
+                    liveMarketDrawingAnchor = point;
+                    chartDrawingStatus('Click the second point to complete the drawing. Press Undo to cancel.');
+                    renderLiveChartDrawings(point);
+                    return;
+                }
+                liveMarketDrawings.push({
+                    id: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
+                    type: activeChartDrawingTool,
+                    points: [liveMarketDrawingAnchor, point]
+                });
+                liveMarketDrawingAnchor = null;
+                saveLiveChartDrawings();
+                renderLiveChartDrawings();
+                chartDrawingStatus('Drawing saved. Click two points to add another.');
+            }, true);
+            host.addEventListener('pointermove', event => {
+                if (!activeChartDrawingTool) {
+                    renderLiveChartDrawings();
+                    return;
+                }
+                const point = chartDrawingPointFromEvent(event);
+                if (!point) return;
+                event.preventDefault();
+                event.stopPropagation();
+                if (liveMarketDrawingAnchor) renderLiveChartDrawings(point);
+            }, true);
+            host.addEventListener('pointerup', () => window.requestAnimationFrame(() => renderLiveChartDrawings()), true);
+            host.addEventListener('wheel', () => window.requestAnimationFrame(() => renderLiveChartDrawings()), { passive: true });
+            liveMarketChart.timeScale().subscribeVisibleLogicalRangeChange(() => renderLiveChartDrawings());
+            selectChartDrawingTool(activeChartDrawingTool || 'select');
+        }
+
         function observeLiveMarketChart(chart, host) {
             if (!window.ResizeObserver) return;
             if (!liveMarketResizeObserver) {
@@ -528,7 +857,10 @@ let connectedWallet = null;
                     for (const entry of entries) {
                         const targetChart = liveMarketResizeTargets.get(entry.target);
                         const { width, height } = entry.contentRect;
-                        if (targetChart && width > 0 && height > 0) targetChart.resize(width, height);
+                        if (targetChart && width > 0 && height > 0) {
+                            targetChart.resize(width, height);
+                            if (targetChart === liveMarketChart) renderLiveChartDrawings();
+                        }
                     }
                 });
             }
@@ -549,11 +881,23 @@ let connectedWallet = null;
                     horzLines: { color: LIVE_CHART_THEME.grid }
                 },
                 rightPriceScale: { borderColor: LIVE_CHART_THEME.border },
+                handleScroll: {
+                    mouseWheel: true,
+                    pressedMouseMove: true,
+                    horzTouchDrag: true,
+                    vertTouchDrag: true
+                },
+                handleScale: {
+                    axisPressedMouseMove: { time: true, price: true },
+                    mouseWheel: true,
+                    pinch: true
+                },
                 timeScale: {
                     borderColor: LIVE_CHART_THEME.border,
+                    shiftVisibleRangeOnNewBar: false,
                     timeVisible: showTimeScale,
                     visible: showTimeScale,
-                    tickMarkFormatter: formatChartTimeInNewYork
+                    tickMarkFormatter: formatChartAxisTime
                 },
                 localization: {
                     locale: 'en-US',
@@ -564,17 +908,17 @@ let connectedWallet = null;
         }
 
         function formatChartTimeInNewYork(time) {
+            return formatChartAxisTime(time);
+        }
+
+        function formatChartAxisTime(time, tickMarkType) {
             const date = typeof time === 'number'
                 ? new Date(time * 1000)
                 : new Date(Date.UTC(time.year, time.month - 1, time.day));
-            return date.toLocaleString('en-US', {
-                timeZone: 'America/New_York',
-                month: 'short',
-                day: 'numeric',
-                hour: 'numeric',
-                minute: '2-digit',
-                timeZoneName: 'short'
-            });
+            if (tickMarkType === 0) return CHART_AXIS_TIME_FORMATTERS.year.format(date);
+            if (tickMarkType === 1) return CHART_AXIS_TIME_FORMATTERS.month.format(date);
+            if (tickMarkType === 2) return CHART_AXIS_TIME_FORMATTERS.day.format(date);
+            return CHART_AXIS_TIME_FORMATTERS.time.format(date);
         }
 
         const newYorkChartTimeFormatter = new Intl.DateTimeFormat('en-US', {
@@ -775,6 +1119,11 @@ let connectedWallet = null;
                     : 'Forex history: Yahoo Finance · Live quotes: Swissquote · Chart times: New York')
                 : 'Charts by TradingView';
             chartHost.append(liveMarketChartStatus, attribution);
+            const timezoneLabel = document.createElement('span');
+            timezoneLabel.className = 'live-market-chart-timezone';
+            timezoneLabel.textContent = 'ET';
+            timezoneLabel.title = 'Chart times use Eastern Time (EST/EDT), New York';
+            chartHost.append(timezoneLabel);
             container.replaceChildren(chartHost);
 
             liveMarketChart = LightweightCharts.createChart(chartHost, chartOptionsForHost(chartHost, { showTimeScale: true }));
@@ -797,6 +1146,7 @@ let connectedWallet = null;
             });
             observeLiveMarketChart(liveMarketChart, chartHost);
             syncLiveChartRanges(liveMarketChart);
+            setupLiveChartDrawings(chartHost, source, pair, timeframe);
 
             if (source === 'SWISSQUOTE') {
                 liveMarketChartStatus.textContent = 'Loading Forex chart history…';
@@ -812,6 +1162,7 @@ let connectedWallet = null;
                     }
                     liveMarketCandleSeries.setData(data.candles);
                     liveMarketCandles = data.candles;
+                    renderLiveChartDrawings();
                     liveMarketFirstCandleTime = data.candles[0].time;
                     liveMarketLastCandle = { ...data.candles[data.candles.length - 1] };
                     forexChartStats = data.stats;
@@ -866,6 +1217,7 @@ let connectedWallet = null;
                 if (candles.length === 0) throw new Error('Market provider returned no valid candles.');
                 liveMarketCandleSeries.setData(candles);
                 liveMarketCandles = candles;
+                renderLiveChartDrawings();
                 liveMarketFirstCandleTime = candles[0].time;
                 liveMarketLastCandle = { ...candles[candles.length - 1] };
                 refreshChartIndicators();
@@ -895,6 +1247,7 @@ let connectedWallet = null;
                 liveMarketCandles = [{ ...liveMarketLastCandle }];
                 liveMarketFirstCandleTime = time;
                 liveMarketCandleSeries.update({ ...liveMarketLastCandle });
+                renderLiveChartDrawings();
                 if (!liveMarketChartHistoryFailed) {
                     liveMarketChartStatus?.remove();
                     liveMarketChartStatus = null;
@@ -909,6 +1262,7 @@ let connectedWallet = null;
                 latest.close = price;
                 liveMarketCandleSeries.update({ ...latest });
                 liveMarketCandles[liveMarketCandles.length - 1] = { ...latest };
+                renderLiveChartDrawings();
                 updateChartIndicatorData();
                 return;
             }
@@ -923,6 +1277,7 @@ let connectedWallet = null;
             liveMarketCandleSeries.update({ ...liveMarketLastCandle });
             liveMarketCandles.push({ ...liveMarketLastCandle });
             if (liveMarketCandles.length > 500) liveMarketCandles.shift();
+            renderLiveChartDrawings();
             updateChartIndicatorData();
         }
 

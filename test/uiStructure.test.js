@@ -293,6 +293,16 @@ test('TradingView Lightweight Chart and order buttons use matching candle and br
   assert.match(appJs, /up: '#72f0c3'/);
   assert.match(appJs, /down: '#ff638e'/);
   assert.match(appJs, /background: \{ color: LIVE_CHART_THEME\.background \}/);
+  assert.match(appJs, /handleScroll: \{[\s\S]*?pressedMouseMove: true,[\s\S]*?horzTouchDrag: true,[\s\S]*?vertTouchDrag: true/);
+  assert.match(appJs, /handleScale: \{[\s\S]*?axisPressedMouseMove: \{ time: true, price: true \},[\s\S]*?mouseWheel: true,[\s\S]*?pinch: true/);
+  assert.match(appJs, /shiftVisibleRangeOnNewBar: false/);
+  assert.match(appJs, /tickMarkFormatter: formatChartAxisTime/);
+  assert.match(appJs, /function formatChartAxisTime\(time, tickMarkType\)/);
+  assert.match(appJs, /timezoneLabel\.textContent = 'ET'/);
+  assert.match(appHtml, /id="chart-drawing-toolbar"[\s\S]*?data-chart-drawing-tool="fib"[\s\S]*?data-chart-drawing-action="undo"[\s\S]*?data-chart-drawing-action="live"/);
+  assert.match(appJs, /function setupLiveChartDrawings\(host, source, pair, timeframe\)/);
+  assert.match(appJs, /blastrr\.chart-drawings\.v1:\$\{wallet\}:\$\{source\}:\$\{pair\}:\$\{timeframe\}/);
+  assert.match(appCss, /\.live-market-chart-drawings \{[^}]*pointer-events: none/);
   assert.match(appJs, /upColor: LIVE_CHART_THEME\.up/);
   assert.match(appJs, /downColor: LIVE_CHART_THEME\.down/);
   assert.match(appJs, /borderVisible: true,[\s\S]*?borderUpColor: LIVE_CHART_THEME\.up,[\s\S]*?wickVisible: true,[\s\S]*?wickUpColor: LIVE_CHART_THEME\.up/);

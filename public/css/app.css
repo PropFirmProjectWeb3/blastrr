@@ -631,6 +631,16 @@
         .chart-indicator-param { width: 52px; min-height: 24px; padding: 3px 5px; border: 1px solid rgba(180, 190, 200, 0.14); border-radius: 5px; background: #080a0b; color: #e5e7eb; font: inherit; font-size: 10px; }
         .chart-indicator-remove { width: 22px; height: 22px; padding: 0; border: 0; border-radius: 5px; background: transparent; color: #9ca3af; cursor: pointer; font-size: 15px; line-height: 1; }
         .chart-indicator-remove:hover { background: rgba(248, 113, 113, 0.12); color: #fca5a5; }
+        .chart-drawing-toolbar { display: flex; align-items: center; gap: 5px; min-width: 0; margin: -4px 0 10px; padding: 5px 7px; overflow-x: auto; border: 1px solid rgba(180, 190, 200, 0.1); border-radius: 8px; background: rgba(7, 9, 10, 0.72); scrollbar-width: thin; }
+        .chart-drawing-toolbar-label { flex: 0 0 auto; margin: 0 3px; color: #9298a1; font-size: 10px; font-weight: 700; }
+        .chart-drawing-tool { flex: 0 0 auto; min-height: 26px; padding: 3px 8px; border: 1px solid rgba(180, 190, 200, 0.13); border-radius: 6px; background: rgba(10, 12, 14, 0.84); color: #aeb4bc; cursor: pointer; font: inherit; font-size: 10px; }
+        .chart-drawing-tool:hover, .chart-drawing-tool:focus-visible { border-color: rgba(167, 139, 250, 0.45); color: #ede9fe; outline: none; }
+        .chart-drawing-tool.is-active { border-color: rgba(167, 139, 250, 0.56); background: rgba(139, 92, 246, 0.16); color: #ddd6fe; }
+        .chart-drawing-status { flex: 1 0 180px; min-width: 120px; color: #8792a0; font-size: 9px; line-height: 1.35; text-align: right; }
+        .live-market-chart-host.is-drawing { cursor: crosshair; }
+        .live-market-chart-drawings { position: absolute; inset: 0; z-index: 2; width: 100%; height: 100%; overflow: hidden; pointer-events: none; }
+        .live-market-chart-timezone { position: absolute; top: 6px; right: 56px; z-index: 3; padding: 2px 5px; border: 1px solid rgba(148, 163, 184, 0.16); border-radius: 4px; background: rgba(9, 13, 19, 0.86); color: #9ca3af; font-size: 9px; line-height: 1.2; pointer-events: none; }
+        .live-market-chart-drawing-measure-label { fill: #bfdbfe; font: 11px sans-serif; paint-order: stroke; stroke: #090d13; stroke-width: 3px; }
         .market-hours-status { display: inline-flex; align-items: center; gap: 7px; padding: 6px 9px; border: 1px solid rgba(104, 240, 192, 0.2); border-radius: 999px; background: rgba(16, 90, 72, 0.2); color: #6ee7b7; font-size: 10px; font-weight: 800; letter-spacing: 0.045em; white-space: nowrap; }
         .market-hours-status-dot { width: 7px; height: 7px; border-radius: 50%; background: #68f0c0; box-shadow: 0 0 10px rgba(104, 240, 192, 0.75); }
         .chart-market-bar { display: flex; align-items: stretch; gap: 22px; margin: 0 0 10px; padding: 12px 14px; overflow-x: auto; border: 1px solid rgba(180, 190, 200, 0.11); border-radius: 10px; background: rgba(7, 9, 10, 0.94); scrollbar-width: thin; }

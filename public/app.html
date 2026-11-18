@@ -7,7 +7,7 @@
     <link rel="icon" type="image/png" href="/favicon.png">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link rel="stylesheet" href="/css/app.css?v=20261118-copy-account-summary">
+    <link rel="stylesheet" href="/css/app.css?v=20261118-chart-drawings">
 </head>
 <body class="auth-locked">
     <section id="wallet-login-gate" class="wallet-login-gate" aria-labelledby="wallet-login-title">
@@ -168,6 +168,20 @@
                             </div>
                         </div>
                         <div id="chart-active-indicators" class="chart-active-indicators" aria-label="Active chart indicators"></div>
+                        <div id="chart-drawing-toolbar" class="chart-drawing-toolbar" role="toolbar" aria-label="Chart drawing tools">
+                            <span class="chart-drawing-toolbar-label">Draw</span>
+                            <button type="button" class="chart-drawing-tool is-active" data-chart-drawing-tool="select" aria-pressed="true" aria-label="Select and pan chart">Pointer</button>
+                            <button type="button" class="chart-drawing-tool" data-chart-drawing-tool="trendline" aria-pressed="false" aria-label="Draw trendline">Trend</button>
+                            <button type="button" class="chart-drawing-tool" data-chart-drawing-tool="horizontal" aria-pressed="false" aria-label="Draw horizontal price line">H-Line</button>
+                            <button type="button" class="chart-drawing-tool" data-chart-drawing-tool="vertical" aria-pressed="false" aria-label="Draw vertical time line">V-Line</button>
+                            <button type="button" class="chart-drawing-tool" data-chart-drawing-tool="rectangle" aria-pressed="false" aria-label="Draw rectangle">Rectangle</button>
+                            <button type="button" class="chart-drawing-tool" data-chart-drawing-tool="measure" aria-pressed="false" aria-label="Measure price range">Measure</button>
+                            <button type="button" class="chart-drawing-tool" data-chart-drawing-tool="fib" aria-pressed="false" aria-label="Draw Fibonacci retracement">Fib</button>
+                            <button type="button" class="chart-drawing-tool" data-chart-drawing-action="undo" aria-label="Undo last drawing">Undo</button>
+                            <button type="button" class="chart-drawing-tool" data-chart-drawing-action="clear" aria-label="Clear drawings">Clear</button>
+                            <button type="button" class="chart-drawing-tool" data-chart-drawing-action="live" aria-label="Scroll chart to live data">Live</button>
+                            <span id="chart-drawing-status" class="chart-drawing-status" role="status">Drag chart to pan; drag the price axis to scale. Drawings save in this browser.</span>
+                        </div>
                         <div class="chart-market-bar" aria-label="Selected market information">
                             <div class="chart-market-stat"><span>Mid Price</span><strong id="chart-mid-price">—</strong></div>
                             <div class="chart-market-stat"><span>Bid / Ask</span><strong id="chart-bid-ask">—</strong></div>
@@ -1049,6 +1063,6 @@
 
     <script src="https://unpkg.com/lightweight-charts@4.2.3/dist/lightweight-charts.standalone.production.js"></script>
     <script src="/js/chartIndicators.js?v=20261115-multi-account-checkout" defer></script>
-    <script src="/js/app.js?v=20261118-copy-account-summary" defer></script>
+    <script src="/js/app.js?v=20261118-chart-drawings" defer></script>
 </body>
 </html>

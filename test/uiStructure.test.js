@@ -585,16 +585,20 @@ test('landing navigation links to the unified terminal instead of legacy spot an
 test('account cards expose expandable trade history and daily profit charts', () => {
   assert.match(appJs, /<details class="account-expanded"/);
   const accountCard = appJs.slice(appJs.indexOf('<article id="acc-card-${acc.id}"'), appJs.indexOf('</article>', appJs.indexOf('<article id="acc-card-${acc.id}"')));
-  assert.ok(accountCard.indexOf('class="account-risk-preview"') < accountCard.indexOf('<details class="account-expanded"'));
+  assert.match(accountCard, /class="account-card copy-overview-account/);
+  assert.ok(accountCard.indexOf('class="account-minimized-overview"') < accountCard.indexOf('<details class="account-expanded"'));
+  assert.match(accountCard, /renderAccountOverviewContent\(acc, copyAssignments\.get\(String\(acc\.id\)\), copyGroupsAvailable\)/);
   assert.ok(accountCard.indexOf('<details class="account-expanded"') < accountCard.indexOf('class="account-card-header"'));
   assert.match(accountCard, /<details class="account-expanded">[\s\S]*?<div class="account-expanded-content">[\s\S]*?<div id="account-performance-\$\{acc\.id\}"/);
   assert.match(appCss, /\.account-expanded-content \{ display: grid; gap: 14px;/);
+  assert.match(appCss, /\.copy-overview-account \{ display: grid; gap: 10px;/);
+  assert.match(appCss, /\.account-minimized-overview \{ display: grid; gap: 10px;/);
   assert.match(appJs, /renderDailyProfitChart/);
   assert.match(appJs, /Daily profit by date/);
+  assert.match(appJs, /function renderAccountOverviewContent\(account, assignment, copyGroupsAvailable\)/);
   assert.match(appJs, /walletFetch\(`\/api\/accounts\/details/);
   assert.match(appJs, /id="profit-target-\$\{acc\.id\}"/);
   assert.match(appJs, /Target: \$\$\{acc\.profit_target\.toLocaleString\(\)\}/);
-  assert.match(appCss, /\.account-risk-preview \{ display: grid; grid-template-columns: repeat\(auto-fit, minmax\(min\(100%, 190px\), 1fr\)\);/);
   assert.match(appCss, /\.account-progress \{ display: block; width: 100%; height: 5px;/);
 });
 
@@ -628,6 +632,7 @@ test('account performance summaries include active and soft DLL-locked accounts 
   const accountsEnd = appHtml.indexOf('<section id="copyTradingView"', accountsStart);
   const accountsHtml = appHtml.slice(accountsStart, accountsEnd);
   assert.match(accountsHtml, /id="show-mll-accounts"[^>]*onchange="toggleMllAccounts\(this\.checked\)"/);
+  assert.match(accountsHtml, /id="accounts-copy-trading-status"/);
   assert.match(accountsHtml, /Show MLL-failed accounts/);
   assert.match(appHtml, /Totals include active accounts and soft-locked DLL accounts; MLL-locked accounts are excluded/);
   assert.match(appJs, /function isActivePortfolioAccount\(account\)/);
@@ -635,6 +640,9 @@ test('account performance summaries include active and soft DLL-locked accounts 
   assert.match(appJs, /No active, unlocked accounts available to display/);
   assert.match(appJs, /function toggleMllAccounts\(show\)/);
   assert.match(appJs, /showPermanentlyLockedPortfolioAccounts && isMllAccount/);
+  assert.match(appJs, /async function loadTradeCopyGroups\(forceRefresh = false\)/);
+  assert.match(appJs, /renderAccountOverviewContent\(account, assignment, copyGroupsAvailable\)/);
+  assert.match(appJs, /class="copy-overview-balance"[\s\S]*?class="copy-overview-status"[\s\S]*?class="copy-overview-assignment"/);
   assert.match(serverJs, /const activeAccounts = allAccounts\.filter\(account =>[\s\S]*?account\.status === 'ACTIVE'/);
   assert.match(serverJs, /const dllLockedAccounts = allAccounts\.filter\(account =>[\s\S]*?account\.lockReason === 'DLL'/);
   assert.match(serverJs, /dllLockedAccountCount: dllLockedAccounts\.length/);

@@ -79,6 +79,8 @@ let connectedWallet = null;
         let currentUserProfile = null;
         let adminUserSearchQuery = '';
         let tradeCopyGroups = [];
+        let tradeCopyGroupsLoadedWallet = null;
+        let tradeCopyGroupsPromise = null;
         let tradeCopyWizard = null;
         let hidePermanentlyLockedCopyAccounts = true;
         let walletSessionToken = null;
@@ -2770,6 +2772,8 @@ let connectedWallet = null;
                 renderPerformanceUnavailable();
                 renderAccountsPerformanceTabs();
                 tradeCopyGroups = [];
+                tradeCopyGroupsLoadedWallet = null;
+                tradeCopyGroupsPromise = null;
                 renderCopyTradingGroups();
                 renderCopyAccountOverview();
                 walletSessionGeneration++;
@@ -2912,6 +2916,8 @@ let connectedWallet = null;
             renderPerformanceUnavailable();
             renderAccountsPerformanceTabs();
             tradeCopyGroups = [];
+            tradeCopyGroupsLoadedWallet = null;
+            tradeCopyGroupsPromise = null;
             renderCopyTradingGroups();
             renderCopyAccountOverview();
             updateMarketChatControls();
@@ -2985,14 +2991,38 @@ let connectedWallet = null;
             return synced;
         }
 
+        async function loadTradeCopyGroups(forceRefresh = false) {
+            const walletKey = connectedWallet?.toLowerCase();
+            if (!walletKey || (!forceRefresh && tradeCopyGroupsLoadedWallet === walletKey)) return;
+            if (tradeCopyGroupsPromise) await tradeCopyGroupsPromise;
+            if (!forceRefresh && tradeCopyGroupsLoadedWallet === walletKey) return;
+
+            const request = (async () => {
+                const response = await walletFetch('/api/trade-copy/groups');
+                const data = await response.json();
+                if (!response.ok) throw new Error(data.error || 'Unable to load copy-trading groups.');
+                if (connectedWallet?.toLowerCase() !== walletKey) return;
+                tradeCopyGroups = data.groups || [];
+                tradeCopyGroupsLoadedWallet = walletKey;
+                renderCopyTradingGroups();
+                renderCopyAccountOverview();
+                refreshAccountMinimizedOverviews();
+                const accountsStatus = document.getElementById('accounts-copy-trading-status');
+                if (accountsStatus) accountsStatus.textContent = '';
+            })();
+            tradeCopyGroupsPromise = request;
+            try {
+                await request;
+            } finally {
+                if (tradeCopyGroupsPromise === request) tradeCopyGroupsPromise = null;
+            }
+        }
+
         async function loadCopyTradingPage() {
             const status = document.getElementById('copy-trading-status');
             try {
                 await loadUserAccounts(connectedWallet, true);
-                const response = await walletFetch('/api/trade-copy/groups');
-                const data = await response.json();
-                if (!response.ok) throw new Error(data.error || 'Unable to load copy-trading groups.');
-                tradeCopyGroups = data.groups || [];
+                await loadTradeCopyGroups(true);
                 renderCopyTradingGroups();
                 renderCopyAccountOverview();
                 if (status) status.textContent = '';
@@ -3197,6 +3227,57 @@ let connectedWallet = null;
             }).join('');
         }
 
+        function getCopyAccountAssignments() {
+            const assignments = new Map();
+            for (const group of tradeCopyGroups) {
+                if (group.leader?.id != null) assignments.set(String(group.leader.id), { name: group.name, role: 'Leader' });
+                for (const follower of group.followers || []) {
+                    if (follower?.id != null) assignments.set(String(follower.id), { name: group.name, role: 'Follower' });
+                }
+            }
+            return assignments;
+        }
+
+        function renderAccountOverviewContent(account, assignment, copyGroupsAvailable) {
+            const permanentlyLocked = isPermanentlyLockedCopyAccount(account);
+            const progressMarkup = renderAccountProgressStats(
+                accountProgressMetrics.get(String(account.id)),
+                { compact: true }
+            );
+            const status = `${escapeHTML(account.status || 'Unknown')}${Number(account.admin_frozen) === 1 ? ' · Admin frozen' : ''}${permanentlyLocked ? ' · Unavailable for copy trading' : ''}`;
+            const assignmentLabel = permanentlyLocked
+                ? 'Cannot join a copy group'
+                : assignment
+                    ? `${assignment.role} · ${escapeHTML(assignment.name || 'Copy group')}`
+                    : copyGroupsAvailable ? 'Available' : 'Copy group status unavailable';
+
+            return `<div class="copy-overview-heading">
+                    <div class="copy-overview-identity"><strong>${escapeHTML(account.plan_name || 'Trading account')}</strong><code>${escapeHTML(account.id)}</code></div>
+                    <span class="copy-overview-balance"><span>Balance</span><strong>$${Number(account.current_balance || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong></span>
+                </div>
+                <div class="copy-overview-meta">
+                    <span class="copy-overview-status">${status}</span>
+                    <span class="copy-overview-assignment">${assignmentLabel}</span>
+                </div>
+                ${progressMarkup ? `<div class="copy-overview-progress">${progressMarkup}</div>` : ''}`;
+        }
+
+        function refreshAccountMinimizedOverviews() {
+            const assignments = getCopyAccountAssignments();
+            const copyGroupsAvailable = tradeCopyGroupsLoadedWallet === connectedWallet?.toLowerCase();
+            for (const account of userAccounts) {
+                const card = document.getElementById(`acc-card-${account.id}`);
+                const summary = card?.querySelector(`#account-minimized-overview-${CSS.escape(account.id)}`);
+                if (!card || !summary) continue;
+                card.classList.toggle('is-permanently-locked', isPermanentlyLockedCopyAccount(account));
+                summary.innerHTML = renderAccountOverviewContent(
+                    account,
+                    assignments.get(String(account.id)),
+                    copyGroupsAvailable
+                );
+            }
+        }
+
         function renderCopyAccountOverview() {
             const container = document.getElementById('copy-account-overview');
             if (!container) return;
@@ -3211,25 +3292,12 @@ let connectedWallet = null;
                 container.innerHTML = '<p class="workspace-empty-state">No accounts to show. Turn off “Hide permanently locked accounts” to review permanently locked accounts.</p>';
                 return;
             }
-            const assignments = new Map();
-            for (const group of tradeCopyGroups) {
-                assignments.set(group.leader?.id, { name: group.name, role: 'Leader' });
-                for (const follower of group.followers) assignments.set(follower.id, { name: group.name, role: 'Follower' });
-            }
+            const assignments = getCopyAccountAssignments();
             container.innerHTML = visibleAccounts.map(account => {
-                const assignment = assignments.get(account.id);
+                const assignment = assignments.get(String(account.id));
                 const permanentlyLocked = isPermanentlyLockedCopyAccount(account);
-                const progressMarkup = renderAccountProgressStats(accountProgressMetrics.get(String(account.id)), { compact: true });
                 return `<article class="copy-overview-account${permanentlyLocked ? ' is-permanently-locked' : ''}">
-                    <div class="copy-overview-heading">
-                        <div class="copy-overview-identity"><strong>${escapeHTML(account.plan_name || 'Trading account')}</strong><code>${escapeHTML(account.id)}</code></div>
-                        <span class="copy-overview-balance"><span>Balance</span><strong>$${Number(account.current_balance || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong></span>
-                    </div>
-                    <div class="copy-overview-meta">
-                        <span class="copy-overview-status">${escapeHTML(account.status || 'Unknown')}${Number(account.admin_frozen) === 1 ? ' · Admin frozen' : ''}${permanentlyLocked ? ' · Unavailable for copy trading' : ''}</span>
-                        <span class="copy-overview-assignment">${permanentlyLocked ? 'Cannot join a copy group' : assignment ? `${assignment.role} · ${escapeHTML(assignment.name)}` : 'Available'}</span>
-                    </div>
-                    ${progressMarkup ? `<div class="copy-overview-progress">${progressMarkup}</div>` : ''}
+                    ${renderAccountOverviewContent(account, assignment, true)}
                 </article>`;
             }).join('');
         }
@@ -3481,10 +3549,22 @@ let connectedWallet = null;
             if (!container) return;
             if (userAccounts.length === 0) {
                 await loadAccountPerformance();
+                const copyStatus = document.getElementById('accounts-copy-trading-status');
+                if (copyStatus) copyStatus.textContent = '';
                 container.innerHTML = '<p class="workspace-empty-state">No accounts found. Purchase a plan in the marketplace!</p>';
                 return;
             }
 
+            const copyStatus = document.getElementById('accounts-copy-trading-status');
+            let copyGroupsAvailable = false;
+            try {
+                await loadTradeCopyGroups();
+                copyGroupsAvailable = tradeCopyGroupsLoadedWallet === connectedWallet?.toLowerCase();
+                if (copyStatus) copyStatus.textContent = '';
+            } catch (error) {
+                if (copyStatus) copyStatus.textContent = `Copy-group status is unavailable: ${error.message || 'Unable to load copy-trading groups.'}`;
+            }
+            const copyAssignments = getCopyAccountAssignments();
             const accountIds = new Set(userAccounts.map(account => `acc-card-${account.id}`));
             container.querySelectorAll('[id^="acc-card-"]').forEach(card => {
                 if (!accountIds.has(card.id)) card.remove();
@@ -3508,8 +3588,10 @@ let connectedWallet = null;
                 let cardElem = document.getElementById(`acc-card-${acc.id}`);
                 if (!cardElem) {
                     const cardHtml = `
-                        <article id="acc-card-${acc.id}" class="account-card">
-                            <div class="account-risk-preview">${renderAccountProgressStats(m)}</div>
+                        <article id="acc-card-${acc.id}" class="account-card copy-overview-account${isMllAccount ? ' is-permanently-locked' : ''}">
+                            <div id="account-minimized-overview-${acc.id}" class="account-minimized-overview">
+                                ${renderAccountOverviewContent(acc, copyAssignments.get(String(acc.id)), copyGroupsAvailable)}
+                            </div>
                             <details class="account-expanded">
                                 <summary>Account details, performance and trades</summary>
                                 <div class="account-expanded-content">
@@ -3577,6 +3659,15 @@ let connectedWallet = null;
                     bindAccountCalendarControls(cardElem);
                 }
 
+                cardElem.classList.toggle('is-permanently-locked', isMllAccount);
+                const minimizedOverview = cardElem.querySelector(`#account-minimized-overview-${CSS.escape(acc.id)}`);
+                if (minimizedOverview) {
+                    minimizedOverview.innerHTML = renderAccountOverviewContent(
+                        acc,
+                        copyAssignments.get(String(acc.id)),
+                        copyGroupsAvailable
+                    );
+                }
                 const accountPerformance = accountPerformanceData.accounts.find(item => String(item.accountId) === String(acc.id));
                 renderPerformanceMetrics(
                     cardElem.querySelector(`#account-performance-${CSS.escape(acc.id)}`),
@@ -3585,7 +3676,6 @@ let connectedWallet = null;
                 );
                 cardElem.querySelector(`#bal-val-${CSS.escape(acc.id)}`).innerText = `$${acc.current_balance.toLocaleString()}`;
                 cardElem.querySelector(`#profit-val-${CSS.escape(acc.id)}`).innerText = `$${m.currentProfit.toLocaleString()}`;
-                cardElem.querySelector('.account-risk-preview').innerHTML = renderAccountProgressStats(m);
                 cardElem.querySelector(`#cs-val-${CSS.escape(acc.id)}`).innerText = `${m.consistencyScore}%`;
                 const statusLabel = acc.lock_reason === 'MLL' || Number(acc.permanent_lock) === 1
                     ? 'PERMANENTLY LOCKED — MLL'

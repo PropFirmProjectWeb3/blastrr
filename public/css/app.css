@@ -439,7 +439,8 @@
         .account-preview-stat > span, .account-risk-item > div:first-child { color: #9ca3af; font-size: 12px; }
         .account-preview-stat strong { color: #f3f4f6; font-size: 16px; font-variant-numeric: tabular-nums; }
         .account-preview-stat:nth-child(2) strong, .account-preview-stat:nth-child(3) strong { color: #34d399; }
-        .account-risk-preview { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 190px), 1fr)); gap: 10px; margin: 0; }
+        .account-minimized-overview { display: grid; gap: 10px; min-width: 0; }
+        .accounts-copy-trading-status { margin: 0; }
         .account-risk-item { position: relative; display: grid; gap: 9px; align-content: start; min-width: 0; padding: 12px 13px; border: 1px solid rgba(203, 213, 225, 0.085); border-radius: 12px; background: linear-gradient(145deg, rgba(255, 255, 255, 0.035), rgba(255, 255, 255, 0.012)); }
         .account-risk-item > div:first-child { min-height: 18px; white-space: nowrap; }
         .account-risk-item small { color: #8993a2; font-size: 10px; line-height: 1.45; }

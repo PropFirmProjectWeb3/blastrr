@@ -586,14 +586,17 @@ test('landing navigation links to the unified terminal instead of legacy spot an
 test('account cards expose expandable trade history and daily profit charts', () => {
   assert.match(appJs, /<details class="account-expanded"/);
   const accountCard = appJs.slice(appJs.indexOf('<article id="acc-card-${acc.id}"'), appJs.indexOf('</article>', appJs.indexOf('<article id="acc-card-${acc.id}"')));
-  assert.match(accountCard, /class="account-card copy-overview-account/);
+  assert.match(accountCard, /class="account-card copy-account-card/);
   assert.ok(accountCard.indexOf('class="account-minimized-overview"') < accountCard.indexOf('<details class="account-expanded"'));
-  assert.match(accountCard, /renderAccountOverviewContent\(acc, copyAssignments\.get\(String\(acc\.id\)\), copyGroupsAvailable\)/);
+  assert.match(accountCard, /renderAccountsPortfolioMinimizedContent\(acc, copyAssignments\.get\(String\(acc\.id\)\), copyGroupsAvailable\)/);
+  assert.match(appJs, /function renderAccountsPortfolioMinimizedContent\(account, assignment, copyGroupsAvailable\)/);
+  assert.match(appJs, /assignment\?\.role === 'Follower'[\s\S]*?sizePct\.toLocaleString\(\)/);
   assert.ok(accountCard.indexOf('<details class="account-expanded"') < accountCard.indexOf('class="account-card-header"'));
   assert.match(accountCard, /<details class="account-expanded">[\s\S]*?<div class="account-expanded-content">[\s\S]*?<div id="account-performance-\$\{acc\.id\}"/);
   assert.match(appCss, /\.account-expanded-content \{ display: grid; gap: 14px;/);
   assert.match(appCss, /\.copy-overview-account \{ display: grid; gap: 10px;/);
-  assert.match(appCss, /\.account-minimized-overview \{ display: grid; gap: 10px;/);
+  assert.match(appCss, /\.account-card\.copy-account-card \.account-minimized-overview \{ display: contents; \}/);
+  assert.match(appCss, /\.account-card\.copy-account-card > \.account-expanded \{ flex: 1 0 100%; \}/);
   assert.match(appJs, /renderDailyProfitChart/);
   assert.match(appJs, /Daily profit by date/);
   assert.match(appJs, /function renderAccountOverviewContent\(account, assignment, copyGroupsAvailable\)/);

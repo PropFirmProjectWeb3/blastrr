@@ -3235,7 +3235,13 @@ let connectedWallet = null;
             for (const group of tradeCopyGroups) {
                 if (group.leader?.id != null) assignments.set(String(group.leader.id), { name: group.name, role: 'Leader' });
                 for (const follower of group.followers || []) {
-                    if (follower?.id != null) assignments.set(String(follower.id), { name: group.name, role: 'Follower' });
+                    if (follower?.id != null) {
+                        assignments.set(String(follower.id), {
+                            name: group.name,
+                            role: 'Follower',
+                            sizePct: follower.size_pct
+                        });
+                    }
                 }
             }
             return assignments;
@@ -3265,6 +3271,33 @@ let connectedWallet = null;
                 ${progressMarkup ? `<div class="copy-overview-progress">${progressMarkup}</div>` : ''}`;
         }
 
+        function renderAccountsPortfolioMinimizedContent(account, assignment, copyGroupsAvailable) {
+            const permanentlyLocked = isPermanentlyLockedCopyAccount(account);
+            const role = permanentlyLocked
+                ? 'PERMANENTLY LOCKED · REMOVE FROM GROUP'
+                : assignment
+                    ? `${assignment.role.toUpperCase()} · ${escapeHTML(assignment.name || 'Copy group')}`
+                    : copyGroupsAvailable ? 'AVAILABLE FOR COPY TRADING' : 'COPY GROUP STATUS UNAVAILABLE';
+            const status = `${escapeHTML(account.status || 'Unknown')}${Number(account.admin_frozen) === 1 ? ' · Admin frozen' : ''}`;
+            const progressMarkup = renderAccountProgressStats(
+                accountProgressMetrics.get(String(account.id)),
+                { compact: true }
+            );
+            const sizePct = Number(assignment?.sizePct);
+
+            return `<div>
+                    <span class="copy-account-role">${role}</span>
+                    <strong>${escapeHTML(account.plan_name || 'Trading account')} · ${escapeHTML(account.id)}</strong>
+                    <small>${status}</small>
+                </div>
+                <div class="copy-account-balance">
+                    <span>Balance</span>
+                    <strong>$${Number(account.current_balance || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong>
+                    ${assignment?.role === 'Follower' && Number.isFinite(sizePct) ? `<small>${sizePct.toLocaleString()}% size</small>` : ''}
+                </div>
+                ${progressMarkup ? `<div class="copy-group-account-progress">${progressMarkup}</div>` : ''}`;
+        }
+
         function refreshAccountMinimizedOverviews() {
             const assignments = getCopyAccountAssignments();
             const copyGroupsAvailable = tradeCopyGroupsLoadedWallet === connectedWallet?.toLowerCase();
@@ -3273,7 +3306,7 @@ let connectedWallet = null;
                 const summary = card?.querySelector(`#account-minimized-overview-${CSS.escape(account.id)}`);
                 if (!card || !summary) continue;
                 card.classList.toggle('is-permanently-locked', isPermanentlyLockedCopyAccount(account));
-                summary.innerHTML = renderAccountOverviewContent(
+                summary.innerHTML = renderAccountsPortfolioMinimizedContent(
                     account,
                     assignments.get(String(account.id)),
                     copyGroupsAvailable
@@ -3591,9 +3624,9 @@ let connectedWallet = null;
                 let cardElem = document.getElementById(`acc-card-${acc.id}`);
                 if (!cardElem) {
                     const cardHtml = `
-                        <article id="acc-card-${acc.id}" class="account-card copy-overview-account${isMllAccount ? ' is-permanently-locked' : ''}">
+                        <article id="acc-card-${acc.id}" class="account-card copy-account-card${isMllAccount ? ' is-permanently-locked' : ''}">
                             <div id="account-minimized-overview-${acc.id}" class="account-minimized-overview">
-                                ${renderAccountOverviewContent(acc, copyAssignments.get(String(acc.id)), copyGroupsAvailable)}
+                                ${renderAccountsPortfolioMinimizedContent(acc, copyAssignments.get(String(acc.id)), copyGroupsAvailable)}
                             </div>
                             <details class="account-expanded">
                                 <summary>Account details, performance and trades</summary>
@@ -3665,7 +3698,7 @@ let connectedWallet = null;
                 cardElem.classList.toggle('is-permanently-locked', isMllAccount);
                 const minimizedOverview = cardElem.querySelector(`#account-minimized-overview-${CSS.escape(acc.id)}`);
                 if (minimizedOverview) {
-                    minimizedOverview.innerHTML = renderAccountOverviewContent(
+                    minimizedOverview.innerHTML = renderAccountsPortfolioMinimizedContent(
                         acc,
                         copyAssignments.get(String(acc.id)),
                         copyGroupsAvailable

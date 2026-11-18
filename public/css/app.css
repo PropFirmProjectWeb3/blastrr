@@ -440,6 +440,10 @@
         .account-preview-stat strong { color: #f3f4f6; font-size: 16px; font-variant-numeric: tabular-nums; }
         .account-preview-stat:nth-child(2) strong, .account-preview-stat:nth-child(3) strong { color: #34d399; }
         .account-minimized-overview { display: grid; gap: 10px; min-width: 0; }
+        .account-card.copy-account-card { min-width: 0; }
+        .account-card.copy-account-card .account-minimized-overview { display: contents; }
+        .account-card.copy-account-card .account-minimized-overview > div:first-child { display: grid; gap: 4px; min-width: 0; }
+        .account-card.copy-account-card > .account-expanded { flex: 1 0 100%; }
         .accounts-copy-trading-status { margin: 0; }
         .account-risk-item { position: relative; display: grid; gap: 9px; align-content: start; min-width: 0; padding: 12px 13px; border: 1px solid rgba(203, 213, 225, 0.085); border-radius: 12px; background: linear-gradient(145deg, rgba(255, 255, 255, 0.035), rgba(255, 255, 255, 0.012)); }
         .account-risk-item > div:first-child { min-height: 18px; white-space: nowrap; }
